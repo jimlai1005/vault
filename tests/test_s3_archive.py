@@ -10,15 +10,33 @@ from hlvault.io.s3_archive import (
 )
 
 
-def test_parse_records_handles_lines_envelopes_and_lists():
+def test_parse_records_real_block_envelope():
+    # the live node_fills_by_block format: events = [[address, fill], ...]
+    block = {
+        "local_time": "2025-07-27T10:00:00",
+        "block_number": 1,
+        "events": [
+            ["0xaaa", {"coin": "BTC", "px": "40000", "sz": "1", "side": "B",
+                       "time": 1753610400000, "closedPnl": "0", "fee": "0.4"}],
+            ["0xbbb", {"coin": "ETH", "px": "2000", "sz": "2", "side": "A",
+                       "time": 1753610400001, "closedPnl": "5", "fee": "0.1"}],
+        ],
+    }
+    empty = {"local_time": "x", "block_number": 2, "events": []}
+    blob = ("\n".join([json.dumps(block), json.dumps(empty)])).encode()
+    recs = parse_records(blob)
+    assert [r["user"] for r in recs] == ["0xaaa", "0xbbb"]
+    assert recs[0]["coin"] == "BTC" and recs[0]["px"] == "40000"
+
+
+def test_parse_records_handles_legacy_shapes():
     lines = [
-        json.dumps({"user": "0xa", "coin": "BTC", "sz": "1"}),
         json.dumps({"fills": [{"user": "0xb"}, {"user": "0xc"}]}),
         json.dumps([{"user": "0xd"}]),
     ]
     blob = ("\n".join(lines)).encode()
     recs = parse_records(blob)
-    assert [r["user"] for r in recs] == ["0xa", "0xb", "0xc", "0xd"]
+    assert [r["user"] for r in recs] == ["0xb", "0xc", "0xd"]
 
 
 def test_filter_fills_case_insensitive():

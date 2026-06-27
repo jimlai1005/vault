@@ -31,15 +31,27 @@ def _decompress(blob: bytes) -> bytes:
 
 
 def parse_records(decompressed: bytes) -> list[dict]:
-    """Parse newline-delimited JSON fill records. Each line may be a single
-    fill dict or a block envelope {"fills": [...]} — handle both."""
+    """Parse newline-delimited JSON blocks from node_fills_by_block.
+
+    Real format: each line is a block envelope
+        {"local_time","block_time","block_number","events": [[addr, fill], ...]}
+    where each event is a 2-element [address, fill_dict] pair. We flatten to a
+    list of fill dicts with the address injected as `user`. Older/alternate
+    layouts ({"fills":[...]} or bare list/dict lines) are handled defensively."""
     out: list[dict] = []
     for line in decompressed.splitlines():
         line = line.strip()
         if not line:
             continue
         obj = json.loads(line)
-        if isinstance(obj, dict) and "fills" in obj:
+        if isinstance(obj, dict) and "events" in obj:
+            for ev in obj["events"] or []:
+                if isinstance(ev, list) and len(ev) == 2 and isinstance(ev[1], dict):
+                    addr, fill = ev
+                    rec = dict(fill)
+                    rec["user"] = addr
+                    out.append(rec)
+        elif isinstance(obj, dict) and "fills" in obj:
             out.extend(obj["fills"])
         elif isinstance(obj, list):
             out.extend(obj)
