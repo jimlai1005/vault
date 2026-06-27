@@ -28,7 +28,7 @@ from hlvault.ingest import fills_to_frame  # noqa: E402
 from hlvault.prescreen import prescreen  # noqa: E402
 
 CACHE = Path("data/cache/fills")
-CKPT = Path("data/cache/_pulled_keys.txt")
+CKPT = Path("data/cache/_pulled_keys.txt")  # overridable via --ckpt for parallel workers
 
 
 def daterange(start: str, end: str):
@@ -39,9 +39,19 @@ def daterange(start: str, end: str):
         d += dt.timedelta(days=1)
 
 
+CANDIDATES = Path("data/cache/candidates.json")
+
+
 def load_candidates(keep: int) -> set[str]:
+    """Use the frozen candidate list if present (stable across a long resumable
+    run); otherwise pre-screen the cached leaderboard and freeze it."""
+    if CANDIDATES.exists():
+        return {a.lower() for a in json.loads(CANDIDATES.read_text())}
     lb = json.load(open("/tmp/hl_lb2.json"))["leaderboardRows"]
-    return {a.lower() for a in prescreen(lb, keep=keep)}
+    addrs = prescreen(lb, keep=keep)
+    CANDIDATES.parent.mkdir(parents=True, exist_ok=True)
+    CANDIDATES.write_text(json.dumps(addrs))
+    return {a.lower() for a in addrs}
 
 
 def done_keys() -> set[str]:
@@ -55,12 +65,16 @@ def mark_done(key: str) -> None:
 
 
 def main() -> None:
+    global CKPT
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", required=True)
     ap.add_argument("--end", required=True)
     ap.add_argument("--keep", type=int, default=300)
+    ap.add_argument("--ckpt", default=str(CKPT),
+                    help="checkpoint file (use a distinct path per parallel worker)")
     args = ap.parse_args()
 
+    CKPT = Path(args.ckpt)
     cands = load_candidates(args.keep)
     print(f"candidates: {len(cands)}", flush=True)
     s3 = boto3.client("s3")
