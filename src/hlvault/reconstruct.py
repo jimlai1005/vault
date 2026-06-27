@@ -31,11 +31,23 @@ def daily_pnl_panel(fills: pd.DataFrame) -> pd.DataFrame:
 
 
 def returns_panel(
-    pnl_panel: pd.DataFrame, account_values: dict[str, float]
+    pnl_panel: pd.DataFrame,
+    account_values: dict[str, float],
+    max_abs_daily_return: float = 3.0,
 ) -> pd.DataFrame:
-    """Reconstruct daily returns per trader by anchoring to current account
-    value and propagating PnL backward. Drops traders with non-positive
-    reconstructed equity anywhere in the path."""
+    """Reconstruct daily returns per trader.
+
+    Without a deposit/withdrawal ledger we estimate the starting equity E0 and
+    propagate PnL forward: equity_t = E0 + cum_pnl_t. We anchor E0 to the
+    current account value (E0 = av - total_pnl), but a trader who WITHDREW
+    profits has av < total_pnl, which would make E0 negative and wrongly drop a
+    *winner*. So we floor E0 at the minimum capital consistent with surviving
+    their worst drawdown (-min(cum_pnl)). This keeps profitable-withdrawers in
+    the sample at the cost of possibly overstating their returns — an explicit,
+    documented approximation (returns are research signal, not accounting).
+
+    Only traders with a known positive account value are kept; current and peak
+    equity come from the SAME reconstructed series (CLAUDE.md #1)."""
     cols = {}
     for user in pnl_panel.columns:
         av = account_values.get(user.lower()) or account_values.get(user)
@@ -43,15 +55,26 @@ def returns_panel(
             continue
         pnl = pnl_panel[user]
         cum = pnl.cumsum()
-        total = cum.iloc[-1]
-        # equity at end of day t
-        equity_t = av - (total - cum)
-        # equity at start of day t = equity at end of previous day
-        equity_prev = equity_t.shift(1)
-        equity_prev.iloc[0] = av - total  # equity before the first day
-        if (equity_prev <= 0).any() or (equity_t <= 0).any():
+        total = float(cum.iloc[-1])
+        dd = float(cum.min())
+        # 10% headroom so reconstructed equity never approaches 0 at the trough
+        drawdown_floor = (-dd) * 1.1 if dd < 0 else 0.0
+        eps = max(av, 1.0) * 1e-6
+        e0_anchor = av - total
+        if e0_anchor > 0:                      # snapshot consistent with PnL path
+            e0 = max(e0_anchor, drawdown_floor) + eps
+        elif drawdown_floor > 0:               # withdrew, but a real drawdown bounds capital
+            e0 = drawdown_floor + eps
+        else:                                  # always-up + tiny snapshot: unreconstructable
             continue
-        cols[user] = (pnl / equity_prev).astype(float)
+        equity_prev = (e0 + cum.shift(1)).fillna(e0)  # equity at start of each day
+        ret = (pnl / equity_prev).astype(float)
+        # Reconstruction-quality gate: a daily move beyond +/-max_abs_daily_return
+        # means the reconstructed capital base is unreliable (or the trader runs
+        # leverage too extreme to mirror in a vault). Drop, don't silently clip.
+        if ret.abs().max() > max_abs_daily_return:
+            continue
+        cols[user] = ret
     if not cols:
         return pd.DataFrame(index=pnl_panel.index)
     return pd.DataFrame(cols).reindex(pnl_panel.index)
