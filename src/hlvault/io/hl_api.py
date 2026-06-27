@@ -24,13 +24,13 @@ def _post(body: dict) -> object:
                     raise TransientError(f"5xx {r.status}")
                 return json.loads(r.read())
         except urllib.error.HTTPError as e:
-            if e.code >= 500:
+            if e.code >= 500 or e.code == 429:   # 429 = rate limit -> retry (CLAUDE.md #2)
                 raise TransientError(str(e))
             raise SemanticError(str(e))
         except (TimeoutError, ConnectionError) as e:
             raise TransientError(str(e))
 
-    return resilient_read(call)
+    return resilient_read(call, max_attempts=6, base_delay=1.0)
 
 
 class HLApiFillSource:
@@ -50,6 +50,8 @@ class HLApiFillSource:
     def get_fills_paginated(self, address: str, start: int, end=None,
                             max_pages: int = 50) -> list[dict]:
         """Paginate forward until a short page or max_pages (rate-limit guard)."""
+        import time
+
         out: list[dict] = []
         cursor = start
         for _ in range(max_pages):
@@ -60,6 +62,7 @@ class HLApiFillSource:
             if len(page) < self.PAGE:
                 break
             cursor = page[-1]["time"] + 1
+            time.sleep(0.15)  # polite throttle to avoid 429
         return out
 
 
@@ -74,10 +77,10 @@ def get_leaderboard() -> list[dict]:
                     raise TransientError(f"5xx {r.status}")
                 return json.loads(r.read()).get("leaderboardRows", [])
         except urllib.error.HTTPError as e:
-            if e.code >= 500:
+            if e.code >= 500 or e.code == 429:   # 429 = rate limit -> retry (CLAUDE.md #2)
                 raise TransientError(str(e))
             raise SemanticError(str(e))
         except (TimeoutError, ConnectionError) as e:
             raise TransientError(str(e))
 
-    return resilient_read(call)
+    return resilient_read(call, max_attempts=6, base_delay=1.0)
