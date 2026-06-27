@@ -17,6 +17,25 @@ from .weights import hrp_weights
 MIN_OBS = 60  # need a reasonable sample before regressing/ranking
 
 
+def portfolio_betas(
+    past: pd.DataFrame, weights: pd.Series, btc: pd.Series, eth: pd.Series
+) -> tuple[float, float]:
+    """Weighted net BTC/ETH beta of a portfolio, from each holding's in-sample
+    factor fit. Used to hedge the market-neutral construction OOS."""
+    b_btc = b_eth = 0.0
+    for user, w in weights.items():
+        r = past[user].dropna()
+        if len(r) < MIN_OBS:
+            continue
+        try:
+            fit = alpha_beta(r, btc.reindex(r.index), eth.reindex(r.index))
+        except Exception:  # noqa: BLE001
+            continue
+        b_btc += w * fit.beta_btc
+        b_eth += w * fit.beta_eth
+    return float(b_btc), float(b_eth)
+
+
 def select_at(
     past: pd.DataFrame,
     btc: pd.Series,

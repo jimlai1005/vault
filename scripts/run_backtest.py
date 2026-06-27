@@ -83,7 +83,7 @@ def main() -> None:
     final_w = select(panel.index.max(), panel)
 
     Path("reports").mkdir(exist_ok=True)
-    write_report("reports/oos-verdict.md", v, pd.DataFrame(), final_w)
+    write_report("reports/_raw-verdict.md", v, pd.DataFrame(), final_w)
     res.oos_returns.to_frame("ret").to_parquet("reports/oos_returns.parquet")
     final_w.to_frame("weight").to_parquet("reports/final_weights.parquet")
 
