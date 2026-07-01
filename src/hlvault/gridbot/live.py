@@ -122,14 +122,28 @@ class GridBotEngine:
         return False
 
     def _flatten_everything(self) -> None:
+        """CLAUDE.md #3: only forget a level/lot once its cancel/flatten is
+        CONFIRMED — a failed flatten must stay tracked (and loud) so a real
+        open position is never silently dropped from state."""
+        any_failed = False
         for coin, c in self.state["coins"].items():
-            for lvl, oid in list(c["armed"].items()):
-                self._cancel(coin, oid)
-            c["armed"] = {}
-            for lvl, lot in list(c["open_lots"].items()):
-                self._cancel(coin, lot["tp_oid"])
-                self._market_flatten(coin, lot["size"])
-            c["open_lots"] = {}
+            for lvl in list(c["armed"]):
+                if self._cancel(coin, c["armed"][lvl]):
+                    del c["armed"][lvl]
+                else:
+                    any_failed = True
+            for lvl in list(c["open_lots"]):
+                lot = c["open_lots"][lvl]
+                cancelled = self._cancel(coin, lot["tp_oid"])
+                flattened = self._market_flatten(coin, lot["size"])
+                if cancelled and flattened:
+                    del c["open_lots"][lvl]
+                else:
+                    any_failed = True
+                    logger.error(f"{coin} level {lvl}: FLATTEN FAILED (cancel={cancelled} "
+                                f"flatten={flattened}) — position/order still open, will retry")
+        if any_failed:
+            logger.error("SAFETY-CRITICAL: not everything could be flattened — manual check required")
 
     # ---- per-coin sync ----------------------------------------------
     def _target_leverage(self, coin: str) -> int:
@@ -179,15 +193,19 @@ class GridBotEngine:
             stop_px = level_price(c["anchor"], c["step_pct"], bottom_level) * (1 - cfg.STOP_BUFFER_PCT)
             if mid <= stop_px:
                 logger.error(f"{coin}: STOP-LOSS triggered at {mid:.6g} <= {stop_px:.6g}")
-                for lvl, oid in list(c["armed"].items()):
-                    self._cancel(coin, oid)
+                for lvl in list(c["armed"]):
+                    if self._cancel(coin, c["armed"][lvl]):
+                        del c["armed"][lvl]
                 total_size = sum(lot["size"] for lot in c["open_lots"].values())
-                for lvl, lot in list(c["open_lots"].items()):
-                    self._cancel(coin, lot["tp_oid"])
-                self._market_flatten(coin, total_size)
-                c["armed"] = {}
-                c["open_lots"] = {}
-                c["stopped_until_ms"] = now_ms + int(cfg.COOLDOWN_HOURS * 3600 * 1000)
+                tp_cancelled = all(self._cancel(coin, lot["tp_oid"]) for lot in c["open_lots"].values())
+                flattened = self._market_flatten(coin, total_size) if total_size > 0 else True
+                if tp_cancelled and flattened:
+                    c["open_lots"] = {}
+                    c["stopped_until_ms"] = now_ms + int(cfg.COOLDOWN_HOURS * 3600 * 1000)
+                else:
+                    logger.error(f"{coin}: SAFETY-CRITICAL stop-loss flatten incomplete "
+                                f"(tp_cancelled={tp_cancelled} flattened={flattened}) — "
+                                "keeping position tracked, will retry next cycle")
                 save_state(cfg.STATE_FILE, self.state)
                 return
 
@@ -276,16 +294,18 @@ class GridBotEngine:
             logger.error(f"{coin}: place TP failed: {e}")
             return None
 
-    def _cancel(self, coin: str, oid) -> None:
+    def _cancel(self, coin: str, oid) -> bool:
         if not self.live_trading:
             logger.info(f"[DRY RUN] cancel {coin} oid={oid}")
-            return
+            return True
         try:
             self.exchange.cancel(coin, oid)
+            return True
         except Exception as e:
             logger.warning(f"{coin}: cancel {oid} failed: {e}")
+            return False
 
-    def _market_flatten(self, coin: str, size: float) -> None:
+    def _market_flatten(self, coin: str, size: float) -> bool:
         if not self.live_trading:
             logger.info(f"[DRY RUN] flatten {coin} size={size}")
             return

@@ -46,14 +46,26 @@ def get_mid_price(info, coin: str) -> float:
 
 
 def get_account_equity(info, address: str) -> float:
-    """Perp accountValue + spot USDC — our own account's risk basis always
-    includes spot (this is a unified account, funds start in spot)."""
+    """Spot USDC + sum(marginUsed + unrealizedPnl) across open perp positions.
+
+    NOT `marginSummary.accountValue` from clearinghouseState — on this unified
+    account that field swings with the NUMBER/size of merely-resting orders
+    (observed $0 -> $335 -> $53 -> $6.58 with zero or one position open, no
+    deposits/withdrawals happening), because it appears to reflect a
+    provisional margin-reservation snapshot rather than settled equity. Using
+    it as the circuit breaker's "current equity" produced a false-positive
+    23.6% drawdown halt with real equity flat around $1000. Summing actual
+    position economics (margin tied up + floating pnl) instead stays stable
+    regardless of how many unfilled orders are resting."""
     perp = info.user_state(address)
-    perp_value = float(perp.get("marginSummary", {}).get("accountValue", 0.0))
+    positions_equity = sum(
+        float(p["position"]["marginUsed"]) + float(p["position"]["unrealizedPnl"])
+        for p in perp.get("assetPositions", [])
+    )
     spot = info.spot_user_state(address)
     spot_usdc = 0.0
     for bal in spot.get("balances", []):
         if bal.get("coin") == "USDC":
             spot_usdc = float(bal.get("total", 0.0))
             break
-    return perp_value + spot_usdc
+    return spot_usdc + positions_equity
