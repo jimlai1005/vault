@@ -1,0 +1,30 @@
+[Unit]
+Description=Hyperliquid independent grid-trading bot (hlvault.gridbot)
+Documentation=https://github.com/jimlai1005/vault
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+
+WorkingDirectory=/home/ubuntu/vault
+EnvironmentFile=/home/ubuntu/vault/.env.gridbot
+
+ExecStart=/home/ubuntu/vault/.venv/bin/hl-gridbot
+
+# on-failure only (clean stop via systemctl stop = exit 0, no restart storm)
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=300
+StartLimitBurst=5
+
+MemoryMax=256M
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hl-gridbot
+
+[Install]
+WantedBy=multi-user.target
