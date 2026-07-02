@@ -25,6 +25,9 @@ def risk_adjusted_momentum(returns: pd.Series, lookback: int) -> pd.Series:
 
 def composite_score(returns: pd.Series, lookbacks=LOOKBACKS_DAYS) -> pd.Series:
     scores = pd.concat([risk_adjusted_momentum(returns, l) for l in lookbacks], axis=1)
+    # skipna=False is deliberate: require every lookback (up to 120 days) to be
+    # filled before scoring at all, rather than quietly scoring off whichever
+    # lookbacks happen to have data — don't "fix" this to skipna=True.
     return scores.mean(axis=1, skipna=False).rename("composite_score")
 
 
