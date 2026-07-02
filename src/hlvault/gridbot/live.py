@@ -209,13 +209,25 @@ class GridBotEngine:
                 save_state(cfg.STATE_FILE, self.state)
                 return
 
-        # reconcile against actual resting orders (exchange = source of truth)
+        # reconcile against actual resting orders (exchange = source of truth).
+        # BUG (found after ~15h live): a TP placed by _on_buy_filled() below was
+        # then checked in the SAME cycle against this same pre-fetch `resting`
+        # snapshot — which obviously can't contain an order created after the
+        # snapshot was taken — so every fresh TP was immediately misread as
+        # "already filled" and dropped from open_lots. Net effect: open_lots
+        # was permanently empty, silently disabling the stop-loss (guarded by
+        # `if c["open_lots"]:`) and the position-notional cap (summed from
+        # open_lots) for the whole run, while real exchange positions kept
+        # growing. Fix: only check TP-fill status for lots that existed
+        # BEFORE this cycle touched anything; a lot created this cycle gets
+        # checked against a fresh snapshot next cycle instead.
         resting = {o["oid"]: o for o in self.info.open_orders(cfg.WALLET_ADDRESS) if o["coin"] == coin}
+        pre_existing_lots = list(c["open_lots"].items())
         for lvl, oid in list(c["armed"].items()):
             if oid not in resting:
                 self._on_buy_filled(coin, int(lvl))
-        for lvl, lot in list(c["open_lots"].items()):
-            if lot["tp_oid"] not in resting:
+        for lvl, lot in pre_existing_lots:
+            if lvl in c["open_lots"] and lot["tp_oid"] not in resting:
                 self._on_tp_filled(coin, int(lvl))
 
         center_k = level_index(c["anchor"], c["step_pct"], mid)
