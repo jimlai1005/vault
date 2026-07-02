@@ -1,3 +1,6 @@
+import pandas as pd
+import pytest
+
 from hlvault.momentum import config as cfg
 from hlvault.momentum.live import MomentumEngine
 
@@ -232,3 +235,110 @@ def test_check_drawdown_retries_flatten_until_success_but_alerts_only_once(monke
     assert exchange.market_close_calls == 2
     assert engine.state["_flatten_complete"] is True
     assert ("BTC", 1.0) in exchange.closed
+
+
+def test_init_raises_when_wallet_not_configured(monkeypatch):
+    monkeypatch.setattr(cfg, "WALLET_PRIVATE_KEY", "")
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "")
+    with pytest.raises(RuntimeError, match="WALLET_PRIVATE_KEY"):
+        MomentumEngine(live_trading=False)
+
+
+def _make_uptrend_candles(days: int = 150, start_price: float = 100.0, daily_drift: float = 0.01) -> pd.DataFrame:
+    """A steadily-rising synthetic OHLC frame: composite_score needs all
+    three lookbacks (20/60/120d) filled with a consistent trend, so a
+    monotonic drift (no noise) makes the resulting score unambiguously
+    positive and keeps score_to_position's output solidly nonzero."""
+    days_range = pd.date_range(end=pd.Timestamp.utcnow().normalize(), periods=days, freq="D")
+    closes = [start_price * (1 + daily_drift) ** i for i in range(days)]
+    return pd.DataFrame({
+        "day": days_range,
+        "o": closes,
+        "h": [c * 1.001 for c in closes],
+        "l": [c * 0.999 for c in closes],
+        "c": closes,
+    })
+
+
+def _make_flat_engine(info, exchange, live_trading=True):
+    """Builds a MomentumEngine via __new__ (bypassing __init__, same as
+    _make_engine) with a state dict shaped for maybe_rebalance: halted=False,
+    last_rebalance_ms=0 so the interval-elapsed check always passes."""
+    engine = MomentumEngine.__new__(MomentumEngine)
+    engine.info = info
+    from hlvault.gridbot.resilience import ResilientExchange
+    engine.exchange = ResilientExchange(exchange)
+    engine.state = {"halted": False, "peak_equity": 0.0, "last_rebalance_ms": 0,
+                    "_alerted_this_halt": True, "_flatten_complete": True}
+    engine.live_trading = live_trading
+    return engine
+
+
+def test_maybe_rebalance_places_order_on_clear_uptrend(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    monkeypatch.setattr(cfg, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(cfg, "COIN_UNIVERSE", ["BTC"])
+    monkeypatch.setattr(cfg, "REBALANCE_INTERVAL_HOURS", 24)
+    monkeypatch.setattr(cfg, "MAX_COIN_ALLOCATION_PCT", 0.40)
+    monkeypatch.setattr(cfg, "LEVERAGE", 3.0)
+    monkeypatch.setattr(cfg, "ENTRY_THRESHOLD", 0.5)
+    monkeypatch.setattr(cfg, "VOL_LOOKBACK_DAYS", 20)
+    monkeypatch.setattr(cfg, "MIN_ORDER_NOTIONAL", 12)
+
+    uptrend = _make_uptrend_candles()
+    monkeypatch.setattr("hlvault.momentum.live.get_candles",
+                        lambda coin, interval, start, end: uptrend)
+
+    info = _FakeInfo(mid=100.0, positions=[], spot_usdc=1000.0)
+    exchange = _FakeExchange()
+    engine = _make_flat_engine(info, exchange, live_trading=True)
+
+    engine.maybe_rebalance()
+
+    assert len(exchange.orders_placed) == 1
+    placed = exchange.orders_placed[0]
+    assert placed["coin"] == "BTC"
+    assert placed["is_buy"] is True
+    assert placed["reduce_only"] is False
+
+    assert engine.state["last_rebalance_ms"] != 0
+    assert engine.state["_alerted_this_halt"] is False
+    assert engine.state["_flatten_complete"] is False
+
+
+def test_maybe_rebalance_skips_coin_with_insufficient_candle_history(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    monkeypatch.setattr(cfg, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(cfg, "COIN_UNIVERSE", ["BTC"])
+    monkeypatch.setattr(cfg, "REBALANCE_INTERVAL_HOURS", 24)
+
+    short_history = _make_uptrend_candles(days=10)  # < 30 rows required
+    monkeypatch.setattr("hlvault.momentum.live.get_candles",
+                        lambda coin, interval, start, end: short_history)
+
+    info = _FakeInfo(mid=100.0, positions=[], spot_usdc=1000.0)
+    exchange = _FakeExchange()
+    engine = _make_flat_engine(info, exchange, live_trading=True)
+
+    engine.maybe_rebalance()  # must not raise
+
+    assert exchange.orders_placed == []
+
+
+def test_maybe_rebalance_skips_when_candles_empty(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    monkeypatch.setattr(cfg, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(cfg, "COIN_UNIVERSE", ["BTC"])
+    monkeypatch.setattr(cfg, "REBALANCE_INTERVAL_HOURS", 24)
+
+    empty = pd.DataFrame(columns=["day", "o", "h", "l", "c"])
+    monkeypatch.setattr("hlvault.momentum.live.get_candles",
+                        lambda coin, interval, start, end: empty)
+
+    info = _FakeInfo(mid=100.0, positions=[], spot_usdc=1000.0)
+    exchange = _FakeExchange()
+    engine = _make_flat_engine(info, exchange, live_trading=True)
+
+    engine.maybe_rebalance()  # must not raise
+
+    assert exchange.orders_placed == []
