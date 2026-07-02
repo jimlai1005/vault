@@ -42,6 +42,15 @@ HL_API_URL = "https://api.hyperliquid.xyz" if NETWORK == "mainnet" else "https:/
 
 COIN_UNIVERSE = [c.strip() for c in _env_str("COIN_UNIVERSE", "BTC,ETH,SOL,HYPE").split(",") if c.strip()]
 MAX_COIN_ALLOCATION_PCT = _env_float("MAX_COIN_ALLOCATION_PCT", "0.40")
+# Unlike gridbot's same-named LEVERAGE (margin-per-order only; sizing is
+# independent of it), this is a DIRECT multiplier on notional exposure:
+# risk.target_position_notional = clipped_signal * risk_budget * LEVERAGE,
+# applied after MAX_COIN_ALLOCATION_PCT caps each coin's budget. Correlated
+# coins (BTC/ETH/SOL/HYPE) can push aggregate gross exposure to roughly
+# LEVERAGE x equity if signals align. It is NOT mechanically tied to
+# MAX_DRAWDOWN_PCT: the drawdown breaker is polled every
+# SYNC_INTERVAL_SECONDS, not a pre-trade hard cap, so a fast correlated move
+# within one polling window can exceed the intended 20% budget first.
 LEVERAGE = _env_float("LEVERAGE", "3")
 ENTRY_THRESHOLD = _env_float("ENTRY_THRESHOLD", "0.5")
 VOL_LOOKBACK_DAYS = int(_env_float("VOL_LOOKBACK_DAYS", "20"))
