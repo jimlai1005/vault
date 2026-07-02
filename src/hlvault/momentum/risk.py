@@ -34,8 +34,12 @@ def target_position_notional(signal: float, risk_budget: float, max_leverage: fl
     if math.isnan(signal):
         logger.warning("target_position_notional: NaN signal, returning 0 (no position)")
         return 0.0
-    assert risk_budget >= 0, f"risk_budget must be non-negative, got {risk_budget}"
-    assert max_leverage >= 0, f"max_leverage must be non-negative, got {max_leverage}"
+    # raise, not assert: this guard must not vanish under python -O/PYTHONOPTIMIZE
+    # on a safety-critical sizing path.
+    if risk_budget < 0:
+        raise ValueError(f"risk_budget must be non-negative, got {risk_budget}")
+    if max_leverage < 0:
+        raise ValueError(f"max_leverage must be non-negative, got {max_leverage}")
     clipped = max(-1.0, min(1.0, signal))
     return clipped * risk_budget * max_leverage
 
