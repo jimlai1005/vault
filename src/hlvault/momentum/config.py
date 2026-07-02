@@ -15,21 +15,21 @@ _ENV_PATH = Path(__file__).resolve().parents[3] / ".env.momentum"
 load_dotenv(_ENV_PATH)
 
 
-def _clean(val):
+def _clean(val: str) -> str:
     if val is None:
         return val
     return val.split("#", 1)[0].strip()
 
 
-def _env_str(key, default):
+def _env_str(key: str, default: str) -> str:
     return _clean(os.getenv(key, default))
 
 
-def _env_bool(key, default):
+def _env_bool(key: str, default: str) -> bool:
     return _clean(os.getenv(key, default)).lower() == "true"
 
 
-def _env_float(key, default):
+def _env_float(key: str, default: str) -> float:
     return float(_clean(os.getenv(key, default)))
 
 
