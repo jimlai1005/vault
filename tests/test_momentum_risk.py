@@ -1,3 +1,5 @@
+import math
+
 from hlvault.momentum.risk import (
     check_drawdown, compute_order, risk_budget_per_coin, target_position_notional,
 )
@@ -23,6 +25,12 @@ def test_target_position_notional_clips_out_of_range_signal():
     assert target_position_notional(-2.0, risk_budget=100.0, max_leverage=3.0) == -300.0
 
 
+def test_target_position_notional_nan_signal_returns_zero():
+    # NaN must never silently become a full-leverage position via min()/max()
+    # first-arg-wins behavior with NaN.
+    assert target_position_notional(float("nan"), risk_budget=100.0, max_leverage=3.0) == 0.0
+
+
 def test_compute_order_opens_new_long_from_flat():
     order = compute_order(current_size=0.0, target_notional=1000.0, price=100.0, min_order_notional=10.0)
     assert order == {"is_buy": True, "size": 10.0, "reduce_only": False}
@@ -42,6 +50,13 @@ def test_compute_order_flip_long_to_short_is_not_reduce_only():
 
 def test_compute_order_returns_none_below_min_notional():
     order = compute_order(current_size=1.0, target_notional=101.0, price=100.0, min_order_notional=10.0)
+    assert order is None
+
+
+def test_compute_order_nan_price_returns_none():
+    # NaN comparisons are always False in Python, so `price <= 0` would not
+    # catch NaN; this must not slip through to a NaN-size order dict.
+    order = compute_order(current_size=0.0, target_notional=1000.0, price=float("nan"), min_order_notional=10.0)
     assert order is None
 
 
