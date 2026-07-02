@@ -33,13 +33,13 @@ def _fetch_candles_raw(coin: str, interval: str, start_ms: int, end_ms: int) -> 
                     raise TransientError(f"5xx {r.status}")
                 return json.loads(r.read())
         except urllib.error.HTTPError as e:
-            if e.code >= 500:
+            if e.code >= 500 or e.code == 429:   # 429 = rate limit -> retry (CLAUDE.md #2)
                 raise TransientError(str(e))
             raise SemanticError(str(e))
         except (TimeoutError, ConnectionError) as e:
             raise TransientError(str(e))
 
-    return resilient_read(call)
+    return resilient_read(call, max_attempts=6, base_delay=2.0)
 
 
 def candles_to_returns(candles: list[dict]) -> pd.Series:
