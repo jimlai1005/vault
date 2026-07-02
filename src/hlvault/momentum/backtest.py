@@ -34,6 +34,12 @@ def run_backtest(
     entry_threshold: float = 0.5,
     vol_lookback: int = 20,
 ) -> MomentumBacktestResult:
+    if capital <= 0:
+        # Fail at the actual mistake: a bad live-equity read feeding capital<=0
+        # would otherwise surface as a NaN total_return (capital==0) or a
+        # confusingly-sourced ValueError deep inside risk.allocate_capital
+        # (capital<0) instead of naming the real problem here.
+        raise ValueError(f"capital must be positive, got {capital}")
     coins = list(closes.columns)
     returns = pd.DataFrame({c: daily_log_returns(closes[c]) for c in coins}).reindex(closes.index)
     scores = pd.DataFrame({c: composite_score(returns[c].dropna()) for c in coins}).reindex(closes.index)
