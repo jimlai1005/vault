@@ -32,13 +32,14 @@ class _FakeExchange:
         return {"status": "ok"}
 
 
-def _make_engine(info, exchange, state=None):
+def _make_engine(info, exchange, state=None, live_trading=True):
     engine = MomentumEngine.__new__(MomentumEngine)
     engine.info = info
     from hlvault.gridbot.resilience import ResilientExchange
     engine.exchange = ResilientExchange(exchange)
     engine.state = state or {"halted": False, "peak_equity": 0.0, "last_rebalance_ms": 0,
                              "_alerted_this_halt": False}
+    engine.live_trading = live_trading
     return engine
 
 
@@ -49,7 +50,7 @@ def test_flatten_everything_closes_every_open_position(monkeypatch):
         {"coin": "ETH", "szi": "-2.0", "marginUsed": "10", "unrealizedPnl": "0"},
     ])
     exchange = _FakeExchange()
-    engine = _make_engine(info, exchange)
+    engine = _make_engine(info, exchange, live_trading=True)
 
     engine._flatten_everything()
 
@@ -63,7 +64,20 @@ def test_flatten_everything_skips_zero_size_positions(monkeypatch):
         {"coin": "BTC", "szi": "0.0", "marginUsed": "0", "unrealizedPnl": "0"},
     ])
     exchange = _FakeExchange()
-    engine = _make_engine(info, exchange)
+    engine = _make_engine(info, exchange, live_trading=True)
+
+    engine._flatten_everything()
+
+    assert exchange.closed == []
+
+
+def test_flatten_everything_dry_run_does_not_call_exchange(monkeypatch):
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    info = _FakeInfo(mid=100.0, positions=[
+        {"coin": "BTC", "szi": "1.5", "marginUsed": "10", "unrealizedPnl": "0"},
+    ])
+    exchange = _FakeExchange()
+    engine = _make_engine(info, exchange, live_trading=False)
 
     engine._flatten_everything()
 
@@ -127,7 +141,7 @@ def test_check_drawdown_persists_halt_before_flatten_is_attempted(monkeypatch, t
 
     info = _DrawdownInfo(mid=100.0)
     exchange = _CrashingExchange()
-    engine = _make_engine(info, exchange)
+    engine = _make_engine(info, exchange, live_trading=True)
 
     engine.check_drawdown()  # first call: sets peak, no halt
     halted = engine.check_drawdown()  # second call: 21% down -> halts, flatten crashes

@@ -84,13 +84,13 @@ class MomentumEngine:
         return True
 
     def _flatten_everything(self) -> None:
-        """Deliberately NOT gated by self.live_trading (unlike gridbot's
-        _market_flatten). This only runs once the drawdown circuit breaker
-        has already tripped on real, already-open positions — those
-        positions are real regardless of whether this process was started
-        with --dry-run, so a "dry run" flag must never suppress the one
-        action that gets real risk off the table (CLAUDE.md #3: a
-        safety-critical action must never be silently skipped)."""
+        """Gated by self.live_trading, matching gridbot's _market_flatten
+        convention: --dry-run is an explicit operator contract that no real
+        exchange writes will happen. The only way a real position could
+        exist while running with --dry-run is a leftover position from a
+        prior live run, manual intervention, or a bug — silently flattening
+        it for real in that case would be a dangerous surprise, not a safety
+        win, so dry-run logs and skips here just like _place_order does."""
         user_state = self.info.user_state(cfg.WALLET_ADDRESS)
         any_failed = False
         for p in user_state.get("assetPositions", []):
@@ -98,6 +98,9 @@ class MomentumEngine:
             size = float(pos["szi"])
             coin = pos["coin"]
             if abs(size) < 1e-9:
+                continue
+            if not self.live_trading:
+                logger.info(f"[DRY RUN] would flatten {coin} size={abs(size)}")
                 continue
             try:
                 self.exchange.market_close(coin, abs(size))
