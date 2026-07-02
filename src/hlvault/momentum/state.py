@@ -13,6 +13,7 @@ def default_state() -> dict:
         "peak_equity": 0.0,
         "last_rebalance_ms": 0,
         "_alerted_this_halt": False,
+        "_flatten_complete": False,
     }
 
 

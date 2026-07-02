@@ -29,7 +29,9 @@ from eth_account import Account
 from hyperliquid.exchange import Exchange
 from hyperliquid.info import Info
 
-from hlvault.gridbot.exchange_utils import get_account_equity, get_mid_price
+from hlvault.gridbot.exchange_utils import (
+    get_account_equity, get_mid_price, get_sz_decimals, round_price, round_size,
+)
 from hlvault.gridbot.resilience import ResilientExchange
 from hlvault.notify.telegram import send_alert
 from hlvault.prices import get_candles
@@ -78,19 +80,29 @@ class MomentumEngine:
         if not self.state.get("_alerted_this_halt"):
             send_alert(cfg.TELEGRAM_BOT_TOKEN, cfg.TELEGRAM_CHAT_ID,
                       "MOMENTUM DRAWDOWN CIRCUIT BREAKER TRIPPED — flattening and halting.")
-            self._flatten_everything()
             self.state["_alerted_this_halt"] = True
+            save_state(cfg.STATE_FILE, self.state)
+        if not self.state.get("_flatten_complete"):
+            flattened_ok = self._flatten_everything()
+            if flattened_ok:
+                self.state["_flatten_complete"] = True
+            else:
+                send_alert(cfg.TELEGRAM_BOT_TOKEN, cfg.TELEGRAM_CHAT_ID,
+                          "MOMENTUM FLATTEN INCOMPLETE — some positions may remain open, will retry next cycle.")
             save_state(cfg.STATE_FILE, self.state)
         return True
 
-    def _flatten_everything(self) -> None:
-        """Gated by self.live_trading, matching gridbot's _market_flatten
-        convention: --dry-run is an explicit operator contract that no real
-        exchange writes will happen. The only way a real position could
-        exist while running with --dry-run is a leftover position from a
-        prior live run, manual intervention, or a bug — silently flattening
-        it for real in that case would be a dangerous surprise, not a safety
-        win, so dry-run logs and skips here just like _place_order does."""
+    def _flatten_everything(self) -> bool:
+        """Attempt to close every open position. Returns True only if every
+        position was confirmed closed (or none existed) — False on any failure,
+        so the caller retries next cycle instead of considering the emergency
+        stop "done" while real exposure remains open. Gated by self.live_trading,
+        matching gridbot's _market_flatten convention: --dry-run is an explicit
+        operator contract that no real exchange writes will happen. The only way
+        a real position could exist while running with --dry-run is a leftover
+        position from a prior live run, manual intervention, or a bug — silently
+        flattening it for real in that case would be a dangerous surprise, not a
+        safety win, so dry-run logs and skips here just like _place_order does."""
         user_state = self.info.user_state(cfg.WALLET_ADDRESS)
         any_failed = False
         for p in user_state.get("assetPositions", []):
@@ -108,7 +120,8 @@ class MomentumEngine:
                 any_failed = True
                 logger.error(f"SAFETY-CRITICAL: flatten failed for {coin}: {e}")
         if any_failed:
-            logger.error("SAFETY-CRITICAL: not everything could be flattened — manual check required")
+            logger.error("SAFETY-CRITICAL: not everything could be flattened — will retry next cycle")
+        return not any_failed
 
     def _place_order(self, coin: str, order: dict) -> None:
         if not self.live_trading:
@@ -116,15 +129,21 @@ class MomentumEngine:
             return
         try:
             mid = get_mid_price(self.info, coin)
+            sz_dec = get_sz_decimals(self.info, coin)
             is_buy = order["is_buy"]
             # Aggressive IoC limit at mid +/- slippage — the same "market
             # order" shape hyperliquid.exchange.Exchange.market_open/
-            # market_close use internally (see module docstring).
-            limit_px = mid * (1 + ORDER_SLIPPAGE) if is_buy else mid * (1 - ORDER_SLIPPAGE)
-            self.exchange.order(coin, is_buy, order["size"], limit_px,
+            # market_close use internally (see module docstring) — rounded
+            # to the venue's tick-size rules (round_price/round_size), same
+            # as gridbot's own order placement, or the exchange will reject
+            # a raw float with too many significant figures/decimals.
+            raw_px = mid * (1 + ORDER_SLIPPAGE) if is_buy else mid * (1 - ORDER_SLIPPAGE)
+            limit_px = round_price(raw_px, sz_dec)
+            size = round_size(order["size"], sz_dec)
+            self.exchange.order(coin, is_buy, size, limit_px,
                                 order_type={"limit": {"tif": "Ioc"}},
                                 reduce_only=order["reduce_only"])
-            logger.info(f"{coin}: placed {order}")
+            logger.info(f"{coin}: placed {order} @ {limit_px}")
         except Exception as e:
             logger.error(f"{coin}: order failed: {e}")
 
@@ -177,6 +196,7 @@ class MomentumEngine:
 
         self.state["last_rebalance_ms"] = now_ms
         self.state["_alerted_this_halt"] = False
+        self.state["_flatten_complete"] = False
         save_state(cfg.STATE_FILE, self.state)
 
     def run_once(self) -> None:
