@@ -15,13 +15,18 @@ logger = logging.getLogger("notify.telegram")
 
 
 def send_alert(bot_token: str, chat_id: str, message: str) -> bool:
+    """Send a Telegram alert, never raising (CLAUDE.md #3): all failures —
+    including malformed input — are caught and logged; the caller's safety
+    action (flatten/halt) must proceed regardless of whether this succeeds.
+
+    Returns True if sent, False otherwise. Never raises."""
     if not bot_token or not chat_id:
         logger.warning(f"Telegram not configured, alert dropped: {message}")
         return False
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    body = json.dumps({"chat_id": chat_id, "text": message}).encode()
 
     def call():
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        body = json.dumps({"chat_id": chat_id, "text": message}).encode()
         req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=10) as r:
