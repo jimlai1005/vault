@@ -129,3 +129,53 @@ def test_liquidation_defense_simulation_2x_pump():
                 short -= min(a.size, short)
                 entry = mid  # remaining position re-marked for sim simplicity
             # buy_spot / open_short / to_spot not expected during a pump
+
+
+def test_underwater_short_still_triggers_defense():
+    # Regression (adversarial review): perp equity <= 0 makes short_leverage
+    # read as 0.0 (equity.py guard), which used to sail past the
+    # `> rebalance_leverage` trigger — the engine planned NOTHING while the
+    # short was deepest underwater. The raw-fields check must fire instead.
+    s = snap(mid=180.0, spot_usdc=10.0, spot_coin=6.0, short=6.0,
+             margin=300.0, upnl=-480.0, withdrawable=50.0)  # perp eq = -130
+    actions = plan_actions(s, funding_is_ok=True, **CFG)
+    assert actions, "engine must not go silent on an underwater short"
+    kinds = [a.kind for a in actions]
+    assert kinds == ["sell_spot", "to_perp"]
+    # shortfall = 1080/2 - (-130) = 670; spot ntl 1080 covers it
+    assert abs(actions[0].size * 180.0 - 670.0) < 1e-6
+    assert abs(actions[1].amount - min(670.0, 10.0 + 670.0)) < 1e-6
+
+
+def test_underwater_short_with_no_spot_left_closes_short():
+    s = snap(mid=180.0, spot_usdc=5.0, spot_coin=0.0, short=6.0,
+             margin=300.0, upnl=-480.0, withdrawable=50.0)  # perp eq = -130
+    actions = plan_actions(s, funding_is_ok=True, **CFG)
+    assert [a.kind for a in actions] == ["close_short"]
+    # excess = short ntl - pe*max_lev = 1080 - (-260) = 1340 -> clamp is the
+    # live loop's job (close is bounded by real position size there)
+    assert actions[0].size > 0
+
+
+def test_entry_clamps_both_legs_to_affordable_spot_cash():
+    # Regression (adversarial review): entry used to plan a $600 spot buy
+    # against $350 of spot cash while opening the full $600 short — one
+    # cycle of unhedged short exposure. Both legs must size to spot cash.
+    s = snap(mid=100.0, spot_usdc=350.0, withdrawable=0.0)  # equity 350
+    actions = plan_actions(s, funding_is_ok=True, **CFG)
+    kinds = [a.kind for a in actions]
+    assert kinds == ["to_perp", "buy_spot", "open_short"]
+    # target = 210, margin = 105, spot cash after transfer = 245 -> buy 210 ok
+    assert abs(actions[1].size - actions[2].size) < 1e-9  # legs always equal
+
+
+def test_entry_recalls_cash_parked_in_perp():
+    # equity 1000 but $650 sits in perp: margin need 300 already covered,
+    # excess must be recalled so the spot buy can afford the full target
+    s = snap(mid=100.0, spot_usdc=350.0, withdrawable=650.0)
+    actions = plan_actions(s, funding_is_ok=True, **CFG)
+    kinds = [a.kind for a in actions]
+    assert kinds == ["to_spot", "buy_spot", "open_short"]
+    assert abs(actions[0].amount - 250.0) < 1e-6   # min(650-300, 600-350)
+    assert abs(actions[1].size - 6.0) < 1e-6       # full $600 both legs
+    assert abs(actions[2].size - 6.0) < 1e-6

@@ -47,8 +47,14 @@ def plan_actions(s: CarrySnapshot, funding_is_ok: bool, *, deploy_fraction: floa
             acts.append(Action("to_spot", amount=perp_equity))
         return acts
 
-    # 2. leverage too high -> liquidation defense: sell spot, move USDC to perp
-    if s.short_leverage > rebalance_leverage:
+    # 2. leverage too high -> liquidation defense: sell spot, move USDC to perp.
+    # The raw perp_equity <= 0 check matters: equity.py defines short_leverage
+    # as 0.0 when perp equity is non-positive, so a deep-underwater short (an
+    # extreme gap move within one poll cycle) would otherwise sail PAST the
+    # `> rebalance_leverage` trigger and the engine would plan nothing at the
+    # exact moment defense matters most.
+    underwater = s.perp_short_ntl > min_order_notional and perp_equity <= 0
+    if s.short_leverage > rebalance_leverage or underwater:
         needed_equity = s.perp_short_ntl / max_short_leverage
         shortfall = needed_equity - perp_equity
         sellable_usd = min(shortfall, s.spot_coin_ntl)
@@ -80,15 +86,31 @@ def plan_actions(s: CarrySnapshot, funding_is_ok: bool, *, deploy_fraction: floa
         if -s.delta_ntl > tol:
             return [Action("close_short", size=-s.delta_ntl / s.mid)]
 
-    # 5. flat -> enter
+    # 5. flat -> enter. Both legs are sized by what the SPOT side can actually
+    # afford this cycle (after any margin transfer out of it): planning a $600
+    # buy against $350 of spot cash would get the buy rejected/clipped while
+    # the short still opened in full — one cycle of unhedged directional
+    # exposure. If cash is parked on the perp side beyond the margin need,
+    # recall it first so the affordable size approaches the target.
     if not has_position:
-        margin_needed = target_ntl / max_short_leverage
-        size = target_ntl / s.mid
         if target_ntl <= min_order_notional:
             return []
+        margin_needed = target_ntl / max_short_leverage
         acts = []
+        spot_cash = s.spot_usdc
         if margin_needed - perp_equity > min_order_notional:
-            acts.append(Action("to_perp", amount=margin_needed - perp_equity))
+            transfer = margin_needed - perp_equity
+            acts.append(Action("to_perp", amount=transfer))
+            spot_cash -= transfer
+        elif perp_equity - margin_needed > min_order_notional:
+            recall = min(perp_equity - margin_needed, max(target_ntl - spot_cash, 0.0))
+            if recall > min_order_notional:
+                acts.append(Action("to_spot", amount=recall))
+                spot_cash += recall
+        buy_ntl = min(target_ntl, max(spot_cash, 0.0))
+        if buy_ntl <= min_order_notional:
+            return acts
+        size = buy_ntl / s.mid
         acts.append(Action("buy_spot", size=size))
         acts.append(Action("open_short", size=size))
         return acts
