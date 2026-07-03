@@ -1,5 +1,7 @@
 """CarryEngine live-loop tests. All exchange writes are captured by fakes;
 conftest's autouse socket guard hard-fails any real network call."""
+import time
+
 from hlvault.carry import config as cfg
 from hlvault.carry.live import CarryEngine, _round_spot_price
 
@@ -174,3 +176,87 @@ def test_run_once_skips_planning_when_halted(monkeypatch, tmp_path):
                        "last_funding_check_ms": 0, "funding_ok": True})
     e.run_once()
     assert ex.orders == [] and ex.transfers == []
+
+
+def test_oversized_close_short_clamped_to_live_position(monkeypatch, tmp_path):
+    # Regression: engine.py's underwater branch (perp_equity < 0, nothing
+    # left to sell/transfer) plans close_short size = excess_ntl/mid, which
+    # EXCEEDS the live short — test_carry_engine.py documents the clamp as
+    # the live loop's job. Verify run_once bounds it by the real position.
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    monkeypatch.setattr(cfg, "STATE_FILE", tmp_path / "s.json")
+    monkeypatch.setattr(cfg, "COIN", "HYPE")
+    monkeypatch.setattr(cfg, "SPOT_PAIR", "@107")
+    monkeypatch.setattr(cfg, "MIN_ORDER_NOTIONAL", 12.0)
+    monkeypatch.setattr(cfg, "MAX_SHORT_LEVERAGE", 2.0)
+    monkeypatch.setattr(cfg, "REBALANCE_LEVERAGE", 2.5)
+    ex = _FakeExchange()
+    # short 2.0 @ mid 10 (ntl $20), perp equity 5-15+0 = -10 (underwater),
+    # no spot coin/USDC -> plan: close_short size = (20 - (-10*2.0))/10 = 4.0
+    info = _FakeInfo(mid=10.0, spot_usdc=0.0, spot_hype=0.0, szi=-2.0,
+                     margin="5", upnl="-15", withdrawable="0")
+    e = _engine(info, ex, live=True,
+                state={"halted": False, "peak_equity": 0.0,
+                       "_alerted_this_halt": False, "_flatten_complete": False,
+                       "last_funding_check_ms": int(time.time() * 1000),
+                       "funding_ok": True})
+    e.run_once()
+    assert len(ex.orders) == 1
+    o = ex.orders[0]
+    assert o["coin"] == "HYPE" and o["is_buy"] is True and o["reduce_only"] is True
+    assert o["size"] == 2.0   # clamped to live short, NOT the planned 4.0
+
+
+def test_second_halt_episode_alerts_and_flattens_again(monkeypatch, tmp_path):
+    # Regression: without resetting _alerted_this_halt/_flatten_complete on
+    # healthy cycles, a SECOND drawdown halt (after the operator clears
+    # `halted`) would be silent: no alert, no flatten attempt.
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    monkeypatch.setattr(cfg, "STATE_FILE", tmp_path / "s.json")
+    monkeypatch.setattr(cfg, "MAX_DRAWDOWN_PCT", 0.20)
+    monkeypatch.setattr(cfg, "MIN_ORDER_NOTIONAL", 12.0)
+    monkeypatch.setattr(cfg, "COIN", "HYPE")
+    monkeypatch.setattr(cfg, "SPOT_PAIR", "@107")
+    monkeypatch.setattr(cfg, "TELEGRAM_BOT_TOKEN", "")
+    monkeypatch.setattr(cfg, "TELEGRAM_CHAT_ID", "")
+
+    class _CrashingExchange(_FakeExchange):
+        def __init__(self):
+            super().__init__()
+            self.close_calls = 0
+
+        def market_close(self, coin, size):
+            self.close_calls += 1
+            raise RuntimeError("boom")
+
+    # equity basis: usdc + 1.0*20 spot HYPE + (20+0+10) perp = usdc + 50
+    info = _FakeInfo(mid=20.0, spot_usdc=1000.0, spot_hype=1.0, szi=-1.0,
+                     margin="20", withdrawable="10")
+    ex = _CrashingExchange()
+    e = _engine(info, ex, live=True,
+                state={"halted": False, "peak_equity": 0.0,
+                       "_alerted_this_halt": False, "_flatten_complete": False,
+                       "last_funding_check_ms": int(time.time() * 1000),
+                       "funding_ok": True})
+
+    # episode 1: peak 1050, drop to 800 -> ~23.8% dd -> halt, flatten crashes
+    assert e.check_drawdown() is False
+    info._spot_usdc = 750.0
+    assert e.check_drawdown() is True
+    assert ex.close_calls == 1
+    assert e.state["_alerted_this_halt"] is True
+    assert e.state["_flatten_complete"] is False
+
+    # operator inspects, flattens manually, clears the halt; equity recovers
+    e.state["halted"] = False
+    info._spot_usdc = 1000.0
+    e.run_once()   # healthy cycle -> flags re-armed
+    assert e.state["_alerted_this_halt"] is False
+    assert e.state["_flatten_complete"] is False
+
+    # episode 2: drop to 650 -> ~38% dd -> must alert AND flatten again
+    info._spot_usdc = 600.0
+    assert e.check_drawdown() is True
+    assert ex.close_calls == 2   # flatten attempted again, not silently skipped
+    assert e.state["_alerted_this_halt"] is True
+    assert e.state["_flatten_complete"] is False

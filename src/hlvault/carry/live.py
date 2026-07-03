@@ -136,6 +136,11 @@ class CarryEngine:
         if not self.live_trading:
             logger.info(f"[DRY RUN] {action}")
             return
+        # One price basis for BOTH legs (CLAUDE.md #1): spot orders are also
+        # priced off the perp mid (cfg.COIN). Deliberate, not an oversight —
+        # the HYPE spot/perp basis is bps-tight (verified live) and the +/-5%
+        # IoC slippage cap absorbs it, so a single mid keeps the two legs'
+        # prices on one comparable basis instead of mixing two mid sources.
         mids = self.info.all_mids()
         mid = float(mids.get(cfg.COIN) or 0.0)
         if mid <= 0:
@@ -159,6 +164,14 @@ class CarryEngine:
             logger.info(f"executed {action}")
         except Exception as e:
             logger.error(f"action {action} failed: {e} (next cycle re-plans)")
+            # Defense-path failures must be loud (CLAUDE.md #3): sell_spot /
+            # to_perp / close_short are what the leverage-defense branch emits
+            # when the short is nearing liquidation — a silent failure there
+            # hides real exposure. Entry/recycle failures staying log-only is
+            # fine (they self-heal without risk). send_alert never raises.
+            if action.kind in ("sell_spot", "to_perp", "close_short"):
+                send_alert(cfg.TELEGRAM_BOT_TOKEN, cfg.TELEGRAM_CHAT_ID,
+                           f"CARRY DEFENSE ACTION FAILED: {action} — will retry next cycle")
 
     # ---- signal ------------------------------------------------------
     def _refresh_funding_if_due(self) -> bool:
@@ -176,6 +189,14 @@ class CarryEngine:
     def run_once(self) -> None:
         if self.check_drawdown():
             return
+        # Healthy cycle: re-arm the halt bookkeeping (same as momentum's
+        # maybe_rebalance) so a SECOND halt episode — after an operator
+        # inspects, flattens manually, and clears `halted` — alerts and
+        # flattens fresh instead of being silently skipped by stale flags.
+        if self.state.get("_alerted_this_halt") or self.state.get("_flatten_complete"):
+            self.state["_alerted_this_halt"] = False
+            self.state["_flatten_complete"] = False
+            save_state(cfg.STATE_FILE, self.state)
         is_ok = self._refresh_funding_if_due()
         s = take_snapshot(self.info, cfg.WALLET_ADDRESS, cfg.COIN, cfg.SPOT_PAIR)
         actions = plan_actions(
@@ -188,6 +209,14 @@ class CarryEngine:
             min_order_notional=cfg.MIN_ORDER_NOTIONAL,
         )
         for a in actions:
+            # Clamp close_short to the live short: engine.py's underwater
+            # branch can plan a close LARGER than the position (negative perp
+            # equity inflates excess_ntl; test_carry_engine.py documents the
+            # clamp as the live loop's job). The venue would likely clip a
+            # reduce-only order anyway, but a liquidation-defense path must
+            # not rely on venue behavior. Action is frozen -> build a new one.
+            if a.kind == "close_short" and a.size > s.perp_short_size > 0:
+                a = Action("close_short", size=s.perp_short_size)
             self._execute(a)
 
     def run_forever(self) -> None:
