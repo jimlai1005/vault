@@ -46,7 +46,9 @@ def plan_actions(s: CarrySnapshot, funding_is_ok: bool, *, deploy_fraction: floa
     if s.mid <= 0:
         return []
     target_ntl = s.equity * deploy_fraction
-    perp_equity = s.perp_margin_used + s.perp_upnl + s.perp_withdrawable
+    # margin_used + withdrawable only -- see equity.py: `withdrawable` already
+    # bakes in unrealized pnl, so adding perp_upnl here double-counts it.
+    perp_equity = s.perp_margin_used + s.perp_withdrawable
     has_position = s.perp_short_ntl > min_order_notional or s.spot_coin_ntl > min_order_notional
 
     # 1. funding bad -> unwind everything (close short first: it's the leg

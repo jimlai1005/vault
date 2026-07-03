@@ -218,7 +218,9 @@ class CarryEngine:
         # even a min-notional short. No order fixes this and agent keys
         # cannot usdClassTransfer, so it needs a human (CLAUDE.md #3: surface
         # loudly, don't idle silently). Throttled to once per day.
-        perp_equity = s.perp_margin_used + s.perp_upnl + s.perp_withdrawable
+        # margin_used + withdrawable only -- see equity.py: `withdrawable`
+        # already bakes in unrealized pnl, so adding perp_upnl double-counts it.
+        perp_equity = s.perp_margin_used + s.perp_withdrawable
         if (not actions and is_ok
                 and s.perp_short_ntl <= cfg.MIN_ORDER_NOTIONAL
                 and s.spot_usdc > 2 * cfg.MIN_ORDER_NOTIONAL

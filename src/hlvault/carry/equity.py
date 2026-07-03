@@ -56,7 +56,16 @@ def take_snapshot(info, address: str, coin: str, spot_pair: str) -> CarrySnapsho
     spot_ntl = spot_coin * mid
     short_size = -szi  # szi<0 = short -> positive; szi>0 (long) -> negative flag
     short_ntl = max(short_size, 0.0) * mid
-    perp_equity = margin_used + upnl + withdrawable
+    # perp_equity = margin_used + withdrawable, NOT + upnl: Hyperliquid's
+    # `withdrawable` already has unrealized pnl baked in (verified against
+    # the real API identity accountValue == totalMarginUsed + withdrawable,
+    # exact to the cent). Adding upnl again double-counts it — e.g. a losing
+    # short's upnl got subtracted from withdrawable AND subtracted again
+    # here, understating equity by 2x the unrealized loss and tripping the
+    # 20% drawdown circuit breaker on a phantom loss. upnl is kept as its own
+    # CarrySnapshot field for display/direction only, never summed into
+    # equity.
+    perp_equity = margin_used + withdrawable
     leverage = short_ntl / perp_equity if (short_ntl > 0 and perp_equity > 0) else 0.0
     equity = spot_usdc + spot_ntl + perp_equity
 

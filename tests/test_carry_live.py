@@ -278,11 +278,13 @@ def test_underwater_short_closed_at_exact_position_size(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "MAX_SHORT_LEVERAGE", 2.0)
     monkeypatch.setattr(cfg, "REBALANCE_LEVERAGE", 2.5)
     ex = _FakeExchange()
-    # short 2.0 @ mid 10 (ntl $20), perp equity 5-15+0 = -10 (underwater),
-    # no spot coin/USDC -> paired unwind plans close_short 20/10 = 2.0 (full
-    # position) and skips the sell leg (nothing to sell)
+    # short 2.0 @ mid 10 (ntl $20). withdrawable already reflects the -15
+    # upnl (it's not added again): perp equity = margin 5 + withdrawable -15
+    # = -10 (underwater) -> no spot coin/USDC -> paired unwind plans
+    # close_short 20/10 = 2.0 (full position) and skips the sell leg
+    # (nothing to sell)
     info = _FakeInfo(mid=10.0, spot_usdc=0.0, spot_hype=0.0, szi=-2.0,
-                     margin="5", upnl="-15", withdrawable="0")
+                     margin="5", upnl="-15", withdrawable="-15")
     e = _engine(info, ex, live=True,
                 state={"halted": False, "peak_equity": 0.0,
                        "_alerted_this_halt": False, "_flatten_complete": False,
@@ -308,8 +310,10 @@ def test_oversized_close_short_clamped_to_live_position(monkeypatch, tmp_path):
     monkeypatch.setattr("hlvault.carry.live.plan_actions",
                         lambda *a, **k: [Action("close_short", size=4.0)])
     ex = _FakeExchange()
+    # withdrawable already reflects the -15 upnl -- kept consistent with the
+    # real API identity even though plan_actions is monkeypatched away above
     info = _FakeInfo(mid=10.0, spot_usdc=0.0, spot_hype=0.0, szi=-2.0,
-                     margin="5", upnl="-15", withdrawable="0")
+                     margin="5", upnl="-15", withdrawable="-15")
     e = _engine(info, ex, live=True,
                 state={"halted": False, "peak_equity": 0.0,
                        "_alerted_this_halt": False, "_flatten_complete": False,

@@ -10,7 +10,12 @@ def snap(mid=100.0, spot_usdc=1000.0, spot_coin=0.0, short=0.0,
          margin=0.0, upnl=0.0, withdrawable=0.0):
     spot_ntl = spot_coin * mid
     short_ntl = max(short, 0.0) * mid
-    perp_eq = margin + upnl + withdrawable
+    # perp_eq = margin + withdrawable, NOT + upnl: on the real API,
+    # `withdrawable` already has unrealized pnl baked in (see equity.py).
+    # `upnl` is still threaded through and stored on the snapshot (tests use
+    # it to derive a `withdrawable` that already reflects a pnl move), but it
+    # must never be added a second time here.
+    perp_eq = margin + withdrawable
     lev = short_ntl / perp_eq if (short_ntl > 0 and perp_eq > 0) else 0.0
     return CarrySnapshot(mid=mid, spot_usdc=spot_usdc, spot_coin_size=spot_coin,
                          spot_coin_ntl=spot_ntl, perp_short_size=short,
@@ -94,11 +99,14 @@ def test_balanced_position_produces_no_actions():
 # ---- liquidation defense: paired unwind (priority 2) -------------------
 
 def test_pump_triggers_paired_unwind():
-    # The hand-trace: entered 6/6 at mid 100 with perp side 315; pump to 130.
-    # short ntl 780, perp equity 315-180=135, lev 5.78 > 2.5.
+    # The hand-trace: entered 6/6 at mid 100 with perp side margin 300 +
+    # withdrawable 15 = 315; pump to 130 costs the short (130-100)*6=180,
+    # which (correctly) reduces withdrawable by 180 -- it already reflects
+    # upnl, it isn't added on top. New withdrawable = 15-180 = -165.
+    # short ntl 780, perp equity 300+(-165)=135, lev 5.78 > 2.5.
     # delta_ntl slice = 780 - max(135,0)*2 = 510 -> close 510/130 = 3.923...
     s = snap(mid=130.0, spot_usdc=10.0, spot_coin=6.0, short=6.0,
-             margin=300.0, upnl=-180.0, withdrawable=15.0)
+             margin=300.0, upnl=-180.0, withdrawable=-165.0)
     actions = plan_actions(s, funding_is_ok=True, **CFG)
     kinds = [a.kind for a in actions]
     # close_short FIRST — it's the leg at liquidation risk
@@ -106,14 +114,14 @@ def test_pump_triggers_paired_unwind():
     assert abs(actions[0].size - 510.0 / 130.0) < 1e-9
     assert abs(actions[1].size - 510.0 / 130.0) < 1e-9  # matched slice: delta kept
     # the slice restores exactly max leverage: (780-510)/135 = 2.0
-    perp_eq = 300.0 - 180.0 + 15.0
+    perp_eq = 300.0 + (-165.0)
     assert abs((s.perp_short_ntl - actions[0].size * s.mid) / perp_eq - 2.0) < 1e-9
 
 def test_paired_unwind_sells_only_what_spot_holds():
     # spot has less than the slice: sell what exists; the delta guard trims
-    # the residual short next cycle
+    # the residual short next cycle. Same perp state as the test above.
     s = snap(mid=130.0, spot_usdc=10.0, spot_coin=2.0, short=6.0,
-             margin=300.0, upnl=-180.0, withdrawable=15.0)
+             margin=300.0, upnl=-180.0, withdrawable=-165.0)
     actions = plan_actions(s, funding_is_ok=True, **CFG)
     assert [a.kind for a in actions] == ["close_short", "sell_spot"]
     assert abs(actions[0].size - 510.0 / 130.0) < 1e-9
@@ -125,8 +133,10 @@ def test_underwater_short_closes_everything():
     # `> rebalance_leverage` trigger — the engine planned NOTHING while the
     # short was deepest underwater. The raw-fields check must fire instead.
     # With max(perp_equity, 0) the slice is the FULL short — close it all.
+    # withdrawable already reflects the -480 loss (it's not added again):
+    # margin 300 + withdrawable -430 = perp eq -130.
     s = snap(mid=180.0, spot_usdc=10.0, spot_coin=6.0, short=6.0,
-             margin=300.0, upnl=-480.0, withdrawable=50.0)  # perp eq = -130
+             margin=300.0, upnl=-480.0, withdrawable=-430.0)  # perp eq = -130
     actions = plan_actions(s, funding_is_ok=True, **CFG)
     assert actions, "engine must not go silent on an underwater short"
     assert [a.kind for a in actions] == ["close_short", "sell_spot"]
@@ -137,7 +147,7 @@ def test_underwater_short_closes_everything():
 
 def test_underwater_short_with_no_spot_left_closes_short_only():
     s = snap(mid=180.0, spot_usdc=5.0, spot_coin=0.0, short=6.0,
-             margin=300.0, upnl=-480.0, withdrawable=50.0)  # perp eq = -130
+             margin=300.0, upnl=-480.0, withdrawable=-430.0)  # perp eq = -130
     actions = plan_actions(s, funding_is_ok=True, **CFG)
     assert [a.kind for a in actions] == ["close_short"]
     assert abs(actions[0].size - 6.0) < 1e-9
@@ -146,11 +156,13 @@ def test_underwater_short_with_no_spot_left_closes_short_only():
 # ---- grow-back (priority 3) --------------------------------------------
 
 def test_low_leverage_grows_both_legs_from_spot_cash():
-    # price fell to 60: short ntl 360, perp eq 590, lev 0.61 < 1.2. Idle perp
-    # margin can't be recycled (no transfers) — instead grow both legs toward
-    # target with spot cash: min(690-360, cash 200, 590*2-360=820) = 200
+    # price fell to 60: the short GAINS (upnl +240), already folded into
+    # withdrawable (50+240=290, not added again). short ntl 360,
+    # perp eq 300+290=590, lev 0.61 < 1.2. Idle perp margin can't be
+    # recycled (no transfers) — instead grow both legs toward target with
+    # spot cash: min(690-360, cash 200, 590*2-360=820) = 200
     s = snap(mid=60.0, spot_usdc=200.0, spot_coin=6.0, short=6.0,
-             margin=300.0, upnl=240.0, withdrawable=50.0)
+             margin=300.0, upnl=240.0, withdrawable=290.0)
     actions = plan_actions(s, funding_is_ok=True, **CFG)
     kinds = [a.kind for a in actions]
     assert kinds == ["buy_spot", "open_short"]
@@ -158,10 +170,10 @@ def test_low_leverage_grows_both_legs_from_spot_cash():
     assert abs(actions[0].size - actions[1].size) < 1e-12
 
 def test_low_leverage_growth_bounded_by_perp_headroom():
-    # perp eq 310, ntl 360 -> lev 1.16 < 1.2; headroom 310*2-360 = 260 binds
-    # (target gap 642-360=282 and cash 400 are both larger)
+    # perp eq 60+250=310, ntl 360 -> lev 1.16 < 1.2; headroom 310*2-360 = 260
+    # binds (target gap 642-360=282 and cash 400 are both larger)
     s = snap(mid=60.0, spot_usdc=400.0, spot_coin=6.0, short=6.0,
-             margin=60.0, upnl=240.0, withdrawable=10.0)
+             margin=60.0, upnl=240.0, withdrawable=250.0)
     actions = plan_actions(s, funding_is_ok=True, **CFG)
     assert [a.kind for a in actions] == ["buy_spot", "open_short"]
     assert abs(actions[0].size - 260.0 / 60.0) < 1e-9
@@ -170,7 +182,7 @@ def test_low_leverage_without_cash_holds():
     # lev 0.61 but only $10 spot cash (< min notional): nothing affordable to
     # grow -> no action at all; the idle perp margin is a harmless buffer
     s = snap(mid=60.0, spot_usdc=10.0, spot_coin=6.0, short=6.0,
-             margin=300.0, upnl=240.0, withdrawable=50.0)
+             margin=300.0, upnl=240.0, withdrawable=290.0)
     assert plan_actions(s, funding_is_ok=True, **CFG) == []
 
 
@@ -227,22 +239,24 @@ def test_liquidation_defense_simulation_2x_pump():
     perp equity never drops below HYPE maintenance margin (ntl / (2*5) = 10%
     ntl, 5x max leverage) — i.e. the rebalancer acts before liquidation.
 
-    close_short accounting conserves perp equity EXACTLY: when the entry is
-    re-marked to mid, the whole upnl folds into withdrawable (the closed
-    slice's share is genuinely realized; the remainder is the mark-to-market
-    of the surviving position). Realizing only the closed fraction while
-    re-marking would silently erase the surviving position's loss — inflating
-    simulated equity and weakening this assertion."""
+    `withdrawable` is mark-to-market EVERY step (matching the real API,
+    where it always reflects current unrealized pnl, not just realized pnl
+    at the last close) -- `base_withdrawable` tracks the realized-to-date
+    component, and `withdrawable = base_withdrawable + upnl` is what's fed
+    to the snapshot/engine each step. perp_equity is therefore
+    margin + withdrawable (no separate +upnl -- it's already folded in),
+    matching the fixed formula in equity.py/engine.py."""
     mid, spot_usdc, spot_coin, short = 100.0, 40.0, 6.0, 6.0
-    margin, withdrawable = 300.0, 60.0
+    margin, base_withdrawable = 300.0, 60.0
     entry = mid
     while mid < 200.0:
         mid *= 1.05
         upnl = (entry - mid) * short
+        withdrawable = base_withdrawable + upnl
         s = snap(mid=mid, spot_usdc=spot_usdc, spot_coin=spot_coin,
                  short=short, margin=margin, upnl=upnl,
                  withdrawable=withdrawable)
-        perp_equity = margin + upnl + withdrawable
+        perp_equity = margin + withdrawable
         maintenance = 0.10 * short * mid
         assert perp_equity > maintenance, f"liquidated at mid={mid:.1f}"
         actions = plan_actions(s, funding_is_ok=True, **CFG)
@@ -256,7 +270,7 @@ def test_liquidation_defense_simulation_2x_pump():
             if a.kind == "close_short":
                 assert a.size <= short + 1e-9  # never plans an oversized close
                 closed = min(a.size, short)
-                withdrawable += upnl  # realize + re-mark: perp equity conserved
+                base_withdrawable += upnl  # realize + re-mark: perp equity conserved
                 short -= closed
                 entry = mid
                 upnl = 0.0
