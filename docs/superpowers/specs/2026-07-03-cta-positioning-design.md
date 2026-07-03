@@ -53,3 +53,14 @@ family; NO-GO → document and stop.
 ## Capital note
 Deployment (if GO) needs fresh capital or reallocation — owner decision at
 verdict time.
+
+## Phase 2a amendment (pre-declared 2026-07-03, before any backtest ran)
+Probe confirmed Binance OI/ratio history = ~30d only (validation-inadequate);
+Coinalyze key pending from owner. Phase 2a therefore tests the strategy family
+with declared proxies on 12mo data: crowding = HL funding-rate percentile
+(rolling 90d) — funding IS the price of positioning imbalance; fuel gate ∈
+{none, volume-change>0 over lookback} replacing OI (volume from klines, years
+of depth). Variant matrix stays 24: trend TF {4h,1d} × crowding pctile {10,20}
+× fuel {none, volume-24h} × side {long, short, both}. Same gate. When the
+Coinalyze key arrives, Phase 2b re-runs the SAME matrix with true OI +
+account-ratio data as confirmation — 2a survivors must survive 2b too.
