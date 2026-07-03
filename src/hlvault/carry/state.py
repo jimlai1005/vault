@@ -15,6 +15,9 @@ def default_state() -> dict:
         "_flatten_complete": False,
         "last_funding_check_ms": 0,
         "funding_ok": False,
+        # throttle for the "manual spot->perp transfer needed" operator alert
+        # (agent keys cannot usdClassTransfer) — at most once per day
+        "last_manual_topup_alert_ms": 0,
     }
 
 

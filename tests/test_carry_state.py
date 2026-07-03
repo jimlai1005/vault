@@ -5,7 +5,7 @@ def test_default_state_shape():
     assert default_state() == {
         "halted": False, "peak_equity": 0.0, "_alerted_this_halt": False,
         "_flatten_complete": False, "last_funding_check_ms": 0,
-        "funding_ok": False,
+        "funding_ok": False, "last_manual_topup_alert_ms": 0,
     }
 
 

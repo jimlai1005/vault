@@ -3,6 +3,7 @@ conftest's autouse socket guard hard-fails any real network call."""
 import time
 
 from hlvault.carry import config as cfg
+from hlvault.carry.engine import Action
 from hlvault.carry.live import CarryEngine, _round_spot_price
 
 
@@ -31,9 +32,11 @@ class _FakeInfo:
 
 
 class _FakeExchange:
+    # No usd_class_transfer here on purpose: agent keys cannot perform it,
+    # and the live engine must never call it — an AttributeError would flag
+    # any regression immediately.
     def __init__(self):
         self.orders = []
-        self.transfers = []
 
     def order(self, coin, is_buy, size, px, order_type=None, reduce_only=False):
         self.orders.append({"coin": coin, "is_buy": is_buy, "size": size,
@@ -44,21 +47,17 @@ class _FakeExchange:
         self.orders.append({"coin": coin, "market_close": size})
         return {"status": "ok"}
 
-    def usd_class_transfer(self, amount, to_perp):
-        self.transfers.append((amount, to_perp))
-        return {"status": "ok"}
-
 
 def _engine(info, exchange, live=True, state=None):
     e = CarryEngine.__new__(CarryEngine)
     e.info = info
     from hlvault.gridbot.resilience import ResilientExchange
     e.exchange = ResilientExchange(exchange)
-    e.exchange_raw = exchange
     e.live_trading = live
     e.state = state or {"halted": False, "peak_equity": 0.0,
                         "_alerted_this_halt": False, "_flatten_complete": False,
-                        "last_funding_check_ms": 0, "funding_ok": True}
+                        "last_funding_check_ms": 0, "funding_ok": True,
+                        "last_manual_topup_alert_ms": 0}
     return e
 
 
@@ -76,10 +75,9 @@ def test_dry_run_executes_nothing(monkeypatch):
     monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
     ex = _FakeExchange()
     e = _engine(_FakeInfo(), ex, live=False)
-    from hlvault.carry.engine import Action
     e._execute(Action("buy_spot", size=1.0))
-    e._execute(Action("to_perp", amount=100.0))
-    assert ex.orders == [] and ex.transfers == []
+    e._execute(Action("close_short", size=2.0))
+    assert ex.orders == []
 
 
 def test_execute_buy_spot_uses_spot_pair_and_rounding(monkeypatch):
@@ -89,7 +87,6 @@ def test_execute_buy_spot_uses_spot_pair_and_rounding(monkeypatch):
     monkeypatch.setattr(cfg, "SPOT_SZ_DECIMALS", 2)
     ex = _FakeExchange()
     e = _engine(_FakeInfo(mid=66.123456), ex, live=True)
-    from hlvault.carry.engine import Action
     e._execute(Action("buy_spot", size=1.23456))
     o = ex.orders[0]
     assert o["coin"] == "@107"
@@ -103,7 +100,6 @@ def test_execute_open_short_is_perp_not_reduce_only(monkeypatch):
     monkeypatch.setattr(cfg, "COIN", "HYPE")
     ex = _FakeExchange()
     e = _engine(_FakeInfo(mid=100.0), ex, live=True)
-    from hlvault.carry.engine import Action
     e._execute(Action("open_short", size=2.0))
     o = ex.orders[0]
     assert o["coin"] == "HYPE" and o["is_buy"] is False and o["reduce_only"] is False
@@ -114,20 +110,110 @@ def test_execute_close_short_is_reduce_only(monkeypatch):
     monkeypatch.setattr(cfg, "COIN", "HYPE")
     ex = _FakeExchange()
     e = _engine(_FakeInfo(mid=100.0, szi=-2.0, margin="100", withdrawable="50"), ex, live=True)
-    from hlvault.carry.engine import Action
     e._execute(Action("close_short", size=2.0))
     assert ex.orders[0]["reduce_only"] is True
 
 
-def test_transfer_calls_usd_class_transfer(monkeypatch):
+def test_unknown_action_kind_logs_error_and_does_not_raise(monkeypatch, caplog):
+    # to_perp/to_spot were removed from the vocabulary (agent keys cannot
+    # usdClassTransfer). If one ever reappears — planner/executor version
+    # skew — the executor must log an error and execute NOTHING, not crash
+    # the cycle or silently no-op.
     monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
     monkeypatch.setattr(cfg, "COIN", "HYPE")
     ex = _FakeExchange()
-    e = _engine(_FakeInfo(), ex, live=True)
-    from hlvault.carry.engine import Action
-    e._execute(Action("to_perp", amount=300.0))
-    e._execute(Action("to_spot", amount=50.0))
-    assert ex.transfers == [(300.0, True), (50.0, False)]
+    e = _engine(_FakeInfo(mid=100.0), ex, live=True)
+    with caplog.at_level("ERROR", logger="carry"):
+        e._execute(Action("to_perp", amount=300.0))
+        e._execute(Action("to_spot", amount=50.0))
+    assert ex.orders == []
+    assert "unknown action kind: to_perp" in caplog.text
+    assert "unknown action kind: to_spot" in caplog.text
+
+
+def test_defense_action_failure_alerts(monkeypatch):
+    # CLAUDE.md #3: a failed close_short/sell_spot is the liquidation-defense
+    # path — it must alert, not just log. Entry legs stay log-only.
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    monkeypatch.setattr(cfg, "COIN", "HYPE")
+    monkeypatch.setattr(cfg, "SPOT_PAIR", "@107")
+    alerts = []
+    monkeypatch.setattr("hlvault.carry.live.send_alert",
+                        lambda tok, chat, msg: alerts.append(msg) or True)
+
+    class _RejectingExchange(_FakeExchange):
+        def order(self, *a, **k):
+            raise RuntimeError("order rejected")
+
+    e = _engine(_FakeInfo(mid=100.0), _RejectingExchange(), live=True)
+    e._execute(Action("close_short", size=1.0))
+    e._execute(Action("sell_spot", size=1.0))
+    assert len(alerts) == 2 and all("DEFENSE ACTION FAILED" in m for m in alerts)
+    e._execute(Action("buy_spot", size=1.0))
+    e._execute(Action("open_short", size=1.0))
+    assert len(alerts) == 2   # entry-leg failures self-heal; log-only
+
+
+def test_manual_topup_alert_when_entry_blocked(monkeypatch, tmp_path):
+    # Flat wallet, funding ok, cash on spot — but zero perp margin: the
+    # transfer-free planner returns [] and ONLY a manual master-key transfer
+    # can fix it. run_once must alert the operator, at most once per day.
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    monkeypatch.setattr(cfg, "STATE_FILE", tmp_path / "s.json")
+    monkeypatch.setattr(cfg, "COIN", "HYPE")
+    monkeypatch.setattr(cfg, "SPOT_PAIR", "@107")
+    monkeypatch.setattr(cfg, "MIN_ORDER_NOTIONAL", 12.0)
+    monkeypatch.setattr(cfg, "MAX_SHORT_LEVERAGE", 2.0)
+    monkeypatch.setattr(cfg, "DEPLOY_FRACTION", 0.6)
+    alerts = []
+    monkeypatch.setattr("hlvault.carry.live.send_alert",
+                        lambda tok, chat, msg: alerts.append(msg) or True)
+    ex = _FakeExchange()
+    info = _FakeInfo(mid=100.0, spot_usdc=1000.0)   # all cash on spot side
+    e = _engine(info, ex, live=True,
+                state={"halted": False, "peak_equity": 0.0,
+                       "_alerted_this_halt": False, "_flatten_complete": False,
+                       "last_funding_check_ms": int(time.time() * 1000),
+                       "funding_ok": True, "last_manual_topup_alert_ms": 0})
+    e.run_once()
+    assert ex.orders == []           # nothing executable
+    assert len(alerts) == 1
+    assert "CARRY IDLE" in alerts[0]
+    assert "manual spot->perp transfer needed" in alerts[0]
+    assert "agent keys cannot transfer" in alerts[0]
+    assert "0xabc" in alerts[0]      # actionable: names the wallet
+    assert e.state["last_manual_topup_alert_ms"] > 0
+
+    e.run_once()                     # within the 24h window -> throttled
+    assert len(alerts) == 1
+
+    e.state["last_manual_topup_alert_ms"] -= 24 * 3600 * 1000 + 1
+    e.run_once()                     # window elapsed -> alerts again
+    assert len(alerts) == 2
+
+
+def test_no_topup_alert_when_perp_side_is_funded(monkeypatch, tmp_path):
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    monkeypatch.setattr(cfg, "STATE_FILE", tmp_path / "s.json")
+    monkeypatch.setattr(cfg, "COIN", "HYPE")
+    monkeypatch.setattr(cfg, "SPOT_PAIR", "@107")
+    monkeypatch.setattr(cfg, "MIN_ORDER_NOTIONAL", 12.0)
+    monkeypatch.setattr(cfg, "MAX_SHORT_LEVERAGE", 2.0)
+    monkeypatch.setattr(cfg, "DEPLOY_FRACTION", 0.6)
+    alerts = []
+    monkeypatch.setattr("hlvault.carry.live.send_alert",
+                        lambda tok, chat, msg: alerts.append(msg) or True)
+    ex = _FakeExchange()
+    info = _FakeInfo(mid=100.0, spot_usdc=685.0, withdrawable="315.0")
+    e = _engine(info, ex, live=True,
+                state={"halted": False, "peak_equity": 0.0,
+                       "_alerted_this_halt": False, "_flatten_complete": False,
+                       "last_funding_check_ms": int(time.time() * 1000),
+                       "funding_ok": True, "last_manual_topup_alert_ms": 0})
+    e.run_once()
+    assert alerts == []
+    # entry executed both legs instead: buy_spot then open_short
+    assert [o["coin"] for o in ex.orders] == ["@107", "HYPE"]
 
 
 def test_drawdown_halt_persists_before_flatten(monkeypatch, tmp_path):
@@ -173,16 +259,17 @@ def test_run_once_skips_planning_when_halted(monkeypatch, tmp_path):
     e = _engine(_FakeInfo(), ex, live=True,
                 state={"halted": True, "peak_equity": 1000.0,
                        "_alerted_this_halt": True, "_flatten_complete": True,
-                       "last_funding_check_ms": 0, "funding_ok": True})
+                       "last_funding_check_ms": 0, "funding_ok": True,
+                       "last_manual_topup_alert_ms": 0})
     e.run_once()
-    assert ex.orders == [] and ex.transfers == []
+    assert ex.orders == []
 
 
-def test_oversized_close_short_clamped_to_live_position(monkeypatch, tmp_path):
-    # Regression: engine.py's underwater branch (perp_equity < 0, nothing
-    # left to sell/transfer) plans close_short size = excess_ntl/mid, which
-    # EXCEEDS the live short — test_carry_engine.py documents the clamp as
-    # the live loop's job. Verify run_once bounds it by the real position.
+def test_underwater_short_closed_at_exact_position_size(monkeypatch, tmp_path):
+    # The transfer-free engine sizes the underwater close with
+    # max(perp_equity, 0) -> the plan equals the live short EXACTLY (the old
+    # engine's negative-equity math planned 4.0 against a 2.0 position).
+    # run_once must execute one reduce-only close of the full position.
     monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
     monkeypatch.setattr(cfg, "STATE_FILE", tmp_path / "s.json")
     monkeypatch.setattr(cfg, "COIN", "HYPE")
@@ -192,19 +279,45 @@ def test_oversized_close_short_clamped_to_live_position(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "REBALANCE_LEVERAGE", 2.5)
     ex = _FakeExchange()
     # short 2.0 @ mid 10 (ntl $20), perp equity 5-15+0 = -10 (underwater),
-    # no spot coin/USDC -> plan: close_short size = (20 - (-10*2.0))/10 = 4.0
+    # no spot coin/USDC -> paired unwind plans close_short 20/10 = 2.0 (full
+    # position) and skips the sell leg (nothing to sell)
     info = _FakeInfo(mid=10.0, spot_usdc=0.0, spot_hype=0.0, szi=-2.0,
                      margin="5", upnl="-15", withdrawable="0")
     e = _engine(info, ex, live=True,
                 state={"halted": False, "peak_equity": 0.0,
                        "_alerted_this_halt": False, "_flatten_complete": False,
                        "last_funding_check_ms": int(time.time() * 1000),
-                       "funding_ok": True})
+                       "funding_ok": True, "last_manual_topup_alert_ms": 0})
     e.run_once()
     assert len(ex.orders) == 1
     o = ex.orders[0]
     assert o["coin"] == "HYPE" and o["is_buy"] is True and o["reduce_only"] is True
-    assert o["size"] == 2.0   # clamped to live short, NOT the planned 4.0
+    assert o["size"] == 2.0
+
+
+def test_oversized_close_short_clamped_to_live_position(monkeypatch, tmp_path):
+    # Defense-in-depth clamp: the current engine never plans a close larger
+    # than the position, but a liquidation-defense path must not rely on the
+    # planner staying that way (nor on venue clipping). Inject an oversized
+    # plan directly and verify run_once bounds it by the real short.
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    monkeypatch.setattr(cfg, "STATE_FILE", tmp_path / "s.json")
+    monkeypatch.setattr(cfg, "COIN", "HYPE")
+    monkeypatch.setattr(cfg, "SPOT_PAIR", "@107")
+    monkeypatch.setattr(cfg, "MIN_ORDER_NOTIONAL", 12.0)
+    monkeypatch.setattr("hlvault.carry.live.plan_actions",
+                        lambda *a, **k: [Action("close_short", size=4.0)])
+    ex = _FakeExchange()
+    info = _FakeInfo(mid=10.0, spot_usdc=0.0, spot_hype=0.0, szi=-2.0,
+                     margin="5", upnl="-15", withdrawable="0")
+    e = _engine(info, ex, live=True,
+                state={"halted": False, "peak_equity": 0.0,
+                       "_alerted_this_halt": False, "_flatten_complete": False,
+                       "last_funding_check_ms": int(time.time() * 1000),
+                       "funding_ok": True, "last_manual_topup_alert_ms": 0})
+    e.run_once()
+    assert len(ex.orders) == 1
+    assert ex.orders[0]["size"] == 2.0   # clamped to live short, NOT the planned 4.0
 
 
 def test_second_halt_episode_alerts_and_flattens_again(monkeypatch, tmp_path):
@@ -237,7 +350,7 @@ def test_second_halt_episode_alerts_and_flattens_again(monkeypatch, tmp_path):
                 state={"halted": False, "peak_equity": 0.0,
                        "_alerted_this_halt": False, "_flatten_complete": False,
                        "last_funding_check_ms": int(time.time() * 1000),
-                       "funding_ok": True})
+                       "funding_ok": True, "last_manual_topup_alert_ms": 0})
 
     # episode 1: peak 1050, drop to 800 -> ~23.8% dd -> halt, flatten crashes
     assert e.check_drawdown() is False

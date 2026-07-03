@@ -2,9 +2,13 @@
 funding-gated, with liquidation-defense rebalancing. Cycle: snapshot ->
 drawdown gate -> hourly funding refresh -> plan_actions -> execute -> save.
 
-Transfers (usd_class_transfer) are NON-idempotent: executed with a single
-attempt through gridbot.resilience.run (no blind retry — a lost response
-self-corrects next cycle when the snapshot re-reads real balances)."""
+TRANSFER-FREE (discovered live 2026-07-03): agent/API keys cannot perform
+usdClassTransfer — it is a user-signed action requiring the master wallet
+key; the agent key gets "Must deposit before performing actions". The engine
+therefore only ever places spot/perp orders (see engine.py's paired
+unwind/grow design). When entry is blocked because the perp side holds no
+margin, only a manual master-key transfer can fix it — run_once alerts the
+operator (throttled to once per day)."""
 from __future__ import annotations
 
 import argparse
@@ -16,7 +20,7 @@ from hyperliquid.exchange import Exchange
 from hyperliquid.info import Info
 
 from hlvault.gridbot.exchange_utils import get_sz_decimals, round_price, round_size
-from hlvault.gridbot.resilience import ResilientExchange, run as resilient_run
+from hlvault.gridbot.resilience import ResilientExchange
 from hlvault.notify.telegram import send_alert
 
 from . import config as cfg
@@ -49,7 +53,6 @@ class CarryEngine:
         self.info = Info(cfg.HL_API_URL, skip_ws=True)
         raw = Exchange(account, cfg.HL_API_URL, account_address=cfg.WALLET_ADDRESS)
         self.exchange = ResilientExchange(raw)
-        self.exchange_raw = raw
         self.state = load_state(cfg.STATE_FILE)
 
     # ---- safety ------------------------------------------------------
@@ -155,21 +158,22 @@ class CarryEngine:
                 self._perp_order(False, action.size, mid, reduce_only=False)
             elif action.kind == "close_short":
                 self._perp_order(True, action.size, mid, reduce_only=True)
-            elif action.kind == "to_perp":
-                resilient_run(lambda: self.exchange_raw.usd_class_transfer(action.amount, True),
-                              what="usd_class_transfer", idempotent=False)
-            elif action.kind == "to_spot":
-                resilient_run(lambda: self.exchange_raw.usd_class_transfer(action.amount, False),
-                              what="usd_class_transfer", idempotent=False)
+            else:
+                # transfer kinds (to_perp/to_spot) were removed from the
+                # vocabulary — agent keys cannot usdClassTransfer. Anything
+                # unknown is a planner/executor version skew: log loudly,
+                # execute nothing.
+                logger.error(f"unknown action kind: {action.kind}")
+                return
             logger.info(f"executed {action}")
         except Exception as e:
             logger.error(f"action {action} failed: {e} (next cycle re-plans)")
-            # Defense-path failures must be loud (CLAUDE.md #3): sell_spot /
-            # to_perp / close_short are what the leverage-defense branch emits
-            # when the short is nearing liquidation — a silent failure there
-            # hides real exposure. Entry/recycle failures staying log-only is
-            # fine (they self-heal without risk). send_alert never raises.
-            if action.kind in ("sell_spot", "to_perp", "close_short"):
+            # Defense-path failures must be loud (CLAUDE.md #3): close_short /
+            # sell_spot are what the paired-unwind defense branch emits when
+            # the short is nearing liquidation — a silent failure there hides
+            # real exposure. Entry/grow failures staying log-only is fine
+            # (they self-heal without risk). send_alert never raises.
+            if action.kind in ("close_short", "sell_spot"):
                 send_alert(cfg.TELEGRAM_BOT_TOKEN, cfg.TELEGRAM_CHAT_ID,
                            f"CARRY DEFENSE ACTION FAILED: {action} — will retry next cycle")
 
@@ -208,13 +212,35 @@ class CarryEngine:
             delta_tolerance=cfg.DELTA_TOLERANCE,
             min_order_notional=cfg.MIN_ORDER_NOTIONAL,
         )
+        # Entry blocked because the perp side holds no margin: the wallet is
+        # flat, funding says enter, spot cash is waiting — but plan_actions
+        # returned [] because perp_equity * MAX_SHORT_LEVERAGE cannot fund
+        # even a min-notional short. No order fixes this and agent keys
+        # cannot usdClassTransfer, so it needs a human (CLAUDE.md #3: surface
+        # loudly, don't idle silently). Throttled to once per day.
+        perp_equity = s.perp_margin_used + s.perp_upnl + s.perp_withdrawable
+        if (not actions and is_ok
+                and s.perp_short_ntl <= cfg.MIN_ORDER_NOTIONAL
+                and s.spot_usdc > 2 * cfg.MIN_ORDER_NOTIONAL
+                and perp_equity * cfg.MAX_SHORT_LEVERAGE <= cfg.MIN_ORDER_NOTIONAL):
+            now_ms = int(time.time() * 1000)
+            if now_ms - self.state.get("last_manual_topup_alert_ms", 0) >= 24 * 3600 * 1000:
+                suggested = s.spot_usdc * cfg.DEPLOY_FRACTION / cfg.MAX_SHORT_LEVERAGE
+                send_alert(cfg.TELEGRAM_BOT_TOKEN, cfg.TELEGRAM_CHAT_ID,
+                           "CARRY IDLE: perp side has no margin; manual spot->perp "
+                           "transfer needed (agent keys cannot transfer). "
+                           f"In the Hyperliquid UI for {cfg.WALLET_ADDRESS}, transfer "
+                           f"~${suggested:,.2f} USDC from spot to perp "
+                           f"(spot USDC ${s.spot_usdc:,.2f} sitting idle).")
+                self.state["last_manual_topup_alert_ms"] = now_ms
+                save_state(cfg.STATE_FILE, self.state)
         for a in actions:
-            # Clamp close_short to the live short: engine.py's underwater
-            # branch can plan a close LARGER than the position (negative perp
-            # equity inflates excess_ntl; test_carry_engine.py documents the
-            # clamp as the live loop's job). The venue would likely clip a
-            # reduce-only order anyway, but a liquidation-defense path must
-            # not rely on venue behavior. Action is frozen -> build a new one.
+            # Clamp close_short to the live short (defense-in-depth): the
+            # transfer-free engine sizes the underwater close with
+            # max(perp_equity, 0), so its plans never exceed the position —
+            # but a liquidation-defense path must not rely on the planner
+            # staying that way, nor on the venue clipping a reduce-only
+            # order. Action is frozen -> build a new one.
             if a.kind == "close_short" and a.size > s.perp_short_size > 0:
                 a = Action("close_short", size=s.perp_short_size)
             self._execute(a)
