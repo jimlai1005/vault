@@ -21,6 +21,14 @@ Hyperliquid 量化交易 monorepo。**這個 repo 管理實盤資金**——先�
 - `deploy/` — systemd service 檔與部署腳本（碰錢，見紅線）。
 - `tests/` — pytest。用 `.venv`：`source .venv/bin/activate` 或 `.venv/bin/pytest`。
 
+## Hyperliquid／資料 API 事實（實測查證 2026-07-04，引擎設計前先讀）
+
+- Agent/API key **不能**做 usdClassTransfer／提領等 user-signed actions（要 master key）——設計不得依賴程式自動做 spot↔perp 劃轉。
+- `withdrawable` 已內含 unrealizedPnl；`accountValue == totalMarginUsed + withdrawable` **僅在無掛單時**成立（掛單保證金令 accountValue 波動＝gridbot 幻影回撤事故根源）。
+- equity basis 依錢包形態各異（三次事故教訓，見全域工程原則第 1 條）：重用任何 basis 前，先盤點該錢包價值躺在哪幾個桶（spot 現金/spot 幣/perp 部位/perp 自由保證金/掛單保證金），每桶恰好算一次，並與網站顯示總值對帳。
+- 現貨價格規則 ≤5 有效位且 ≤(8−szDecimals) 小數；永續是 (6−szDecimals)。HYPE/USDC spot pair = `"@107"`。
+- candleSnapshot 單次上限 ~5000 根；Binance OI/多空比免費層僅 ~30 天；Coinalyze free（key 在 `.env.research`，header `api_key`，時間戳為**秒**）歷史約 335 天、40 req/min。
+
 ## 慣例
 
 - 研究子專案流程：spec（docs/superpowers/specs/）→ 研究腳本（scripts/）→ verdict 報告（reports/）→ commit。
