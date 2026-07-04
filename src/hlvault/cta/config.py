@@ -80,6 +80,10 @@ MAX_HOLD_DAYS = _env_float("MAX_HOLD_DAYS", "14")
 
 # ---- sizing / risk ----------------------------------------------------
 NOTIONAL_PER_TRADE = _env_float("NOTIONAL_PER_TRADE", "100")
+# Structural entry cap (owner-approved sizing-ladder guard): a NEW entry is
+# refused when total account notional would exceed this multiple of equity.
+# Entries only — exits/stops/orphan flattening are never gated.
+MAX_GROSS_LEVERAGE = _env_float("MAX_GROSS_LEVERAGE", "2.0")
 MAX_DRAWDOWN_PCT = _env_float("MAX_DRAWDOWN_PCT", "0.20")
 MIN_ORDER_NOTIONAL = _env_float("MIN_ORDER_NOTIONAL", "12")
 ORDER_SLIPPAGE = _env_float("ORDER_SLIPPAGE", "0.05")

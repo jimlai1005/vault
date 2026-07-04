@@ -213,6 +213,35 @@ class CtaEngine:
         # immediate per-entry/per-exit save_state calls persist the live dict.
         entries = self.state.setdefault("entries", {})
 
+        # Structural gross-leverage entry cap (owner-approved sizing-ladder
+        # guard): computed ONCE per rebalance from the same assetPositions
+        # snapshot the cycle trades on. gross counts EVERY position on the
+        # account — not just the universe: a foreign/manual position is real
+        # risk too — priced by a single all_mids() call. A coin all_mids
+        # cannot price contributes $0 to gross (logged loudly): understating
+        # gross only loosens a cap that blocks NEW entries; it can never block
+        # a risk-reducing exit, so the tolerant direction is deliberate.
+        # equity comes from risk.account_equity — the ONE wallet-shape-specific
+        # basis the MDD breaker also uses (engineering principle #1).
+        equity = risk.account_equity(self.info, cfg.WALLET_ADDRESS)
+        mids = self.info.all_mids()
+        gross = 0.0
+        for p in user_state.get("assetPositions", []):
+            pos = p["position"]
+            sz = abs(float(pos["szi"]))
+            if sz < 1e-9:
+                continue
+            try:
+                mid = float(mids.get(pos["coin"]) or 0.0)
+            except (TypeError, ValueError):
+                mid = 0.0
+            if mid <= 0:
+                logger.warning(f"{pos['coin']}: no mid for gross-notional calc — "
+                               "counting $0 for this coin (entry cap runs looser this cycle)")
+                continue
+            gross += sz * mid
+        gross_state = {"equity": equity, "gross": gross}
+
         self._reconcile_orphans(pos_by_coin, entries)
 
         for coin in cfg.COIN_UNIVERSE:
@@ -220,7 +249,7 @@ class CtaEngine:
             # data hiccup, anything in its path) must not abort exit/stop
             # management for every OTHER coin this cycle.
             try:
-                self._process_coin(coin, feed, pos_by_coin, entries, now_ms)
+                self._process_coin(coin, feed, pos_by_coin, entries, now_ms, gross_state)
             except Exception:
                 logger.exception(f"{coin}: cycle processing failed; continuing with next coin")
 
@@ -230,10 +259,14 @@ class CtaEngine:
         save_state(cfg.STATE_FILE, self.state)
 
     def _process_coin(self, coin: str, feed, pos_by_coin: dict, entries: dict,
-                      now_ms: int) -> None:
+                      now_ms: int, gross_state: dict) -> None:
         """One coin's rebalance step: manage exits/stops on an existing
         position first, then consider a fresh entry. `entries` aliases
-        self.state["entries"] so the immediate save_state calls persist it."""
+        self.state["entries"] so the immediate save_state calls persist it.
+        `gross_state` ({"equity", "gross"}) is the cycle-wide gross-leverage
+        budget shared across ALL coins this rebalance: each confirmed open
+        charges NOTIONAL_PER_TRADE against it, so several same-cycle signals
+        cannot jointly blow through MAX_GROSS_LEVERAGE."""
         crowd_window_bars = cfg.CROWD_WINDOW_DAYS * cfg.BARS_PER_DAY
         crowd_warmup_bars = cfg.CROWD_WARMUP_DAYS * cfg.BARS_PER_DAY
         fuel_lb_bars = max(1, round(cfg.FUEL_LOOKBACK_HOURS / 24 * cfg.BARS_PER_DAY))
@@ -354,6 +387,21 @@ class CtaEngine:
         if not risk.atr_gate_ok(sig["atr"]):
             logger.info(f"{coin}: no valid ATR, skipping entry")
             return
+        # Structural gross-leverage entry cap: a NEW entry must never push
+        # total account notional beyond MAX_GROSS_LEVERAGE x equity. Applies
+        # ONLY to entries — the exit/stop/orphan paths above are risk-reducing
+        # and are never gated. Non-positive equity is treated as over-limit
+        # (an empty or broken equity read must fail toward NOT opening).
+        if gross_state["equity"] <= 0:
+            logger.error(f"{coin}: equity ${gross_state['equity']:,.2f} <= 0 — "
+                         "gross-leverage cap treats this as over-limit, skipping entry")
+            return
+        if gross_state["gross"] + cfg.NOTIONAL_PER_TRADE > cfg.MAX_GROSS_LEVERAGE * gross_state["equity"]:
+            logger.info(f"{coin}: gross-leverage cap — gross ${gross_state['gross']:,.2f} "
+                        f"+ ${cfg.NOTIONAL_PER_TRADE:,.2f} would exceed "
+                        f"{cfg.MAX_GROSS_LEVERAGE:g}x equity ${gross_state['equity']:,.2f}; "
+                        "skipping entry")
+            return
         atr = sig["atr"]
         size = risk.position_size(cfg.NOTIONAL_PER_TRADE, mid)
         if size <= 0:
@@ -361,6 +409,9 @@ class CtaEngine:
         if not self._place_order(coin, is_buy=(d == 1), size=size, reduce_only=False):
             logger.warning(f"{coin}: open not confirmed placed — NOT recording entry")
             return
+        # Confirmed open: charge it against the cycle's gross budget so the
+        # NEXT coin's cap check sees it (same-cycle accumulation).
+        gross_state["gross"] += cfg.NOTIONAL_PER_TRADE
         entries[coin] = {"dir": d, "entry_px": mid,
                          "stop": risk.stop_level(d, mid, atr, cfg.STOP_ATR_MULT),
                          "entry_ms": now_ms}

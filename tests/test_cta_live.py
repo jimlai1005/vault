@@ -1,3 +1,4 @@
+import logging
 import time
 
 import pandas as pd
@@ -675,3 +676,120 @@ def test_missing_stop_still_allows_maxhold_exit(monkeypatch, tmp_path):
     assert ("BTC", 1.0) in ex.closed              # max-hold exit fired
     assert "BTC" not in e.state["entries"]
     assert any("stop" in m.lower() for m in alerts)  # anomaly still reported
+
+
+# ---- MAX_GROSS_LEVERAGE structural entry cap -------------------------------
+
+class _FreshShortData:
+    """Feed stub: fresh short-signal frame for every coin."""
+
+    def __init__(self, coins, lookback_bars):
+        pass
+
+    def frame_for(self, coin):
+        return _short_signal_frame()
+
+    def is_coin_stale(self, coin, staleness_hours):
+        return False
+
+
+def _cap_cfg(monkeypatch, tmp_path, universe=("BTC",)):
+    _rebalance_cfg(monkeypatch, tmp_path, universe=universe)
+    monkeypatch.setattr(cfg, "ENABLE_LONG", False)
+    monkeypatch.setattr(cfg, "ENABLE_SHORT", True)
+    monkeypatch.setattr(cfg, "NOTIONAL_PER_TRADE", 100.0)
+    monkeypatch.setattr(cfg, "MAX_GROSS_LEVERAGE", 2.0)
+    # No alert should fire in these tests, but the exit/orphan paths CAN
+    # alert — mute structurally so a real token in .env.cta can never be used
+    # (tests must not touch the real world).
+    monkeypatch.setattr("hlvault.cta.live.send_alert", lambda tok, chat, msg: None)
+    from hlvault.cta import data as data_mod
+    monkeypatch.setattr(data_mod, "CtaData", _FreshShortData)
+
+
+def test_gross_cap_blocks_new_entry_but_never_exits(monkeypatch, tmp_path, caplog):
+    # (a) gross already over the cap -> the fresh BTC short is NOT opened,
+    # while SOL's breached stop still closes (exits are risk-reducing and are
+    # never gated). The ETH position is OUTSIDE the universe on purpose:
+    # foreign/manual positions are real risk and must count toward gross.
+    _cap_cfg(monkeypatch, tmp_path, universe=("BTC", "SOL"))
+
+    ex = _FakeExchange()
+    info = _FakeInfo(mid=50.0, spot_usdc=1000.0, positions=[
+        {"coin": "SOL", "szi": "-1.0", "marginUsed": "10", "unrealizedPnl": "0"},
+        {"coin": "ETH", "szi": "-50.0", "marginUsed": "40", "unrealizedPnl": "0"},
+    ])
+    # equity = 1000 spot + 50 marginUsed + 0 withdrawable = $1050 -> cap $2100
+    # gross  = |-1|*50 (SOL) + |-50|*50 (ETH) = $2550 -> already over the cap
+    e = _engine(info, ex, live=True,
+                state={"halted": False, "peak_equity": 1050.0, "_alerted_this_halt": False,
+                       "_flatten_complete": False, "last_rebalance_ms": 0,
+                       "entries": {"SOL": {"dir": -1, "entry_px": 100.0, "stop": 40.0,
+                                           "entry_ms": int(time.time() * 1000)}}})
+    with caplog.at_level(logging.INFO, logger="cta"):
+        e.maybe_rebalance()
+
+    assert [o for o in ex.orders if not o["reduce_only"]] == []   # BTC entry blocked
+    assert ("SOL", 1.0) in ex.closed                              # stop exit still fired
+    assert "BTC" not in e.state["entries"]
+    assert "SOL" not in e.state["entries"]                        # exit bookkeeping cleared
+    assert any("gross-leverage cap" in r.message and "BTC" in r.message
+               for r in caplog.records)
+
+
+def test_gross_cap_accumulates_within_one_cycle(monkeypatch, tmp_path, caplog):
+    # (b) two fresh signals in ONE cycle: equity $75 -> cap $150. BTC's $100
+    # open fits; it must be charged against the cycle budget immediately so
+    # ETH's $100 (cumulative $200 > $150) is blocked. Without same-cycle
+    # accumulation both checks would pass independently and blow the cap.
+    _cap_cfg(monkeypatch, tmp_path, universe=("BTC", "ETH"))
+
+    ex = _FakeExchange()
+    e = _engine(_FakeInfo(mid=50.0, positions=[], spot_usdc=75.0, sz_decimals=3),
+                ex, live=True)
+    with caplog.at_level(logging.INFO, logger="cta"):
+        e.maybe_rebalance()
+
+    opens = [o for o in ex.orders if not o["reduce_only"]]
+    assert len(opens) == 1 and opens[0]["coin"] == "BTC"
+    assert "BTC" in e.state["entries"] and "ETH" not in e.state["entries"]
+    assert any("gross-leverage cap" in r.message and "ETH" in r.message
+               for r in caplog.records)
+
+
+def test_gross_cap_zero_equity_blocks_entry_without_exception(monkeypatch, tmp_path, caplog):
+    # (d) equity == 0 (empty wallet): the cap must treat it as over-limit —
+    # no entry, an ERROR log, and NO exception. The per-coin isolation wrapper
+    # logs "cycle processing failed" on any raise, so its absence proves the
+    # guard path is exception-free (a naive division by equity would raise).
+    _cap_cfg(monkeypatch, tmp_path, universe=("BTC",))
+
+    ex = _FakeExchange()
+    e = _engine(_FakeInfo(mid=50.0, positions=[], spot_usdc=0.0), ex, live=True)
+    with caplog.at_level(logging.INFO, logger="cta"):
+        e.maybe_rebalance()
+
+    assert ex.orders == [] and e.state["entries"] == {}
+    assert any(r.levelno == logging.ERROR and "BTC" in r.message
+               and "equity" in r.message for r in caplog.records)
+    assert not any("cycle processing failed" in r.message for r in caplog.records)
+
+
+def test_gross_cap_missing_mid_counts_zero_and_warns(monkeypatch, tmp_path, caplog):
+    # A position in a coin all_mids cannot price contributes $0 to gross (with
+    # a loud warning) instead of crashing the cycle. Understating gross only
+    # loosens an entry-blocking cap — it can never block a risk-reducing exit —
+    # so the tolerant direction is deliberate.
+    _cap_cfg(monkeypatch, tmp_path, universe=("BTC",))
+
+    ex = _FakeExchange()
+    info = _FakeInfo(mid=50.0, spot_usdc=1000.0, positions=[
+        {"coin": "FOO", "szi": "-1000.0", "marginUsed": "0", "unrealizedPnl": "0"}])
+    e = _engine(info, ex, live=True)
+    with caplog.at_level(logging.INFO, logger="cta"):
+        e.maybe_rebalance()
+
+    opens = [o for o in ex.orders if not o["reduce_only"]]
+    assert len(opens) == 1 and opens[0]["coin"] == "BTC"   # cap evaluated on gross=0
+    assert any(r.levelno == logging.WARNING and "FOO" in r.message
+               for r in caplog.records)
