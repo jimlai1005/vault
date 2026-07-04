@@ -8,17 +8,30 @@ from hlvault.cta.live import CtaEngine
 
 
 class _FakeInfo:
-    def __init__(self, mid=100.0, positions=None, spot_usdc=1000.0, sz_decimals=3):
+    def __init__(self, mid=100.0, positions=None, spot_usdc=1000.0, sz_decimals=3,
+                 free_collateral=0.0):
         self.mid = mid
         self._positions = positions or []
         self._spot_usdc = spot_usdc
         self._sz = sz_decimals
+        self._free = free_collateral
 
     def all_mids(self):
         return {c: str(self.mid) for c in ("BTC", "ETH", "SOL", "HYPE", "DOGE", "XRP")}
 
     def user_state(self, address):
-        return {"assetPositions": [{"position": p} for p in self._positions]}
+        # Honour the on-chain verified no-resting-orders identity (this engine
+        # is IoC-only): withdrawable ALREADY includes unrealizedPnl, and
+        # accountValue == totalMarginUsed + withdrawable.
+        margin_used = sum(float(p.get("marginUsed", 0.0)) for p in self._positions)
+        upnl = sum(float(p.get("unrealizedPnl", 0.0)) for p in self._positions)
+        withdrawable = self._free + upnl
+        return {
+            "assetPositions": [{"position": p} for p in self._positions],
+            "marginSummary": {"totalMarginUsed": str(margin_used),
+                              "accountValue": str(margin_used + withdrawable)},
+            "withdrawable": str(withdrawable),
+        }
 
     def spot_user_state(self, address):
         return {"balances": [{"coin": "USDC", "total": str(self._spot_usdc)}]}
@@ -117,7 +130,10 @@ def test_drawdown_halt_persists_before_flatten(monkeypatch, tmp_path):
             calls["n"] += 1
             eq = 1000.0 if calls["n"] == 1 else 790.0
             return {"assetPositions": [{"position": {"coin": "BTC", "szi": "-0.5",
-                    "marginUsed": str(eq), "unrealizedPnl": "0"}}]}
+                    "marginUsed": str(eq), "unrealizedPnl": "0"}}],
+                    "marginSummary": {"totalMarginUsed": str(eq),
+                                      "accountValue": str(eq)},
+                    "withdrawable": "0"}
 
         def spot_user_state(self, address):
             return {"balances": []}
@@ -174,7 +190,10 @@ def test_second_halt_episode_alerts_and_flattens_again(monkeypatch, tmp_path):
     class _DropInfo(_FakeInfo):
         def user_state(self, address):
             return {"assetPositions": [{"position": {"coin": "BTC", "szi": "-0.5",
-                    "marginUsed": str(equities["v"]), "unrealizedPnl": "0"}}]}
+                    "marginUsed": str(equities["v"]), "unrealizedPnl": "0"}}],
+                    "marginSummary": {"totalMarginUsed": str(equities["v"]),
+                                      "accountValue": str(equities["v"])},
+                    "withdrawable": "0"}
 
         def spot_user_state(self, address):
             return {"balances": []}

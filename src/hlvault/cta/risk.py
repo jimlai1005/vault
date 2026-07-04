@@ -1,13 +1,13 @@
 """Position sizing, the strategy-level 2xATR hard stop, and the portfolio MDD
 circuit breaker for the CTA engine.
 
-Equity basis (CLAUDE.md #1): the MDD breaker's current and peak equity both
-come from ONE call to gridbot.exchange_utils.get_account_equity (spot USDC +
-sum(marginUsed + unrealizedPnl) across perp positions). This wallet holds only
-USDC + HL perp positions (no spot-coin leg), so that basis is exactly right —
-this is deliberately NOT carry's spot-coin-inclusive basis, and it does NOT add
-`withdrawable` (adding withdrawable + margin + upnl is precisely the carry
-double-count bug fixed 2026-07-04). Reuse get_account_equity; do not hand-roll.
+Equity basis (CLAUDE.md #1 — wallet-shape-specific, three incidents deep; see
+account_equity's docstring for the full history): the MDD breaker's current and
+peak equity both come from ONE function, account_equity (spot USDC + perp
+totalMarginUsed + perp withdrawable). This is deliberately NOT gridbot's basis
+(blind to perp free collateral, which this wallet holds) and NOT carry's basis
+(which adds a spot-coin leg this wallet does not have), and it adds NO separate
+upnl term (withdrawable already contains it — the carry double-count bug).
 
 ATR entry gate (CLAUDE.md, and a hard requirement): signals.atr() returns NaN
 during the warmup window and can only be non-negative. Sizing/stop math that
@@ -19,8 +19,6 @@ manufacture a tradeable stop level."""
 from __future__ import annotations
 
 import logging
-
-from hlvault.gridbot.exchange_utils import get_account_equity
 
 logger = logging.getLogger("cta")
 
@@ -72,9 +70,54 @@ def stop_hit(direction: int, stop: float, price: float) -> bool:
 
 
 def account_equity(info, address: str) -> float:
-    """Single equity basis for this wallet — see module docstring. Reused
-    verbatim from gridbot (spot USDC + Σ marginUsed+upnl); no `withdrawable`."""
-    return get_account_equity(info, address)
+    """CTA-wallet equity: spot USDC + perp totalMarginUsed + perp withdrawable.
+
+    The equity basis is WALLET-SHAPE-SPECIFIC (engineering principle #1: the
+    MDD breaker compares current against peak, so both must come from this one
+    function, AND the basis must count every bucket this wallet's value lives
+    in exactly once). Three equity-basis incidents shaped this formula:
+
+    1. carry's phantom 41.9% drawdown (mixed sources): current equity and peak
+       equity were assembled from different endpoints with different bases.
+       Fix here: current and peak both flow from this single function.
+    2. carry's double-count (2026-07-04): `withdrawable` ALREADY includes
+       unrealizedPnl — verified on-chain (carry wallet: accountValue 281.13 ==
+       totalMarginUsed 63.34 + withdrawable 217.79, with upnl -28.41 already
+       inside withdrawable). So this formula adds NO separate upnl term;
+       adding one counts floating pnl twice.
+    3. gridbot's phantom 23.6% drawdown (resting orders): with resting orders,
+       accountValue swings with order-margin reservations and the identity
+       accountValue == totalMarginUsed + withdrawable BREAKS (resting-order
+       margin sits in neither bucket). That forced gridbot to hand-roll
+       spot USDC + Σ per-position (marginUsed + upnl) — a basis that is BLIND
+       to perp free collateral. This wallet parks part of its idle USDC as
+       perp free collateral (measured ~$281 = 28% of the account), so reusing
+       gridbot's basis here understated equity by 28% and anchored the MDD
+       peak too low: the third incident, fixed by this function.
+
+    Precondition (why the formula is safe HERE): this engine trades IoC-only
+    and never rests orders, so the no-resting-orders identity holds and
+    spot USDC + totalMarginUsed + withdrawable == spot USDC + accountValue —
+    assembled from the two fields whose semantics were verified on-chain
+    rather than from accountValue directly. If an operator manually rests an
+    order on this wallet, that order's margin drops out of BOTH fields and
+    equity is understated — the breaker would trip early (conservative, not
+    dangerous, but be aware).
+
+    No spot-coin leg: this wallet holds no spot coins (counting them is
+    carry's basis, not ours). Strict key access on marginSummary/withdrawable
+    is deliberate: a missing bucket must fail loudly (principle #3), because a
+    silent 0.0 default IS this incident class."""
+    perp = info.user_state(address)
+    margin_used = float(perp["marginSummary"]["totalMarginUsed"])
+    withdrawable = float(perp["withdrawable"])
+    spot = info.spot_user_state(address)
+    spot_usdc = 0.0
+    for bal in spot.get("balances", []):
+        if bal.get("coin") == "USDC":
+            spot_usdc = float(bal.get("total", 0.0))
+            break
+    return spot_usdc + margin_used + withdrawable
 
 
 def check_drawdown(info, address: str, state: dict, max_drawdown_pct: float):
