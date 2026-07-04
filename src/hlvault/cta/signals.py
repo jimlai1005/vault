@@ -108,6 +108,9 @@ def compute_signals(bars: pd.DataFrame, *, ema_fast: int, ema_slow: int,
         "fuel": fuel_ok(bars["oi_level"], fuel_lookback_bars),
         "atr": float(atr_last) if not np.isnan(atr_last) else float("nan"),
         "close": float(bars["close"].iloc[-1]),
+        # observability only (live per-rebalance log); not a decision input —
+        # decide() consumes the boolean crowd flags above
+        "crowd_pct": float(last_pct) if not np.isnan(last_pct) else float("nan"),
     }
 
 

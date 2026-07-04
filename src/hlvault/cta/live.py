@@ -338,6 +338,14 @@ class CtaEngine:
         decision = signals.decide(
             sig["trend_up"], sig["trend_dn"], sig["crowd_long"], sig["crowd_short"],
             sig["fuel"], enable_long=cfg.ENABLE_LONG, enable_short=cfg.ENABLE_SHORT)
+        # One INFO line per coin per rebalance: a forward-test engine that only
+        # logs on actions is unverifiable for days at a time (entries are rare
+        # by design, ~every other day across the universe in the backtest).
+        logger.info(
+            f"{coin}: decision={decision} trend={'up' if sig['trend_up'] else 'dn' if sig['trend_dn'] else '-'} "
+            f"crowd_pct={sig.get('crowd_pct', float('nan')):.1f} "
+            f"crowd={'L' if sig['crowd_long'] else 'S' if sig['crowd_short'] else '-'} "
+            f"fuel={sig['fuel']} atr={sig['atr']:.4g} mid={mid:.6g}")
         if decision == "flat" or mid <= 0:
             return
         d = -1 if decision == "short" else 1
