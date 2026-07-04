@@ -585,3 +585,93 @@ def test_maxhold_exit_fires_when_sig_none(monkeypatch, tmp_path):
     e.maybe_rebalance()
     assert ("BTC", 1.0) in ex.closed
     assert "BTC" not in e.state["entries"]
+
+
+# ---- F4: MIN_ORDER_NOTIONAL gate ------------------------------------------
+
+def test_min_notional_gate_blocks_sub_minimum_open(monkeypatch):
+    # A new open whose rounded notional is below MIN_ORDER_NOTIONAL must not
+    # be submitted (the venue would reject it anyway) and must return False so
+    # the caller never records entry bookkeeping for it.
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    monkeypatch.setattr(cfg, "MIN_ORDER_NOTIONAL", 12.0)
+    ex = _FakeExchange()
+    e = _engine(_FakeInfo(mid=50.0, sz_decimals=3), ex, live=True)
+    # 0.2 * $50 = $10 < $12 -> refused
+    assert e._place_order("BTC", is_buy=False, size=0.2, reduce_only=False) is False
+    assert ex.orders == []
+    # 0.3 * $50 = $15 >= $12 -> placed
+    assert e._place_order("BTC", is_buy=False, size=0.3, reduce_only=False) is True
+    assert len(ex.orders) == 1
+
+
+def test_min_notional_gate_does_not_block_reduce_only_close(monkeypatch):
+    # The gate must NOT apply to reduce-only closes: a position that drifted
+    # below the minimum notional must always remain closable.
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    monkeypatch.setattr(cfg, "MIN_ORDER_NOTIONAL", 12.0)
+    ex = _FakeExchange()
+    e = _engine(_FakeInfo(mid=50.0, sz_decimals=3), ex, live=True)
+    # same sub-minimum notional ($10), but reduce-only -> allowed through
+    assert e._place_order("BTC", is_buy=True, size=0.2, reduce_only=True) is True
+    assert len(ex.orders) == 1 and ex.orders[0]["reduce_only"] is True
+
+
+# ---- latent trap: missing/non-finite stop in entries -----------------------
+
+@pytest.mark.parametrize("entry", [
+    {"dir": -1, "entry_px": 100.0},                          # stop key missing
+    {"dir": -1, "entry_px": 100.0, "stop": float("nan")},    # NaN stop
+    {"dir": -1, "entry_px": 100.0, "stop": float("-inf")},   # non-finite stop
+])
+def test_missing_stop_alerts_and_skips_stop_check(monkeypatch, tmp_path, entry):
+    # ent.get("stop", 0.0) was a latent trap: for a SHORT, stop_hit(-1, 0.0,
+    # mid) is True at ANY positive mid, so a missing stop would instantly
+    # force-close a healthy position. A missing/non-finite stop is a
+    # bookkeeping anomaly: alert loudly, skip the stop check, keep the entry
+    # (max-hold and signal exits stay active).
+    _rebalance_cfg(monkeypatch, tmp_path)
+    alerts = []
+    monkeypatch.setattr("hlvault.cta.live.send_alert",
+                        lambda tok, chat, msg: alerts.append(msg))
+    from hlvault.cta import data as data_mod
+    monkeypatch.setattr(data_mod, "CtaData", _NoData)
+
+    ex = _FakeExchange()
+    info = _FakeInfo(mid=100.0, positions=[{"coin": "BTC", "szi": "-1.0",
+                     "marginUsed": "50", "unrealizedPnl": "0"}])
+    ent = dict(entry, entry_ms=int(time.time() * 1000))
+    e = _engine(info, ex, live=True,
+                state={"halted": False, "peak_equity": 1000.0, "_alerted_this_halt": False,
+                       "_flatten_complete": False, "last_rebalance_ms": 0,
+                       "entries": {"BTC": ent}})
+    e.maybe_rebalance()
+    assert ex.closed == []                        # NOT force-closed on the bogus stop
+    assert "BTC" in e.state["entries"]            # bookkeeping retained
+    assert any("BTC" in m and "stop" in m.lower() for m in alerts)  # loud
+
+
+def test_missing_stop_still_allows_maxhold_exit(monkeypatch, tmp_path):
+    # The anomaly path must only disable the STOP check — the sig-independent
+    # max-hold exit still protects the position.
+    _rebalance_cfg(monkeypatch, tmp_path)
+    monkeypatch.setattr(cfg, "MAX_HOLD_DAYS", 14.0)
+    alerts = []
+    monkeypatch.setattr("hlvault.cta.live.send_alert",
+                        lambda tok, chat, msg: alerts.append(msg))
+    from hlvault.cta import data as data_mod
+    monkeypatch.setattr(data_mod, "CtaData", _NoData)
+
+    ex = _FakeExchange()
+    info = _FakeInfo(mid=100.0, positions=[{"coin": "BTC", "szi": "-1.0",
+                     "marginUsed": "50", "unrealizedPnl": "0"}])
+    fifteen_days_ago = int(time.time() * 1000) - 15 * 86400_000
+    e = _engine(info, ex, live=True,
+                state={"halted": False, "peak_equity": 1000.0, "_alerted_this_halt": False,
+                       "_flatten_complete": False, "last_rebalance_ms": 0,
+                       "entries": {"BTC": {"dir": -1, "entry_px": 100.0,
+                                           "entry_ms": fifteen_days_ago}}})
+    e.maybe_rebalance()
+    assert ("BTC", 1.0) in ex.closed              # max-hold exit fired
+    assert "BTC" not in e.state["entries"]
+    assert any("stop" in m.lower() for m in alerts)  # anomaly still reported

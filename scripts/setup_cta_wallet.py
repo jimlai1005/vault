@@ -38,7 +38,7 @@ def main() -> None:
                       if abs(float(p["position"]["szi"])) > 1e-9]
 
     print(f"CTA wallet {cfg.WALLET_ADDRESS}")
-    print(f"  account equity (USDC + perp margin+upnl): ${equity:,.2f}")
+    print(f"  account equity (spot USDC + perp marginUsed + withdrawable): ${equity:,.2f}")
     print(f"  spot USDC: ${spot_usdc:,.2f}")
     print(f"  open perp positions: {open_positions or 'none'}")
     print(f"  NOTIONAL_PER_TRADE ${cfg.NOTIONAL_PER_TRADE:,.0f} -> "

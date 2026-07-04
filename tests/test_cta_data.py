@@ -51,7 +51,7 @@ def test_build_frame_joins_klines_with_oi_and_long_pct():
     kl = data.parse_klines(_klines(60, start_ms))
     oi = data.parse_coinalyze_oi(_coinalyze_hist(60, start_s, "oi"))
     lp = data.parse_coinalyze_long_pct(_coinalyze_hist(60, start_s, "lsr"))
-    frame = data.build_frame(kl, oi, lp, rule="4h")
+    frame = data.build_frame(kl, oi, lp)
     assert {"open", "high", "low", "close", "oi_level", "long_pct"} <= set(frame.columns)
     assert frame["oi_level"].notna().any()
     assert frame["long_pct"].notna().any()

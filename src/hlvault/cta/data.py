@@ -126,8 +126,8 @@ def parse_coinalyze_long_pct(payload: list) -> pd.Series:
 
 
 # ---------------------------------------------------------------- assemble
-def build_frame(klines: pd.DataFrame, oi: pd.Series, long_pct: pd.Series,
-                rule: str) -> pd.DataFrame:
+def build_frame(klines: pd.DataFrame, oi: pd.Series,
+                long_pct: pd.Series) -> pd.DataFrame:
     """Join klines with per-bar OI (last-of-period) and long-% (mean-of-period),
     keeping only bars covered by Coinalyze data — matches the backtest's
     bar_frame. Returns a frame with columns open/high/low/close/oi_level/
@@ -209,7 +209,7 @@ class CtaData:
         oi = parse_coinalyze_oi(fetch_coinalyze("/open-interest-history", sym, start_s, end_s))
         lp = parse_coinalyze_long_pct(fetch_coinalyze("/long-short-ratio-history", sym, start_s, end_s))
 
-        frame = build_frame(klines, oi, lp, rule=cfg.TIMEFRAME)
+        frame = build_frame(klines, oi, lp)
         self._frames[coin] = frame
         self._freshness[coin] = {
             "klines_last": klines.index.max() if len(klines) else None,

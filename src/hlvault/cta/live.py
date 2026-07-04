@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import math
 import time
 
 from eth_account import Account
@@ -146,6 +147,15 @@ class CtaEngine:
             if sz <= 0:
                 logger.warning(f"{coin}: size {size} rounds to zero, skipping order")
                 return False
+            # Minimum-notional gate for NEW opens only: the venue rejects
+            # sub-minimum orders anyway, so refuse locally and return False
+            # (no entry bookkeeping for an order that cannot exist). Deliberately
+            # NOT applied to reduce-only closes — gating those would make a
+            # sub-minimum position impossible to ever close.
+            if not reduce_only and sz * mid < cfg.MIN_ORDER_NOTIONAL:
+                logger.warning(f"{coin}: notional ${sz * mid:.2f} below "
+                               f"MIN_ORDER_NOTIONAL ${cfg.MIN_ORDER_NOTIONAL:.2f}, skipping open")
+                return False
             self.exchange.order(coin, is_buy, sz, limit_px,
                                 order_type={"limit": {"tif": "Ioc"}}, reduce_only=reduce_only)
             logger.info(f"{coin}: placed is_buy={is_buy} size={sz} @ {limit_px} reduce_only={reduce_only}")
@@ -254,17 +264,38 @@ class CtaEngine:
             ent = entries[coin]
             held_days = (now_ms - ent.get("entry_ms", now_ms)) / 86400_000
             exit_reason = None
-            if risk.stop_hit(direction, ent.get("stop", 0.0), mid):
+            # The stop anchor lives ONLY in the state file; a missing or
+            # non-finite value is a bookkeeping anomaly, not a market event.
+            # A naive 0.0 default would make stop_hit(-1, 0.0, mid) TRUE for
+            # every short (mid >= 0.0 always) and force-close a healthy
+            # position instantly. Instead: alert loudly and SKIP the stop
+            # check this cycle — max-hold and the signal exits below still
+            # protect the position, and the alert repeats every rebalance
+            # until an operator repairs the state file.
+            try:
+                stop = float(ent.get("stop"))
+            except (TypeError, ValueError):
+                stop = float("nan")
+            if not math.isfinite(stop):
+                logger.error(f"SAFETY-CRITICAL: {coin} entry has missing/invalid stop "
+                             f"({ent.get('stop')!r}) — bookkeeping anomaly; skipping "
+                             "stop check (max-hold / signal exits still active)")
+                send_alert(cfg.TELEGRAM_BOT_TOKEN, cfg.TELEGRAM_CHAT_ID,
+                           f"CTA BOOKKEEPING ANOMALY: {coin} entry has missing/invalid "
+                           f"stop ({ent.get('stop')!r}). Stop check skipped — max-hold "
+                           "and signal exits remain active. Repair the state file.")
+            elif risk.stop_hit(direction, stop, mid):
                 exit_reason = "stop"
-            elif sig is not None:
-                exit_reason = signals.should_exit(
-                    direction, sig["trend_up"], sig["trend_dn"], sig["fuel"],
-                    held_days, cfg.MAX_HOLD_DAYS)
-            elif held_days >= cfg.MAX_HOLD_DAYS:
-                # Data outage (sig is None): max-hold is purely time-based —
-                # it needs only entry_ms, never fresh venue data — so it must
-                # still fire, or a stale coin could be held indefinitely.
-                exit_reason = "maxhold"
+            if exit_reason is None:
+                if sig is not None:
+                    exit_reason = signals.should_exit(
+                        direction, sig["trend_up"], sig["trend_dn"], sig["fuel"],
+                        held_days, cfg.MAX_HOLD_DAYS)
+                elif held_days >= cfg.MAX_HOLD_DAYS:
+                    # Data outage (sig is None): max-hold is purely time-based —
+                    # it needs only entry_ms, never fresh venue data — so it must
+                    # still fire, or a stale coin could be held indefinitely.
+                    exit_reason = "maxhold"
             if exit_reason is not None:
                 logger.info(f"{coin}: exiting ({exit_reason})")
                 # reduce-only close via market_close (idempotent -> retried
