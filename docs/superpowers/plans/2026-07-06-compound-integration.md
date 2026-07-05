@@ -132,10 +132,14 @@ cd /Users/jim/projects/vault
 git add compound/
 ```
 
-- [ ] **Step 2: staged 清單 == 獨立 repo tracked 清單（減去 session lock）**
+- [ ] **Step 2: staged 清單 == 獨立 repo tracked 清單（減去 session lock 與 egg-info）**
+
+<!-- 2026-07-06 執行修正：獨立 repo 誤將 src/compound.egg-info/（build artifact）commit 進 git（其
+     .gitignore 無 egg-info 規則）。vault 不匯入它：Task 2 已刪，vault 根層 .gitignore:13 的
+     *.egg-info/ 會忽略 Task 5 pip install -e 重新生成的那份。故從期望清單排除。 -->
 
 ```bash
-diff <(git -C /Users/jim/projects/compound ls-files | grep -v '^\.claude/scheduled_tasks\.lock$' | sort) \
+diff <(git -C /Users/jim/projects/compound ls-files | grep -vE '^(\.claude/scheduled_tasks\.lock|src/compound\.egg-info/)' | sort) \
      <(git diff --cached --name-only | sed 's|^compound/||' | sort)
 ```
 
@@ -172,7 +176,7 @@ Expected: commit 成功。
 git status --short
 ```
 
-Expected: 只剩本來就在的 `?? scripts/research_cta_crowd_ablation.py` 與 `?? scripts/tv_cta_strategy.pine`（不要動它們），沒有任何 `compound/` 相關行。
+Expected: 沒有任何 `compound/` 相關行；`scripts/` 下既有的未追蹤研究檔原樣保留（不要動、不要 add）。
 
 ### Task 4: 補宣告 research 依賴
 
@@ -331,10 +335,10 @@ Expected: 印出 `wallet total ... | available ... | engine committed ... | budg
 
 ## 驗收（主對話派 fresh-context agent 執行，不給實作推理，只給下列清單）
 
-1. `git log --oneline -5` 顯示四個新 commit：plan 文件、import、pyproject chore、CLAUDE.md docs。
+1. `git log --oneline -6` 顯示五個新 commit：plan 文件、plan 修正（egg-info）、import、pyproject chore、CLAUDE.md docs。
 2. 機密未入 git：`git ls-files | grep -c '^compound/\.env$'` 輸出 `0`；`git log --all --name-only | grep -c 'compound/\.env'` 輸出 `0`；`git check-ignore -q compound/.env; echo $?` 輸出 `0`。
 3. 無 gitlink：`git ls-files -s compound/ | awk '$1=="160000"' | wc -l` 輸出 `0`。
-4. 檔案完整性：`diff <(git -C /Users/jim/projects/compound ls-files | grep -v '^\.claude/scheduled_tasks\.lock$' | sort) <(git ls-files compound/ | sed 's|^compound/||' | sort)`——考慮 Task 4 改過 pyproject.toml，容許該檔內容不同但清單必須一致（此命令只比清單）。Expected: 無輸出。
+4. 檔案完整性：`diff <(git -C /Users/jim/projects/compound ls-files | grep -vE '^(\.claude/scheduled_tasks\.lock|src/compound\.egg-info/)' | sort) <(git ls-files compound/ | sed 's|^compound/||' | sort)`——考慮 Task 4 改過 pyproject.toml，容許該檔內容不同但清單必須一致（此命令只比清單）。Expected: 無輸出。
 5. 測試：`compound/.venv/bin/pytest`（在 compound/ 下跑）全綠；vault 根層 `.venv/bin/pytest` 等於 Task 1 基線。
 6. CLAUDE.md 三處編輯落地：`grep -c 'compound/.env' CLAUDE.md` ≥ 1、`grep -c 'run_engine.py' CLAUDE.md` ≥ 1、`grep -c 'cycle_allocation_verdict' CLAUDE.md` ≥ 1。
 7. 獨立 repo 未被動過：`git -C /Users/jim/projects/compound status --porcelain` 仍然只有 ` D .claude/scheduled_tasks.lock`。
