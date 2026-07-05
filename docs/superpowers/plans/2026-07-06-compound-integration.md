@@ -198,16 +198,19 @@ dependencies = ["requests"]
 
 [project.optional-dependencies]
 research = ["numpy>=1.24", "pandas>=2.0"]
+dev = ["pytest>=7"]
 ```
 
 （`[project.optional-dependencies]` 段落緊接在 `dependencies` 行之後、`[tool.setuptools.packages.find]` 之前。）
+<!-- 2026-07-06 執行修正：pytest 也是未宣告的隱性依賴（舊 venv 手動裝的），補進 dev extra，
+     命名沿用 vault 根層 pyproject 的 dev 慣例。 -->
 
 - [ ] **Step 2: Commit**
 
 ```bash
 cd /Users/jim/projects/vault
 git add compound/pyproject.toml
-git commit -m "chore(compound): declare research extras (numpy/pandas were undeclared imports)"
+git commit -m "chore(compound): declare research+dev extras (numpy/pandas/pytest were undeclared)"
 ```
 
 Expected: commit 成功。
@@ -222,7 +225,9 @@ Expected: commit 成功。
 ```bash
 cd /Users/jim/projects/vault/compound
 python3 -m venv .venv
-.venv/bin/pip install -q -e ".[research]"
+# 2026-07-06 執行修正：py3.9 venv 自帶 pip 21.2.4 不支援 PEP 660（pyproject-only editable install），先升級
+.venv/bin/python -m pip install -q --upgrade pip setuptools
+.venv/bin/pip install -q -e ".[research,dev]"
 ```
 
 Expected: exit 0。（機器 python3 為 3.9.6，滿足 `requires-python >= 3.9`。）
@@ -313,8 +318,8 @@ new_string:
 
 ```bash
 cd /Users/jim/projects/vault
-git add CLAUDE.md
-git commit -m "docs: add compound (Bitfinex lending) to CLAUDE.md map + live-money red lines"
+git add CLAUDE.md docs/superpowers/plans/2026-07-06-compound-integration.md
+git commit -m "docs: add compound (Bitfinex lending) to CLAUDE.md map + red lines; record plan execution amendments"
 ```
 
 Expected: commit 成功。

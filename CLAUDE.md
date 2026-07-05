@@ -4,17 +4,24 @@ Hyperliquid 量化交易 monorepo。**這個 repo 管理實盤資金**——先�
 
 ## 實盤紅線（違反任何一條前，必須先問使用者並取得明確同意）
 
-- `.env.carry`、`.env.gridbot`、`.env.momentum` 是**實盤錢包的真實鑰匙**，`.env.research` 是真實 API key。
+- `.env.carry`、`.env.gridbot`、`.env.momentum` 是**實盤錢包的真實鑰匙**，`.env.research` 是真實 API key，
+  `compound/.env` 是 **Bitfinex 實盤帳戶**的真實 API key。
   不要印出內容、不要複製到別處、不要在測試或範例中載入。
 - 以下操作**碰真錢**，執行前必問：
   - `deploy/` 下任何 `.sh` 或對 `hl-carry`／`hl-gridbot`／`hl-momentum` service 的 start／stop／restart
   - `scripts/setup_carry_wallet.py` 及任何會送出交易、轉帳、下單的腳本
+  - `compound/scripts/run_engine.py`（Bitfinex 放貸引擎，會送真實掛單／撤單）。注意：引擎停止
+    不代表部位不存在——帳上可能仍有真實放貸；動引擎前先跑唯讀的 `compound/.venv/bin/python
+    compound/scripts/status.py` 對帳
   - 修改 `src/hlvault/carry/`、`gridbot/`、`momentum/` 中正在實盤運行的邏輯後的部署
 - 測試絕不能打到真實服務（全域工程原則第 4 條）。跑 `pytest` 前確認外部呼叫已被 mock。
 
 ## 目錄地圖
 
 - `src/hlvault/` — 主套件。`carry/`、`gridbot/`、`momentum/` 是三個實盤引擎；`io/` 是外部呼叫邊界；`notify/` 是通知。
+- `compound/` — Bitfinex USD 自動放貸引擎（自包含子專案：自帶 src/tests/scripts/docs 與獨立
+  `compound/.venv`，測試用 `compound/.venv/bin/pytest` 跑）。研究結論在 `compound/reports/`；
+  跨產品（gridbot／CTA／放貸）四年週期資金配置 verdict：`compound/reports/cycle_allocation_verdict.md`。
 - `scripts/` — 研究與運維腳本。`research_*.py` 是一次性研究、`run_*.py` 是回測入口。
 - `reports/` — 研究結論。`*-verdict.md` 是各子專案的最終判定（GO／NO-GO）。
 - `docs/superpowers/specs/`、`plans/` — 子專案的設計與計畫文件。
