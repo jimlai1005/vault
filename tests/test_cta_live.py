@@ -864,6 +864,29 @@ def test_beta_nonpositive_equity_skips(monkeypatch):
     e._maybe_rebalance_beta(0.0, {}, {"equity":0.0,"gross":0.0})
     assert ex.orders == []
 
+
+class _FailingOrderExchange(_FakeExchange):
+    def order(self, coin, is_buy, size, px, order_type=None, reduce_only=False):
+        raise RuntimeError("exchange rejected order")   # semantic -> single attempt
+
+
+def test_beta_order_failure_alerts_with_instance_prefix(monkeypatch):
+    # Review finding (observation, sub-project G2): a beta adjustment that
+    # fails to place used to only log a warning, unlike the alpha exit-close
+    # failure path which alerts loudly (live.py's exit-close except branch).
+    # An operator watching only Telegram must see this too.
+    ex = _FailingOrderExchange()
+    alerts = []
+    monkeypatch.setattr("hlvault.cta.live.send_alert",
+                        lambda tok, chat, msg: alerts.append(msg))
+    e = _beta_engine(monkeypatch, _FakeInfo(mid=100.0), ex, frac=0.25)
+    gs = {"equity": 1000.0, "gross": 0.0}
+    e._maybe_rebalance_beta(equity=1000.0, pos_by_coin={}, gross_state=gs)
+    assert ex.orders == []                 # the raise means nothing was recorded as placed
+    assert len(alerts) == 1
+    assert alerts[0].startswith(f"{cfg.INSTANCE_LABEL.upper()} ")
+    assert "BTC" in alerts[0]
+
 def test_flatten_everything_closes_beta_btc(monkeypatch):
     # MDD halt: _flatten_everything iterates ALL positions incl. the beta BTC long
     monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")

@@ -30,7 +30,18 @@ _RESEARCH_VALUES = dotenv_values(_ROOT / ".env.research")
 # Instance label from the env-file SUFFIX (NOT Path.stem — `.env.cta`.stem is
 # ".env", which would collide every instance and break wallet A's state file).
 # `.env.cta` -> "cta" (reproduces cta_state.json exactly), `.env.cta2` -> "cta2".
-INSTANCE_LABEL = _ENV_PATH.suffix.lstrip(".") or "cta"
+# A suffix-less path (e.g. CTA_ENV_FILE=".env", or any dot-less filename) must
+# NOT silently fall back to "cta" -- that would make a misconfigured instance
+# overwrite wallet A's cta_state.json. Fail loudly instead (principle #3/#5
+# forcing function): the operator must name the file ".env.<instance>".
+_instance_label = _ENV_PATH.suffix.lstrip(".")
+if not _instance_label:
+    raise RuntimeError(
+        f"CTA_ENV_FILE={_ENV_NAME!r} (resolved: {_ENV_PATH}) has no suffix to derive "
+        "an INSTANCE_LABEL from. Use a filename shaped like '.env.<instance>' "
+        "(e.g. '.env.cta2'), not a suffix-less path -- an empty/defaulted label "
+        "would collide with wallet A's cta_state.json.")
+INSTANCE_LABEL = _instance_label
 
 
 def _clean(val):
@@ -126,7 +137,16 @@ REBALANCE_INTERVAL_HOURS = _env_float("REBALANCE_INTERVAL_HOURS", "4")
 DATA_STALENESS_HOURS = _env_float("DATA_STALENESS_HOURS", "8")  # cross-venue freshness guard
 
 # ---- Coinalyze / Binance ----------------------------------------------
-COINALYZE_API_KEY = _clean(_RESEARCH_VALUES.get("COINALYZE_API_KEY") or "")
+# Resolution order: the INSTANCE env file (.env.cta / .env.cta2) wins if it
+# sets its OWN key; .env.research is the fallback. Two instances sharing one
+# .env.research key would double the effective Coinalyze request rate against
+# the shared 40 req/min free-tier budget (see COINALYZE_THROTTLE_SECONDS
+# above and .env.cta2's template) -- giving instance B its own key here
+# removes that shared budget entirely. Wallet A's .env.cta never sets this
+# key, so it always falls through to .env.research exactly as before
+# (backward compatible).
+COINALYZE_API_KEY = _clean(
+    _FILE_VALUES.get("COINALYZE_API_KEY") or _RESEARCH_VALUES.get("COINALYZE_API_KEY") or "")
 COINALYZE_BASE_URL = "https://api.coinalyze.net/v1"
 COINALYZE_THROTTLE_SECONDS = _env_float("COINALYZE_THROTTLE_SECONDS", "1.6")  # 40 req/min
 BINANCE_KLINES_URL = "https://fapi.binance.com/fapi/v1/klines"

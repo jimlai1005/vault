@@ -260,6 +260,13 @@ class CtaEngine:
                     f"(cur ${cur_notional:,.2f} -> target ${target_notional:,.2f}) reduce_only={reduce_only}")
         if not self._place_order(coin, is_buy=is_buy, size=size, reduce_only=reduce_only):
             logger.warning(f"beta: {coin} adjustment not confirmed placed — self-heals next rebalance")
+            # Symmetry with the alpha exit-close failure path (which alerts
+            # loudly, not just logs): an operator watching only Telegram must
+            # see this too, not just journald.
+            send_alert(cfg.TELEGRAM_BOT_TOKEN, cfg.TELEGRAM_CHAT_ID,
+                       f"{cfg.INSTANCE_LABEL.upper()} beta adjustment NOT confirmed placed for "
+                       f"{coin} ({'BUY' if is_buy else 'SELL'} ${abs(delta_notional):,.2f}) — "
+                       "self-heals next rebalance.")
             return
         # Charge the change into the cycle gross budget so alpha entries this
         # cycle see the post-beta gross (mirrors the per-open charge at the
