@@ -793,3 +793,96 @@ def test_gross_cap_missing_mid_counts_zero_and_warns(monkeypatch, tmp_path, capl
     assert len(opens) == 1 and opens[0]["coin"] == "BTC"   # cap evaluated on gross=0
     assert any(r.levelno == logging.WARNING and "FOO" in r.message
                for r in caplog.records)
+
+
+# ---- beta sleeve (Alpha+Beta instance B) -----------------------------------
+
+def _beta_engine(monkeypatch, info, ex, *, frac=0.25, universe=("ETH","SOL","HYPE","DOGE","XRP"),
+                 tol=0.10, live=True, state=None):
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    monkeypatch.setattr(cfg, "BETA_TARGET_FRACTION", frac)
+    monkeypatch.setattr(cfg, "BETA_COIN", "BTC")
+    monkeypatch.setattr(cfg, "BETA_REBALANCE_TOLERANCE", tol)
+    monkeypatch.setattr(cfg, "COIN_UNIVERSE", list(universe))
+    monkeypatch.setattr(cfg, "MIN_ORDER_NOTIONAL", 12.0)
+    return _engine(info, ex, live=live, state=state)
+
+
+def test_beta_disabled_places_no_beta_order(monkeypatch):
+    # frac=0 => _maybe_rebalance_beta returns immediately (wallet-A regression)
+    ex = _FakeExchange()
+    e = _beta_engine(monkeypatch, _FakeInfo(mid=100.0, spot_usdc=1000.0), ex, frac=0.0)
+    e._maybe_rebalance_beta(equity=1000.0, pos_by_coin={}, gross_state={"equity":1000.0,"gross":0.0})
+    assert ex.orders == [] and ex.closed == []
+
+def test_beta_opens_to_target_when_flat(monkeypatch):
+    ex = _FakeExchange()
+    e = _beta_engine(monkeypatch, _FakeInfo(mid=100.0), ex, frac=0.25)
+    gs = {"equity":1000.0, "gross":0.0}
+    e._maybe_rebalance_beta(equity=1000.0, pos_by_coin={}, gross_state=gs)
+    # target $250 @ mid100 -> buy ~2.5 BTC, non-reduce-only (idempotent-open)
+    assert len(ex.orders) == 1
+    o = ex.orders[0]
+    assert o["coin"] == "BTC" and o["is_buy"] is True and o["reduce_only"] is False
+    assert abs(o["size"] - 2.5) < 0.05
+    assert abs(gs["gross"] - 250.0) < 1.0   # gross charged by the beta target
+
+def test_beta_within_tolerance_no_order(monkeypatch):
+    ex = _FakeExchange()
+    e = _beta_engine(monkeypatch, _FakeInfo(mid=100.0), ex, frac=0.25, tol=0.10)
+    # current BTC long = 2.4 @100 = $240 vs target $250 -> 4% dev < 10% band
+    e._maybe_rebalance_beta(1000.0, {"BTC": 2.4}, {"equity":1000.0,"gross":240.0})
+    assert ex.orders == [] and ex.closed == []
+
+def test_beta_trims_with_reduce_only_when_over_target(monkeypatch):
+    ex = _FakeExchange()
+    e = _beta_engine(monkeypatch, _FakeInfo(mid=100.0), ex, frac=0.25, tol=0.05)
+    # current $400 vs target $250 -> trim $150 as a reduce-only sell (idempotent)
+    gs = {"equity":1000.0, "gross":400.0}
+    e._maybe_rebalance_beta(1000.0, {"BTC": 4.0}, gs)
+    assert len(ex.orders) == 1
+    o = ex.orders[0]
+    assert o["is_buy"] is False and o["reduce_only"] is True
+    assert abs(gs["gross"] - 250.0) < 1.0
+
+def test_beta_adjustment_below_min_notional_skipped(monkeypatch):
+    ex = _FakeExchange()
+    e = _beta_engine(monkeypatch, _FakeInfo(mid=100.0), ex, frac=0.25, tol=0.0)
+    # target $250 vs current $245 -> $5 adjustment < MIN_ORDER_NOTIONAL $12
+    e._maybe_rebalance_beta(1000.0, {"BTC": 2.45}, {"equity":1000.0,"gross":245.0})
+    assert ex.orders == []
+
+def test_beta_short_position_is_anomaly_no_trade(monkeypatch):
+    ex = _FakeExchange()
+    e = _beta_engine(monkeypatch, _FakeInfo(mid=100.0), ex, frac=0.25)
+    e._maybe_rebalance_beta(1000.0, {"BTC": -1.0}, {"equity":1000.0,"gross":100.0})
+    assert ex.orders == [] and ex.closed == []   # alerts + skips, never flips a short
+
+def test_beta_nonpositive_equity_skips(monkeypatch):
+    ex = _FakeExchange()
+    e = _beta_engine(monkeypatch, _FakeInfo(mid=100.0), ex, frac=0.25)
+    e._maybe_rebalance_beta(0.0, {}, {"equity":0.0,"gross":0.0})
+    assert ex.orders == []
+
+def test_flatten_everything_closes_beta_btc(monkeypatch):
+    # MDD halt: _flatten_everything iterates ALL positions incl. the beta BTC long
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    pos = [{"coin":"BTC","szi":"2.5","marginUsed":"25","unrealizedPnl":"0"}]
+    ex = _FakeExchange()
+    e = _engine(_FakeInfo(mid=100.0, positions=pos), ex, live=True)
+    assert e._flatten_everything() is True
+    assert ("BTC", 2.5) in ex.closed
+
+def test_alert_prefix_is_CTA_for_wallet_a(monkeypatch):
+    # INSTANCE_LABEL "cta" -> alert prefix "CTA": wallet-A text unchanged
+    monkeypatch.setattr(cfg, "INSTANCE_LABEL", "cta")
+    sent = []
+    monkeypatch.setattr("hlvault.cta.live.send_alert",
+                        lambda tok, cid, msg: sent.append(msg))
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    e = _engine(_FakeInfo(), _FakeExchange(), live=True,
+                state={"halted":False,"peak_equity":1e9,"_alerted_this_halt":False,
+                       "_flatten_complete":False,"last_rebalance_ms":0,"entries":{}})
+    # drive a halt so the drawdown alert fires (peak >> current)
+    e.check_drawdown()
+    assert sent and sent[0].startswith("CTA ")

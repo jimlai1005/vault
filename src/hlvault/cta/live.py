@@ -85,7 +85,7 @@ class CtaEngine:
         save_state(cfg.STATE_FILE, self.state)
         if not self.state.get("_alerted_this_halt"):
             send_alert(cfg.TELEGRAM_BOT_TOKEN, cfg.TELEGRAM_CHAT_ID,
-                      "CTA DRAWDOWN CIRCUIT BREAKER TRIPPED — flattening and halting.")
+                      f"{cfg.INSTANCE_LABEL.upper()} DRAWDOWN CIRCUIT BREAKER TRIPPED — flattening and halting.")
             self.state["_alerted_this_halt"] = True
             save_state(cfg.STATE_FILE, self.state)
         if not self.state.get("_flatten_complete"):
@@ -93,7 +93,7 @@ class CtaEngine:
                 self.state["_flatten_complete"] = True
             else:
                 send_alert(cfg.TELEGRAM_BOT_TOKEN, cfg.TELEGRAM_CHAT_ID,
-                          "CTA FLATTEN INCOMPLETE — positions may remain, will retry next cycle.")
+                          f"{cfg.INSTANCE_LABEL.upper()} FLATTEN INCOMPLETE — positions may remain, will retry next cycle.")
             save_state(cfg.STATE_FILE, self.state)
         return True
 
@@ -187,7 +187,7 @@ class CtaEngine:
             logger.error(f"SAFETY-CRITICAL: orphan position {coin} (size {size}) "
                          "has no entry bookkeeping — flattening")
             send_alert(cfg.TELEGRAM_BOT_TOKEN, cfg.TELEGRAM_CHAT_ID,
-                       f"CTA ORPHAN POSITION {coin} (size {size}): no entry bookkeeping — "
+                       f"{cfg.INSTANCE_LABEL.upper()} ORPHAN POSITION {coin} (size {size}): no entry bookkeeping — "
                        "flattening reduce-only.")
             if not self.live_trading:
                 logger.info(f"[DRY RUN] would flatten orphan {coin} size={abs(size)}")
@@ -197,6 +197,74 @@ class CtaEngine:
             except Exception as e:
                 logger.error(f"SAFETY-CRITICAL: orphan flatten failed for {coin}: {e} "
                              "(will retry next rebalance)")
+
+    # ---- beta sleeve (Alpha+Beta instances only) ----------------------
+    def _maybe_rebalance_beta(self, equity: float, pos_by_coin: dict, gross_state: dict) -> None:
+        """Maintain the persistent BETA_COIN long at equity * BETA_TARGET_FRACTION.
+        No-op when BETA_TARGET_FRACTION <= 0 (wallet A / any instance without a
+        sleeve is completely unaffected).
+
+        Equity basis (principle #1): `equity` is the SAME value passed down from
+        maybe_rebalance (risk.account_equity, computed once) that the MDD breaker
+        and the gross-leverage cap use — the sleeve is sized against the exact
+        basis the safety net measures, never a second read that could disagree.
+
+        Idempotency (principle #2): GROWING the long is a non-idempotent open
+        (reduce_only=False -> single attempt via ResilientExchange; a lost
+        response self-heals next cycle when the true BTC size is re-read).
+        TRIMMING the long is an idempotent reduce-only order (retried). The
+        tolerance band keeps normal price/equity drift from churning fees every
+        4h. Beta is STATELESS: target from live equity, current from live
+        exchange state — no beta bookkeeping to crash-corrupt. BETA_COIN is
+        excluded from COIN_UNIVERSE (one-coin-one-owner, enforced at config
+        import), so pos_by_coin[BETA_COIN] is the beta leg alone."""
+        frac = cfg.BETA_TARGET_FRACTION
+        if frac <= 0:
+            return
+        coin = cfg.BETA_COIN
+        if equity <= 0:
+            logger.error(f"beta: equity ${equity:,.2f} <= 0 — skipping beta rebalance this cycle")
+            return
+        mid = get_mid_price(self.info, coin)
+        if mid <= 0:
+            logger.warning(f"beta: no mid for {coin} — skipping beta rebalance this cycle")
+            return
+        cur_sz = pos_by_coin.get(coin, 0.0)
+        # A SHORT on the beta coin is impossible under normal operation (BETA_COIN
+        # is not in COIN_UNIVERSE and beta only ever buys/reduce-only-sells a
+        # long). Treat it as an anomaly: never reduce-only a short toward a long —
+        # alert loudly (principle #3) and skip for an operator to investigate.
+        if cur_sz < -1e-9:
+            logger.error(f"SAFETY-CRITICAL: beta coin {coin} holds a SHORT ({cur_sz}); "
+                         "beta manages a LONG only — skipping, manual review needed")
+            send_alert(cfg.TELEGRAM_BOT_TOKEN, cfg.TELEGRAM_CHAT_ID,
+                       f"{cfg.INSTANCE_LABEL.upper()} BETA ANOMALY: {coin} holds a short "
+                       f"({cur_sz}); beta expects a long only. Skipped — investigate.")
+            return
+        target_notional = equity * frac
+        cur_notional = abs(cur_sz) * mid
+        deviation = abs(cur_notional - target_notional) / target_notional  # target>0 here
+        if deviation <= cfg.BETA_REBALANCE_TOLERANCE:
+            logger.info(f"beta: {coin} ${cur_notional:,.2f} within "
+                        f"{cfg.BETA_REBALANCE_TOLERANCE:.0%} of target ${target_notional:,.2f} — hold")
+            return
+        delta_notional = target_notional - cur_notional      # >0 grow long, <0 trim
+        if abs(delta_notional) < cfg.MIN_ORDER_NOTIONAL:
+            logger.info(f"beta: adjustment ${abs(delta_notional):,.2f} below MIN_ORDER_NOTIONAL "
+                        f"${cfg.MIN_ORDER_NOTIONAL:.2f} — skipping this cycle")
+            return
+        is_buy = delta_notional > 0
+        reduce_only = not is_buy      # trim = reduce-only (idempotent); grow = open (single attempt)
+        size = abs(delta_notional) / mid
+        logger.info(f"beta: {coin} {'BUY' if is_buy else 'SELL'} ${abs(delta_notional):,.2f} "
+                    f"(cur ${cur_notional:,.2f} -> target ${target_notional:,.2f}) reduce_only={reduce_only}")
+        if not self._place_order(coin, is_buy=is_buy, size=size, reduce_only=reduce_only):
+            logger.warning(f"beta: {coin} adjustment not confirmed placed — self-heals next rebalance")
+            return
+        # Charge the change into the cycle gross budget so alpha entries this
+        # cycle see the post-beta gross (mirrors the per-open charge at the
+        # bottom of _process_coin; same-basis accounting, principle #1).
+        gross_state["gross"] += (target_notional - cur_notional)
 
     # ---- rebalance ---------------------------------------------------
     def maybe_rebalance(self) -> None:
@@ -243,6 +311,10 @@ class CtaEngine:
         gross_state = {"equity": equity, "gross": gross}
 
         self._reconcile_orphans(pos_by_coin, entries)
+
+        # Beta sleeve BEFORE the alpha loop so alpha entries this cycle see
+        # beta's gross draw. No-op when BETA_TARGET_FRACTION <= 0 (wallet A).
+        self._maybe_rebalance_beta(equity, pos_by_coin, gross_state)
 
         for coin in cfg.COIN_UNIVERSE:
             # Per-coin isolation: one coin's transient failure (mid lookup,
@@ -314,7 +386,7 @@ class CtaEngine:
                              f"({ent.get('stop')!r}) — bookkeeping anomaly; skipping "
                              "stop check (max-hold / signal exits still active)")
                 send_alert(cfg.TELEGRAM_BOT_TOKEN, cfg.TELEGRAM_CHAT_ID,
-                           f"CTA BOOKKEEPING ANOMALY: {coin} entry has missing/invalid "
+                           f"{cfg.INSTANCE_LABEL.upper()} BOOKKEEPING ANOMALY: {coin} entry has missing/invalid "
                            f"stop ({ent.get('stop')!r}). Stop check skipped — max-hold "
                            "and signal exits remain active. Repair the state file.")
             elif risk.stop_hit(direction, stop, mid):
@@ -349,7 +421,7 @@ class CtaEngine:
                         logger.error(f"SAFETY-CRITICAL: exit close failed for {coin}: {e} "
                                      "— keeping entry bookkeeping, retrying next cycle")
                         send_alert(cfg.TELEGRAM_BOT_TOKEN, cfg.TELEGRAM_CHAT_ID,
-                                   f"CTA exit close FAILED for {coin} ({exit_reason}) — "
+                                   f"{cfg.INSTANCE_LABEL.upper()} exit close FAILED for {coin} ({exit_reason}) — "
                                    "position still open, entry retained, retrying next cycle.")
                 else:
                     logger.info(f"[DRY RUN] would close {coin} size={abs(cur_sz)} ({exit_reason})")
@@ -460,10 +532,10 @@ def main():
     engine = CtaEngine(live_trading=False if args.dry_run else None)
     if args.status:
         equity = risk.account_equity(engine.info, cfg.WALLET_ADDRESS)
-        print(f"equity ${equity:,.2f} | halted={engine.state.get('halted')} "
+        print(f"[{cfg.INSTANCE_LABEL}] equity ${equity:,.2f} | halted={engine.state.get('halted')} "
               f"peak={engine.state.get('peak_equity')} "
               f"open_entries={list(engine.state.get('entries', {}).keys())} "
-              f"long={cfg.ENABLE_LONG} short={cfg.ENABLE_SHORT}")
+              f"beta_frac={cfg.BETA_TARGET_FRACTION} long={cfg.ENABLE_LONG} short={cfg.ENABLE_SHORT}")
         return
     if args.once or args.dry_run:
         engine.run_once()
