@@ -12,14 +12,25 @@ negative on 4h while shorts carry the edge. The full both-sides logic is built
 and tested so this is a real, reversible one-env-var flip."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from dotenv import dotenv_values
 
 _ROOT = Path(__file__).resolve().parents[3]
-_ENV_PATH = _ROOT / ".env.cta"
+# Instance selection: a PROCESS env var chooses which env FILE to read. This is
+# the ONE deliberate os.environ read — it selects a path only; every config
+# VALUE still comes from the isolated dotenv_values dict below, so the shared-
+# os.environ collision the module docstring warns about cannot reappear.
+_ENV_NAME = os.environ.get("CTA_ENV_FILE", ".env.cta")
+_ENV_PATH = Path(_ENV_NAME) if os.path.isabs(_ENV_NAME) else _ROOT / _ENV_NAME
 _FILE_VALUES = dotenv_values(_ENV_PATH)          # isolated dict; never touches os.environ
 _RESEARCH_VALUES = dotenv_values(_ROOT / ".env.research")
+
+# Instance label from the env-file SUFFIX (NOT Path.stem — `.env.cta`.stem is
+# ".env", which would collide every instance and break wallet A's state file).
+# `.env.cta` -> "cta" (reproduces cta_state.json exactly), `.env.cta2` -> "cta2".
+INSTANCE_LABEL = _ENV_PATH.suffix.lstrip(".") or "cta"
 
 
 def _clean(val):
@@ -88,6 +99,27 @@ MAX_DRAWDOWN_PCT = _env_float("MAX_DRAWDOWN_PCT", "0.20")
 MIN_ORDER_NOTIONAL = _env_float("MIN_ORDER_NOTIONAL", "12")
 ORDER_SLIPPAGE = _env_float("ORDER_SLIPPAGE", "0.05")
 
+# ---- beta sleeve (Alpha+Beta instances only; default OFF => wallet A intact) ---
+# A persistent long in BETA_COIN sized to equity * BETA_TARGET_FRACTION. <=0
+# disables the sleeve entirely (no reads, no orders): wallet A never sets the
+# key and is a guaranteed no-op. BETA_REBALANCE_TOLERANCE is the |actual-target|
+# / target deadband that suppresses churn (see live._maybe_rebalance_beta).
+BETA_TARGET_FRACTION = _env_float("BETA_TARGET_FRACTION", "0")
+BETA_COIN = _env_str("BETA_COIN", "BTC")
+BETA_REBALANCE_TOLERANCE = _env_float("BETA_REBALANCE_TOLERANCE", "0.10")
+
+# Structural one-coin-one-owner guard (engineering principle #5 forcing
+# function): if the beta sleeve is active, its coin must NOT also be an alpha
+# universe coin. Otherwise the net perp szi on that coin fuses an alpha short
+# and a beta long, and the exit/stop/orphan logic mis-manages the fused
+# position (see the plan's one-coin-one-owner section, live.py:210/281/341/185).
+# Fail loudly at import rather than silently create the ambiguity.
+if BETA_TARGET_FRACTION > 0 and BETA_COIN in COIN_UNIVERSE:
+    raise RuntimeError(
+        f"CTA beta sleeve active (BETA_TARGET_FRACTION={BETA_TARGET_FRACTION}) but "
+        f"BETA_COIN={BETA_COIN!r} is also in COIN_UNIVERSE {COIN_UNIVERSE}. Remove "
+        f"{BETA_COIN} from COIN_UNIVERSE (one-coin-one-owner).")
+
 # ---- cadence ----------------------------------------------------------
 SYNC_INTERVAL_SECONDS = _env_float("SYNC_INTERVAL_SECONDS", "300")
 REBALANCE_INTERVAL_HOURS = _env_float("REBALANCE_INTERVAL_HOURS", "4")
@@ -105,5 +137,5 @@ BINANCE_SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT", "SOL": "SOLUSDT",
 # ---- notify / state ---------------------------------------------------
 TELEGRAM_BOT_TOKEN = _env_str("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = _env_str("TELEGRAM_CHAT_ID", "")
-STATE_FILE = _ROOT / "data" / "cache" / "cta_state.json"
-CACHE_DIR = _ROOT / "data" / "cache" / "cta_live"
+STATE_FILE = _ROOT / "data" / "cache" / f"{INSTANCE_LABEL}_state.json"
+CACHE_DIR = _ROOT / "data" / "cache" / f"{INSTANCE_LABEL}_live"
