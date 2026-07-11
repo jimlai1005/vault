@@ -456,6 +456,41 @@ stop 占比 > 50% 即在報告標註「發散主導」。
 - [ ] **Step 3**: 驗收（fresh agent）：同 Task 6 標準＋exit_reason 占比可由 csv 重算。
 - [ ] **Step 4**: Commit：`feat(scalp): F2 overshoot-fade walk-forward (sub-project H)`
 
+## Task 7b: `scripts/research_scalp_f2b_maker.py` — F2b maker 進場版（round 2，修訂新增）
+
+> **預先註冊聲明（2026-07-11，在執行前寫死）**：round 1 三家族全滅後，spec §7 允許一輪
+> 新假說。本輪動機來自 `reports/scalp-edge-decomposition.md`：F2 毛 edge 為正（+0.88bps）
+> 但被 9bps taker 費吃掉、獲利集中於 target 出場——這是**成本結構假說**（maker 進場），
+> 不是訊號改造。明確不做（那才是曲線擬合）：放寬 stop、挑幣（ZEC/HYPE 切片只是線索）、
+> 擴充 W/K 網格。本輪再滅 → 專案 NO-GO，不再有 round 3。
+
+**Files:** Modify: `scripts/scalp_backtest_lib.py`（追加 `simulate_maker`）；
+Test: `tests/test_scalp_backtest.py`（追加 4 條）；Create: `scripts/research_scalp_f2b_maker.py`
+
+**maker 成交模擬規則（悲觀方向，全部鎖死）**，做多（fade dump）情形，做空完全對稱：
+1. 訊號與 F2 完全相同（同 9 個 W/K configs、同 vol_z/wick 條件），訊號在 bar i 收盤成立。
+2. 掛限價買單 `L = c[i] − 0.1×atr14[i]`；有效期 3 根 bar（i+1..i+3），未成交即取消、無追單。
+3. 成交判定：第一個 `l[j] < L`（嚴格小於）的 bar j 以 **L 價**成交（不取 open 更優價——悲觀）。
+   進場成本：maker fee 1.5bps、**零滑價**。
+4. 出場：target = F2 同式（延伸段 38.2% 回撤），掛 maker 限價，`h[k] > T`（嚴格）以 T 成交
+   （fee 1.5bps）、**自成交 bar 的下一根才有效**（悲觀不對稱）；stop = F2 同式（極值外
+   0.5×ATR14），自成交 bar 當根即有效，taker 出場（fee 4.5bps＋該幣 slip、跳空取更差價）；
+   同 bar 同觸 → stop 優先；time-stop = 成交後 60 根，taker 以 open 出場。
+5. 波動過濾（單一變體、無網格）：`vol24h[i] = std(ret, 1440)×√1440`，僅當
+   `vol24h[i] > rolling_median(vol24h, 43200)`（30 天中位數，全部 backward-looking）才掛單。
+6. 跑兩個變體並排呈報：(A) maker 無過濾、(B) maker＋波動過濾——用以歸因改善來自成本結構
+   還是過濾器。walk-forward、G1 六條門檻、資本基準與 round 1 完全相同。
+7. 敏感度：fees ×1.5；成交更嚴（`l[j] ≤ L − 1bp of price` 才算成交）。
+8. 新增單元測試 4 條：maker 只在 `l<L` 嚴格成立時成交且成交價=L；3 根內未觸及 → 無交易；
+   maker 費率（1.5bps）與 taker 費率（4.5bps+slip）分別套在對的腿上；target 自成交次根才有效。
+
+- [ ] **Step 1**: 先寫 4 條測試（紅燈）。
+- [ ] **Step 2**: 實作 `simulate_maker`＋F2b 腳本。
+- [ ] **Step 3**: `.venv/bin/pytest tests/test_scalp_backtest.py -v` 全綠（9 條）。
+- [ ] **Step 4**: `--coins LIT` 熱路徑實跑通過後，全量背景跑。
+- [ ] **Step 5**: 驗收（fresh agent）：報告數字與 trades csv 重算一致、兩變體並排、G1 判定自洽。
+- [ ] **Step 6**: Commit：`feat(scalp): F2b maker-entry fade round 2 (sub-project H)`
+
 ## Task 8: `scripts/research_scalp_f3_session.py` — F3 時段效應統計
 
 **Files:** Create: `scripts/research_scalp_f3_session.py`；輸出 `reports/scalp-f3-session-stats.md`
