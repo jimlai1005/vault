@@ -34,7 +34,7 @@ Hyperliquid 量化交易 monorepo。**這個 repo 管理實盤資金**——先�
 - `withdrawable` 已內含 unrealizedPnl；`accountValue == totalMarginUsed + withdrawable` **僅在無掛單時**成立（掛單保證金令 accountValue 波動＝gridbot 幻影回撤事故根源）。
 - equity basis 依錢包形態各異（三次事故教訓，見全域工程原則第 1 條）：重用任何 basis 前，先盤點該錢包價值躺在哪幾個桶（spot 現金/spot 幣/perp 部位/perp 自由保證金/掛單保證金），每桶恰好算一次，並與網站顯示總值對帳。
 - 現貨價格規則 ≤5 有效位且 ≤(8−szDecimals) 小數；永續是 (6−szDecimals)。HYPE/USDC spot pair = `"@107"`。
-- candleSnapshot 單次上限 ~5000 根；Binance OI/多空比免費層僅 ~30 天；Coinalyze free（key 在 `.env.research`，header `api_key`，時間戳為**秒**）歷史約 335 天、40 req/min。
+- candleSnapshot 單次上限 ~5000 根，且**每個 interval 只保留最近 ~5000 根**（1m ≈ 3.5 天、1h ≈ 208 天；實測 2026-07-11，超出範圍回空 list）——分鐘級長歷史回測改用 Binance FAPI 1m proxy（`scripts/scalp_lib.py` 有分頁層；HL/Binance 1m 波幅保真比 0.7-0.9、小幣更低，proxy 對訊號幅度是樂觀偏差）；Binance OI/多空比免費層僅 ~30 天；Coinalyze free（key 在 `.env.research`，header `api_key`，時間戳為**秒**）歷史約 335 天、40 req/min。
 
 ## 慣例
 
