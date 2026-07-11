@@ -22,6 +22,9 @@ Hyperliquid 量化交易 monorepo。**這個 repo 管理實盤資金**——先�
 - `compound/` — Bitfinex USD 自動放貸引擎（自包含子專案：自帶 src/tests/scripts/docs 與獨立
   `compound/.venv`，測試用 `compound/.venv/bin/pytest` 跑）。研究結論在 `compound/reports/`；
   跨產品（gridbot／CTA／放貸）四年週期資金配置 verdict：`compound/reports/cycle_allocation_verdict.md`。
+- `stablepairs/` — 穩定幣 peg 均值回歸研究（自包含子專案，sub-project I，2026-07-11 G0 NO-GO
+  收檔）。verdict：`stablepairs/reports/stablepairs-g0-verdict.md`；若未來拿到 ≤0.5bps/side
+  費率，重跑 `stablepairs/g0_hl_stables.py` 一小時即可重評。
 - `scripts/` — 研究與運維腳本。`research_*.py` 是一次性研究、`run_*.py` 是回測入口。
 - `reports/` — 研究結論。`*-verdict.md` 是各子專案的最終判定（GO／NO-GO）。
 - `docs/superpowers/specs/`、`plans/` — 子專案的設計與計畫文件。
