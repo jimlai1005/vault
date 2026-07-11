@@ -326,7 +326,9 @@ stop 固定 1.5×ATR14 → 18 configs。訊號：
 pooled OOS metrics（全幣 OOS trades 串接）＋逐幣 metrics。
 費率讀 `fees.json`、滑價讀 `slippage.json`。**敏感度**：fee 與 slip ×1.5 重跑 pooled。
 報告含：pooled 表、逐幣表、敏感度表、每 walk-forward 窗被選中的 config 清單、
-對照 spec §7 G1 各條的 PASS/FAIL 行。
+G1 逐條 PASS/FAIL 行。**G1 門檻（照抄，與 spec §7 同源）**：pooled OOS 淨 PF ≥ 1.3、
+交易數 ≥ 300、≥60% 月度切片為正、equity MDD ≤ 15%（以每筆 $1,000 名目的 equity 曲線
+換算 %）、OOS t-stat ≥ 2.0、成本×1.5 下 PF ≥ 1.15。
 
 - [ ] **Step 1**: 實作。
 - [ ] **Step 2**: `.venv/bin/python scripts/research_scalp_f1_burst.py` 跑通，產出兩個輸出檔。
@@ -348,8 +350,12 @@ long_sig = (ext_z <= -K) & (df.vol_z >= 3) & (wick_lo >= 0.3)
 # long: extreme = rolling W 窗最低價；target = extreme + 0.382*(窗起點 c - extreme)
 # stop = extreme - 0.5*atr14；用 simulate 的 target_px/stop_px 陣列傳入
 ```
-其餘流程、敏感度、報告結構與 Task 6 完全相同。報告額外加：exit_reason 分布
-（target/stop/time 占比）與 MAE 註記——stop 占比 > 50% 即在報告標註「發散主導」。
+其餘流程、敏感度、報告結構與 Task 6 完全相同（walk-forward train 60d/test 30d、
+費率讀 `fees.json`、滑價讀 `slippage.json`、敏感度 fee/slip ×1.5 重跑 pooled）。
+**G1 門檻（照抄，與 spec §7 同源）**：pooled OOS 淨 PF ≥ 1.3、交易數 ≥ 300、
+≥60% 月度切片為正、equity MDD ≤ 15%、OOS t-stat ≥ 2.0、成本×1.5 下 PF ≥ 1.15。
+報告額外加：exit_reason 分布（target/stop/time 占比）與 MAE 註記——
+stop 占比 > 50% 即在報告標註「發散主導」。
 
 - [ ] **Step 1**: 實作。
 - [ ] **Step 2**: 跑通、產出輸出檔。
