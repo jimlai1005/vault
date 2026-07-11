@@ -1,0 +1,93 @@
+//@version=5
+strategy("Stay Cool C", overlay=false, initial_capital=100000, 
+ default_qty_type=strategy.percent_of_equity, default_qty_value=100)
+
+// Note: This strategy generates signals for a statistical arbitrage pair trade between BTCUSDT.P and SOLUSDT.P.
+//       Run this on a BTCUSDT.P chart. The strategy trades BTC in the appropriate direction, but for full arbitrage,
+//       you must manually (or via alerts) trade the opposite leg on SOLUSDT.P with hedge ratio beta * (BTC price / SOL price) for dollar neutrality.
+//       Backtest PNL here only reflects the BTC leg.
+
+// Inputs
+lookback = input.int(100, title="Lookback Period (Candles)", minval=1)
+entry_th = input.float(1, title="Entry Z-Score Threshold", minval=0)
+stop_th = input.float(2, title="Stop Z-Score Threshold", minval=0)
+symbol1 = input.symbol("Binance:USDCUSDT", title="Symbol")
+symbol2 = input.symbol("Binance:USDTDAI", title="Symbol")
+//  Binanceus:DAIUSDT + Binance:USDCUSDT 5m trade Binanceus:XUSDUSDT
+//  Binanceus:DAIUSDT + Binance:XUSDUSDT 5m trade Binanceus:XUSDUSDT
+//  Binanceus:DAIUSDT + Binance:USDPUSDT 5m/45m trade Binanceus:USDPUSDT
+//  Binanceus:DAIUSDT + USDCUSDT.P 15m trade Binanceus:DAIUSDT
+//  DOTUSDT.P + ATOMUSDT.P 5m trade DOTUSDT
+
+
+timeframe_input = input.string("5", title="Timeframe (e.g., 90 for 90m)", options=["1", "3", "5", "15", "30", "60", "90", "240", "D", "W", "M"])
+
+
+// Get prices (BTC is chart symbol)
+close_1 = request.security(symbol1, timeframe_input, close)
+close_2 = request.security(symbol2, timeframe_input, close)
+
+// Calculate logs
+log_1 = math.log(close_1)
+log_2 = math.log(close_2)
+
+// Calculate correlation and beta
+corr = ta.correlation(log_1, log_2, lookback)
+// corr = 0.85
+std_1 = ta.stdev(log_1, lookback)
+std_2 = ta.stdev(log_2, lookback)
+beta = corr * (std_1 / std_2)
+
+// Calculate spread and z-score
+spread = log_1 - beta * log_2
+mean_spread = ta.sma(spread, lookback)
+std_spread = ta.stdev(spread, lookback)
+zscore = (spread - mean_spread) / std_spread
+
+// Plot for visualization
+plot(zscore, title="Z-Score", color=color.blue)
+plot(corr, title="Correlation", color=color.purple, style=plot.style_linebr)
+hline(entry_th, title="Entry Upper", color=color.green)
+hline(-entry_th, title="Entry Lower", color=color.red)
+hline(stop_th, title="Stop Upper", color=color.orange)
+hline(-stop_th, title="Stop Lower", color=color.orange)
+hline(0, title="Exit Level", color=color.black)
+
+// vol less than sma20
+avg_vol = ta.sma(volume,20)
+
+// Entry conditions (enter if not in position and |zscore| > threshold)
+long_1_short_2 = (zscore < -entry_th) and (strategy.position_size == 0)  // Spread low: Buy BTC, Sell SOL
+short_1_long_2 = (zscore > entry_th) and (strategy.position_size == 0)   // Spread high: Sell BTC, Buy SOL
+
+// Exit condition (cross 0)
+exit_cond = ta.cross(zscore, 0)
+
+// Stop conditions
+stop_long_1_short_2 = (strategy.position_size > 0) and (zscore < -stop_th)
+stop_short_1_long_2 = (strategy.position_size < 0) and (zscore > stop_th)
+
+// Entries (trade BTC leg)
+// if long_1_short_2 and volume < avg_vol
+if long_1_short_2
+    strategy.entry("Long 1 Short 2", strategy.long, limit=close[1])
+
+if short_1_long_2 and volume < avg_vol
+// if short_1_long_2
+    strategy.entry("Short 1 Long 2", strategy.short, limit=close[1])
+
+// Exits and Stops
+// if exit_cond or stop_long_1_short_2 or stop_short_1_long_2
+//     strategy.close_all()
+
+if exit_cond or stop_long_1_short_2
+    strategy.exit("Long 1 Short 2", limit=close[1])
+if exit_cond or stop_short_1_long_2
+    strategy.exit("Short 1 Long 2", limit=close[1])
+
+// Optional: Time-based exit (e.g., max 20 bars)
+// var int entry_bar = na
+// if strategy.position_size != 0 and na(entry_bar)
+//     entry_bar := bar_index
+// if strategy.position_size != 0 and (bar_index - entry_bar > 5)
+//     strategy.close_all()
