@@ -72,6 +72,17 @@ G0 乾淨 FAIL（並指出最佳 cells 本身是 selection）；maker+paper 不�
 （「無法量測的 gate 不能當 gate」）；1h 低估不翻案；建議收檔前補跨對掃尾——已補，
 全 FAIL。與主判定完全收斂。
 
+## 6b. 附錄：perp 工具覆核（2026-07-11 深夜，owner 提供 perp 費率後）
+
+Owner 提供三家 perp 費率（OKX 1.6/4.5、Binance 2/5、Bybit 2/5.5 bps maker/taker）要求覆核。
+查證：Binance/Bybit 與已知基礎檔一致；OKX 低於公開基礎檔（2/5），疑帳戶檔位，公開管道
+不可證。**Binance USDCUSDT 永續確認存在**（fapi API 驗證）→ 依「換 venue/pair」條款補測：
+729 天 1h、17,520 根，USDCUSDT 幾乎完美貼 $1（std 5bps、P5-P95 帶寬 16.5bps、
+z≥1.5 事件僅 98 次、median 持有 41 小時）。四個成本情境全 FAIL——最寬鬆的
+OKX maker-maker（RT 3.2bps、3×=9.6）對上 median 振幅 3.5bps，缺口仍 2.7×。
+USDC 是保證金資產本身，價格發現被結構性壓死，比 HL 的 USDT0/USDe 對更緊。
+**NO-GO 維持**；funding 因 G0 未過而無需細算。詳見 `g0_usdc_perp_recheck.md`。
+
 ## 7. 資產與產物
 
 - 可重用：誠實化回測器（`backtest.py` 一步延遲成交版）、MS-AR 校準管線
