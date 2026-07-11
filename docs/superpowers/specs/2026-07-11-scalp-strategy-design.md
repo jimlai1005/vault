@@ -27,7 +27,7 @@ CTA forward-test（~$500-1,500）。scalping 容量需求低，與此約束相�
 | momentum 日線 NO-GO（Sharpe 0.28、MDD -65%） | `reports/momentum-backtest-verdict.md` | 日線級方向性動能不過費用；本專案賭的是「分鐘級條件性行為」是不同母體 |
 | CTA 教訓：edge 是 regime 依賴的；多重檢定要有紀律（t-stat/Bonferroni 門檻） | `reports/cta-phase2b-verdict.md`、`reports/cta-overnight-synthesis-2026-07-06.md` | 參數網格預先註冊、只看 walk-forward OOS、regime 標註誠實 |
 | 引擎基建：ResilientExchange + io/source.py 邊界、notify/telegram、dotenv 隔離 config、`setup-<engine>.sh`/`hl-<engine>.service` | `src/hlvault/io/source.py:20-32` 等 | phase 3 直接複用；所有外呼走既有邊界 |
-| candleSnapshot 單次 ~5000 根；1m K 線 5000 根 ≈ 3.47 天 | 專案 CLAUDE.md | 長歷史要分頁抓；歷史深度 phase 0 實測 |
+| **HL candleSnapshot 每 interval 只保留最近 ~5000 根**（1m ≈ 3.5 天；實測 2026-07-11：3 天前有資料、4 天前起回空） | Task 1 驗收實測 | 長歷史 1m 回測用 **Binance FAPI 1m 當 proxy**（沿用 CTA proxy 慣例）；HL 原生只做宇宙/spread/費率/近期保真對照/實盤 |
 | Coinalyze free：~335 天歷史、40 req/min、時間戳為秒 | 專案 CLAUDE.md | 清算/OI 資料可用於 F1 觸發標註（僅大幣） |
 | gridbot 幣別掃描：17 幣只有 HYPE Sharpe>0.5 | pandora `raw/gridbot2-coin-selection.md` | HYPE 波動×流動性組合值得優先納入候選 |
 
@@ -65,8 +65,10 @@ CTA forward-test（~$500-1,500）。scalping 容量需求低，與此約束相�
 ### F3 時段／事件效應（session & event）
 - 假說：crypto 雖 24/7，但流動性與波動集中在特定窗口：US 股市開/收盤、UTC 00:00 日結、
   Hyperliquid 每小時 funding 邊界、週末薄流動性、排程宏觀事件（CPI/FOMC）。
-- 方法：先做純統計（UTC hour × 星期的條件報酬/波動/量能熱圖 + funding 邊界 ±5m 漂移），
+- 方法：先做純統計（UTC hour × 星期的條件報酬/波動/量能熱圖 + 整點邊界 ±5m 漂移），
   只有統計顯示的前 2 個熱點才允許形成交易規則進 OOS 測試——避免規則先行的資料窺探。
+- proxy 限制：HL 特有的每小時 funding 邊界效應在 Binance proxy 資料上看不到
+  （Binance funding 為 8h）——該項檢定移至 forward-test 階段用 HL 原生資料做。
 - 證偽：熱點在 walk-forward 的後半段消失，或規則化後不過成本。
 
 ### F4（phase 2）跨幣短期錯位（lead-lag / beta-hedged dislocation）
@@ -83,9 +85,13 @@ CTA forward-test（~$500-1,500）。scalping 容量需求低，與此約束相�
 ## 5. 幣別選擇方法論（phase 0 資料決定，不憑感覺）
 
 1. 拉全宇宙 `metaAndAssetCtxs`：dayNtlVlm、funding、openInterest、impactPxs。
-2. 初篩：24h 名目成交 ≥ $20M；有 ≥180 天的 1m 歷史。
-3. 對初篩通過者取樣 l2Book spread（§3）。
-4. 評分 = median(1m 高低幅) / (round-trip 成本)，取前 6-8 名為 shortlist。
+2. 初篩：24h 名目成交 ≥ $20M；對應的 Binance USDT-perp 存在且 1m proxy 歷史 ≥180 天
+   （HL 原生 1m 只保留 ~3.5 天，見 §2；kPEPE→1000PEPEUSDT 等符號映射要處理）。
+3. 對初篩通過者取樣 l2Book spread（§3，HL 原生）。
+4. 評分 = median(1m 高低幅) / (round-trip 成本)，取前 6-8 名為 shortlist；
+   幅度統計來自 Binance proxy 近 30 天 1m。
+5. proxy 保真檢查：重疊的 ~3 天窗內，HL 與 Binance 的單根 1m 幅度中位數比值
+   應落在 [0.7, 1.3]，出界的幣標註並降權。
 - 暫定候選（待資料否決/確認）：BTC、ETH、SOL、HYPE、DOGE、XRP ＋掃描新增。
 
 ## 6. 回測誠信規範（每支研究腳本強制遵守）
@@ -98,11 +104,15 @@ CTA forward-test（~$500-1,500）。scalping 容量需求低，與此約束相�
    交易數、月度切片勝負、equity MDD、OOS 淨報酬 t-stat。
 6. Regime 標註：資料窗涵蓋的市場階段（P3/P4）要寫進 verdict；
    若 edge 只在熊市段成立，結論寫「regime-conditional GO」，不寫無條件 GO。
+7. Proxy 標註：回測價格是 Binance perp proxy、非 HL 成交價；成本（HL 實測費率與
+   spread/impact）套在 proxy 價格上。verdict 必須明寫此極限，G3 forward 階段
+   以 HL 原生資料覆核 proxy 結論。
 
 ## 7. GO/NO-GO gates（預先註冊）
 
 - **G0（phase 0 → 1）**：shortlist ≥ 4 幣同時滿足：spread ≤ 5bps、
-  P90(連續 5 根 1m bar 高低幅) ≥ 3× 來回成本、1m 歷史 ≥ 180 天。
+  P90(連續 5 根 1m bar 高低幅) ≥ 3× 來回成本、Binance proxy 1m 歷史 ≥ 180 天、
+  proxy 保真比值 ∈ [0.7, 1.3]。
   不足 4 幣 → 縮到大幣重評；0 幣 → 專案 NO-GO（成本結構不支撐）。
 - **G1（phase 1 → 2/3，逐家族判定）**：pooled OOS 淨 PF ≥ 1.3 且交易數 ≥ 300
   且 ≥60% 月度切片為正 且 equity MDD ≤ 15% 且成本×1.5 下 PF ≥ 1.15

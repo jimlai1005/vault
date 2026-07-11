@@ -19,6 +19,14 @@
 **紅線提醒：** 本 phase 全部唯讀公開資料，不碰鑰匙、不下單。任何腳本不得 import 任何
 `.env.carry`/`.env.gridbot`/`.env.momentum`；`userFees` 查詢只用公開地址字串參數。
 
+> **修訂 2026-07-11（Task 1 驗收發現）**：HL candleSnapshot 每 interval 只保留最近
+> ~5000 根（1m ≈ 3.5 天；實測 3 天前有資料、4 天前起回空 list）。長歷史 1m 回測改用
+> **Binance FAPI 1m 當 proxy**（沿用 CTA proxy 慣例）。HL 原生只用於：宇宙/成交量、
+> spread/impact 取樣、費率、proxy 保真對照、日後 forward/live。
+> Task 1b（新增）/3/4/8 已據此修訂；`find_earliest_1m`/`pull_1m_history` 保留但僅適用
+> 近 3.5 天窗。原 Task 1 冒煙測試的 2025-07 歷史時間戳因此失效，屬計畫撰寫錯誤，
+> 實作本身驗收通過。
+
 ---
 
 ## Task 0: 資料目錄與 gitignore
@@ -145,6 +153,84 @@ def load_df(name: str) -> pd.DataFrame:
 - [ ] **Step 3**: 驗收（fresh agent）：read-back 檔案完整性＋重跑 Step 2 指令確認輸出。
 - [ ] **Step 4**: Commit：`feat(scalp): data layer for HL candles/universe/l2 (sub-project H)`
 
+## Task 1b: `scripts/scalp_lib.py` 擴充 — Binance 1m proxy 資料層（修訂新增）
+
+**Files:** Modify: `scripts/scalp_lib.py`（追加於檔尾，不改既有函數）
+
+實作規格（完整核心程式碼，照抄；風格對照 `scripts/cta_proxy_pull_data.py` 的分頁模式）：
+
+```python
+BINANCE_FAPI = "https://fapi.binance.com/fapi/v1"
+BINANCE_SLEEP = 0.25
+# HL coin -> Binance USDT-perp symbol; None-able lookup via binance_symbol()
+BINANCE_SYMBOL_OVERRIDES = {
+    "kPEPE": "1000PEPEUSDT", "kBONK": "1000BONKUSDT", "kSHIB": "1000SHIBUSDT",
+    "kFLOKI": "1000FLOKIUSDT", "kLUNC": "1000LUNCUSDT",
+}
+
+def binance_perp_symbols() -> set:
+    info_ = requests.get(f"{BINANCE_FAPI}/exchangeInfo", timeout=20).json()
+    return {s["symbol"] for s in info_["symbols"]
+            if s.get("contractType") == "PERPETUAL" and s.get("status") == "TRADING"}
+
+def binance_symbol(coin: str, available: set) -> str | None:
+    sym = BINANCE_SYMBOL_OVERRIDES.get(coin, f"{coin}USDT")
+    return sym if sym in available else None
+
+def binance_klines(symbol: str, interval: str, start_ms: int, end_ms: int,
+                   limit: int = 1500, retries: int = 5) -> list:
+    for i in range(retries):
+        r = requests.get(f"{BINANCE_FAPI}/klines", timeout=20, params={
+            "symbol": symbol, "interval": interval,
+            "startTime": start_ms, "endTime": end_ms, "limit": limit})
+        if r.status_code == 429 or r.status_code >= 500:
+            time.sleep(2 ** i)
+            continue
+        r.raise_for_status()
+        return r.json()
+    raise RuntimeError(f"binance klines failed: {symbol}")
+
+def binance_rows_to_df(rows: list) -> pd.DataFrame:
+    """Map to the SAME schema as candles_to_df: t,o,h,l,c,v,n,ts."""
+    df = pd.DataFrame(rows, columns=["t", "o", "h", "l", "c", "v", "T", "qv", "n",
+                                     "tb", "tq", "ig"])[["t", "o", "h", "l", "c", "v", "n"]]
+    if df.empty:
+        return df
+    for col in ("o", "h", "l", "c", "v"):
+        df[col] = df[col].astype(float)
+    df["t"] = df["t"].astype("int64")
+    df["n"] = df["n"].astype(int)
+    df = df.drop_duplicates("t").sort_values("t").reset_index(drop=True)
+    df["ts"] = pd.to_datetime(df["t"], unit="ms", utc=True)
+    return df
+
+def binance_earliest_1m(symbol: str) -> int | None:
+    rows = binance_klines(symbol, "1m", 1, int(pd.Timestamp.now(tz="UTC").timestamp() * 1000), limit=1)
+    time.sleep(BINANCE_SLEEP)
+    return int(rows[0][0]) if rows else None
+
+def pull_binance_1m(symbol: str, start_ms: int, end_ms: int) -> pd.DataFrame:
+    rows, cur = [], start_ms
+    while cur < end_ms:
+        batch = binance_klines(symbol, "1m", cur, end_ms, limit=1500)
+        time.sleep(BINANCE_SLEEP)
+        if not batch:
+            break
+        rows.extend(batch)
+        cur = int(batch[-1][0]) + BAR_MS
+        if len(batch) < 1500 and cur >= end_ms - BAR_MS:
+            break
+    return binance_rows_to_df(rows)
+```
+
+- [ ] **Step 1**: 照規格追加到 `scripts/scalp_lib.py` 檔尾。
+- [ ] **Step 2**: 冒煙測試（Binance 有深歷史，2025-07-03 固定時間戳有效）：
+  `.venv/bin/python -c "import sys; sys.path.insert(0,'scripts'); import scalp_lib as s; df=s.pull_binance_1m('BTCUSDT', 1751500800000, 1751504400000); print(len(df), df.ts.min(), df.ts.max())"`
+  預期：60 筆、2025-07-03 00:00 → 00:59 UTC。
+- [ ] **Step 3**: 驗證 earliest：`binance_earliest_1m('BTCUSDT')` 應回 2019-2020 年間的時間戳。
+- [ ] **Step 4**: 驗收（fresh agent）：read-back＋重跑 Step 2/3。
+- [ ] **Step 5**: Commit：`feat(scalp): binance 1m proxy layer (sub-project H)`
+
 ## Task 2: `scripts/scalp_fee_check.py` — 費率地面真相
 
 **Files:** Create: `scripts/scalp_fee_check.py`
@@ -165,18 +251,24 @@ def load_df(name: str) -> pd.DataFrame:
 
 **Files:** Create: `scripts/scalp_universe_scan.py`；輸出 `reports/scalp-universe-scan.md`、`data/scalp/shortlist.json`、`data/scalp/slippage.json`
 
-流程（依 spec §5）：
+流程（依 spec §5，修訂：歷史深度與幅度統計改用 Binance proxy）：
 1. `universe_ctxs()` 過濾 `dayNtlVlm >= 20e6` → candidates（印出名單與家數）。
-2. 每個 candidate：`find_earliest_1m` → `depth_days`。
-3. spread 取樣：對 candidates 迴圈取 `l2_spread_bps`，每輪之間 `time.sleep(30)`，
+2. `binance_perp_symbols()` 一次拉回；每個 candidate 用 `binance_symbol()` 映射，
+   無對應 symbol 者剔除（印出剔除名單）；有對應者 `binance_earliest_1m` → `depth_days`。
+3. spread 取樣（HL 原生）：對 candidates 迴圈取 `l2_spread_bps`，每輪之間 `time.sleep(30)`，
    共 240 輪（約 2 小時）；CLI `--quick` 改 20 輪（煙測用）。每幣記 `spread_med_bps`。
-4. 拉近 30 天 1m K 線（`pull_1m_history`），算：`range_med_bps`（單根 (h-l)/c 中位數）、
+4. 拉 Binance 近 30 天 1m（`pull_binance_1m`），算：`range_med_bps`（單根 (h-l)/c 中位數）、
    `p90_range5_bps`（rolling 5 根窗的 (max(h)-min(l))/c 的 P90）。
-5. 成本：讀 `fees.json`；`slip_bps = max(spread_med/2, impact_spread/2) + 0.5`，其中
-   `impact_spread = (impact_ask-impact_bid)/mid*1e4`；`rt_cost_bps = 2*taker_bps + 2*slip_bps`。
-   `ratio = p90_range5_bps / rt_cost_bps`。每幣滑價寫入 `slippage.json`。
-6. shortlist：`ratio >= 3 AND spread_med <= 5 AND depth_days >= 180`，按 ratio 取前 8。
-   產出 markdown 表（全 candidates 各欄位）＋ G0 判定行（≥4 幣過 → PASS）。
+4b. proxy 保真：拉 HL 近 3 天 1m（`pull_1m_history`），與 Binance 同窗（交集時間戳）
+   各算單根幅度中位數，`fidelity = HL中位數 / Binance中位數`，落在 [0.7, 1.3] 為 PASS。
+5. 成本：讀 `fees.json`；`taker_bps = fees["taker"]*1e4`（注意單位轉換）；
+   `slip_bps = max(spread_med/2, impact_spread/2) + 0.5`，其中
+   `impact_spread = (impact_ask-impact_bid)/mid*1e4`（impactPxs 缺值時視為 0，只用 spread）；
+   `rt_cost_bps = 2*taker_bps + 2*slip_bps`。`ratio = p90_range5_bps / rt_cost_bps`。
+   每幣滑價寫入 `slippage.json`。
+6. shortlist：`ratio >= 3 AND spread_med <= 5 AND depth_days >= 180 AND fidelity ∈ [0.7,1.3]`，
+   按 ratio 取前 8。產出 markdown 表（全 candidates 各欄位，含 binance symbol 與 fidelity）
+   ＋ G0 判定行（≥4 幣過 → PASS）。`shortlist.json` 每幣記 `{coin, binance_symbol}`。
 
 - [ ] **Step 1**: 實作。
 - [ ] **Step 2**: `.venv/bin/python scripts/scalp_universe_scan.py --quick` → 預期產出三個輸出檔、表格完整、G0 行存在。
@@ -189,13 +281,15 @@ def load_df(name: str) -> pd.DataFrame:
 
 **Files:** Create: `scripts/scalp_pull_history.py`；輸出 `data/scalp/<COIN>_1m.csv.gz`
 
-規格：讀 `shortlist.json`，每幣 `find_earliest_1m` → `pull_1m_history(earliest, now)` →
+規格（修訂：改抓 Binance proxy）：讀 `shortlist.json`，每幣用其 `binance_symbol` →
+`binance_earliest_1m` → `pull_binance_1m(max(earliest, now-730天), now)`（上限抓兩年）→
 完整性檢查：`gaps = 相鄰 t 差 > 60_000ms 的清單`，印出 gap 數與最大 gap；
-`save_df(df, f"{coin}_1m")`。每幣印 `coin, bars, first_ts, last_ts, gap_count`。
+`save_df(df, f"{coin}_1m")`（檔名用 HL coin 名）。每幣印 `coin, bars, first_ts, last_ts, gap_count`。
 5m 資料不另外抓——回測需要時由 1m 本地 resample。
 
 - [ ] **Step 1**: 實作。
-- [ ] **Step 2**: `.venv/bin/python scripts/scalp_pull_history.py`（每幣 ~1-3 分鐘）。
+- [ ] **Step 2**: `.venv/bin/python scripts/scalp_pull_history.py`（兩年 1m ≈ 700 req/幣、
+  ~4-6 分鐘/幣，總計 ~30-50 分鐘，用背景跑）。
   預期：每幣一行摘要；任何幣 gap_count > 50 要在輸出標 WARN（不中斷）。
 - [ ] **Step 3**: 驗收（fresh agent）：對每個輸出檔 `load_df` 抽查——筆數與摘要一致、
   t 嚴格遞增、無重複、價格欄無 0/NaN。
@@ -368,7 +462,9 @@ stop 占比 > 50% 即在報告標註「發散主導」。
 
 先統計、後規則（spec §4 F3）。本 task **只做統計**，不做策略回測：
 1. 每幣：UTC hour × weekday 的平均淨漂移（bps/小時）、實現波動、成交量占比熱圖（markdown 表）。
-2. funding 邊界效應：每小時整點前後 ±5 分鐘的平均報酬 vs 全樣本基線。
+2. 整點邊界效應：每小時整點前後 ±5 分鐘的平均報酬 vs 全樣本基線。
+   （proxy 限制：Binance 資料看不到 HL 每小時 funding 的特有流量，此項僅供參考；
+   HL 原生驗證移至 forward-test 階段。）
 3. 前後半段穩定性：資料窗對半切，熱點（|漂移| 前 3 名的 hour×dow 格）在兩半是否同號。
 4. 報告結尾列出「值得規則化的候選窗口 ≤ 2 個」與各自兩半段數字；若無穩定熱點，明寫。
 
