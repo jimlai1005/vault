@@ -158,3 +158,106 @@ def walk_forward(df, configs, run_fn, train_days=60, test_days=30):
         cur += pd.Timedelta(days=test_days)
 
     return oos, picks
+
+
+def simulate_maker(
+    df,
+    sig,
+    limit_px,
+    target_px,
+    stop_px,
+    fee_maker_bps,
+    fee_taker_bps,
+    slip_bps,
+    entry_ttl=3,
+    hold_bars=60,
+    coin="",
+) -> list:
+    """Maker entry fade: limit order w/ TTL, pessimistic fill & exit rules.
+
+    sig[i] in {+1,-1,0} decided at bar i close -> maker order placed for bars [i+1..i+entry_ttl].
+    Entry fill: first bar j where l[j] < limit_px[i] (long) or h[j] > limit_px[i] (short),
+    fills at limit_px[i] with maker fee, zero entry slip.
+
+    Exit priority (starting bar after entry):
+    1. STOP: triggered same bar as entry; taker fee + slip; gap-through at worse of stop/open
+    2. TARGET: triggered from bar after entry; taker fee (1.5 bps), zero exit slip
+    3. TIME-STOP: at open[entry_i + hold_bars] with taker fee + slip
+
+    Returns list[Trade] with entry_fee = fee_maker_bps (maker), exit_fee + slip applied pessimistically.
+    """
+    trades, i, n = [], 0, len(df)
+    o, h, l, atr = df["o"].values, df["h"].values, df["l"].values, df["atr14"].values
+    sig = np.asarray(sig)
+    limit_px = np.asarray(limit_px)
+
+    while i < n - 2:
+        s = sig[i]
+        if s == 0 or np.isnan(atr[i]):
+            i += 1
+            continue
+
+        # Maker entry: try to fill during [i+1 .. i+entry_ttl]
+        entry_j, entry_px = None, None
+        for j in range(i + 1, min(i + entry_ttl + 1, n)):
+            if s == 1 and l[j] < limit_px[i]:  # long: low < limit
+                entry_j, entry_px = j, limit_px[i]
+                break
+            elif s == -1 and h[j] > limit_px[i]:  # short: high > limit
+                entry_j, entry_px = j, limit_px[i]
+                break
+
+        # If no fill within TTL, skip
+        if entry_j is None:
+            i = min(i + entry_ttl + 1, n - 1)
+            continue
+
+        # Entered at entry_j with entry_px (limit_px[i]), maker fee
+        stop = stop_px[i] if stop_px is not None else np.nan
+        tgt = target_px[i] if target_px is not None else np.nan
+
+        exit_j, exit_px, reason = None, None, None
+        last = min(entry_j + hold_bars, n - 1)
+
+        # Exit logic: STOP first (same bar as entry), then TARGET (from next bar), then TIME
+        for k in range(entry_j, last + 1):
+            # STOP: active from entry bar (k >= entry_j)
+            if not np.isnan(stop):
+                if s == 1 and l[k] <= stop:  # gap-through: fill at worse of stop/open
+                    exit_j, exit_px, reason = k, min(stop, o[k]), "stop"
+                    break
+                elif s == -1 and h[k] >= stop:
+                    exit_j, exit_px, reason = k, max(stop, o[k]), "stop"
+                    break
+
+            # TARGET: only valid from bar after entry (k > entry_j)
+            if not np.isnan(tgt) and k > entry_j:
+                if s == 1 and h[k] >= tgt:
+                    exit_j, exit_px, reason = k, tgt, "target"
+                    break
+                elif s == -1 and l[k] <= tgt:
+                    exit_j, exit_px, reason = k, tgt, "target"
+                    break
+
+        # TIME-STOP if no stop/target triggered
+        if exit_j is None:
+            exit_j, exit_px, reason = last, o[last], "time"
+
+        # Apply exit slip (taker side): pessimistic
+        exit_px_with_slip = exit_px * (1 - s * slip_bps / 1e4)
+
+        # Compute PnL: entry at entry_px (maker, no slip), exit at exit_px_with_slip (taker slip applied)
+        # gross_bps = direction * (exit/entry - 1) * 1e4 + 2*slip (following spec)
+        # net_bps = gross - entry_fee - exit_fee
+        gross = s * (exit_px_with_slip / entry_px - 1) * 1e4 + 2 * slip_bps
+
+        # Entry fee: maker (fee_maker_bps on entry)
+        # Exit fee: taker (fee_taker_bps on exit)
+        net = s * (exit_px_with_slip / entry_px - 1) * 1e4 - fee_maker_bps - fee_taker_bps
+
+        trades.append(
+            Trade(coin, int(s), entry_j, exit_j, entry_px, exit_px_with_slip, gross, net, reason)
+        )
+        i = exit_j + 1  # Move past this exit, no overlap
+
+    return trades

@@ -187,3 +187,165 @@ def test_gap_through_stop(prepped_volatile):
     # With slip applied on exit (subtract for long): exit_px = expected_exit * (1 - slip)
     expected_exit_with_slip = expected_exit * (1 - 0.5 / 1e4)
     assert abs(t.exit_px - expected_exit_with_slip) < 1e-4
+
+
+def test_maker_entry_strict_l_less_l(simple_bars):
+    """Maker entry: fills only when l[j] < L (strict), at price L. No slip on entry."""
+    from scalp_backtest_lib import simulate_maker
+
+    df = prep(simple_bars)
+    fee_maker_bps = 1.5
+    fee_taker_bps = 4.5
+    slip_bps = 1.0
+
+    i_signal = 20
+    limit_px = np.full(len(df), np.nan)
+    limit_px[i_signal] = 100.0  # Limit at 100 (same as market)
+
+    sig = np.zeros(len(df))
+    sig[i_signal] = 1  # Long signal
+
+    df_test = df.copy()
+    # Bar i_signal+1: l = 100.0 exactly -> should NOT fill (not < L)
+    df_test.loc[i_signal + 1, "l"] = 100.0
+    df_test.loc[i_signal + 1, "h"] = 100.1
+
+    trades = simulate_maker(
+        df_test, sig, limit_px, None, None,
+        fee_maker_bps=fee_maker_bps, fee_taker_bps=fee_taker_bps, slip_bps=slip_bps,
+        entry_ttl=3, hold_bars=60, coin="TEST"
+    )
+    assert len(trades) == 0, "Should not fill when l == L (not strict <)"
+
+    # Now bar i_signal+1: l = 99.9 < 100.0 -> should fill at L=100.0
+    df_test.loc[i_signal + 1, "l"] = 99.9
+    trades = simulate_maker(
+        df_test, sig, limit_px, None, None,
+        fee_maker_bps=fee_maker_bps, fee_taker_bps=fee_taker_bps, slip_bps=slip_bps,
+        entry_ttl=3, hold_bars=60, coin="TEST"
+    )
+    assert len(trades) >= 1
+    t = trades[0]
+    assert t.entry_px == 100.0, f"Entry should be at limit L=100.0, got {t.entry_px}"
+    # Entry should have 0 slip (maker entry)
+    assert t.entry_i == i_signal + 1
+
+
+def test_maker_no_fill_in_entry_ttl(simple_bars):
+    """Maker entry: TTL=3 bars; if not filled in bars [i+1, i+3], cancel (no trade)."""
+    from scalp_backtest_lib import simulate_maker
+
+    df = prep(simple_bars)
+    fee_maker_bps = 1.5
+    fee_taker_bps = 4.5
+    slip_bps = 1.0
+
+    i_signal = 20
+    limit_px = np.full(len(df), np.nan)
+    limit_px[i_signal] = 99.0  # Aggressive limit (below market)
+
+    sig = np.zeros(len(df))
+    sig[i_signal] = 1  # Long signal
+
+    df_test = df.copy()
+    # Bars i+1 to i+3: all have l >= 99.0 -> no fill
+    for j in range(i_signal + 1, i_signal + 4):
+        df_test.loc[j, "l"] = 99.5  # Low > limit
+
+    trades = simulate_maker(
+        df_test, sig, limit_px, None, None,
+        fee_maker_bps=fee_maker_bps, fee_taker_bps=fee_taker_bps, slip_bps=slip_bps,
+        entry_ttl=3, hold_bars=60, coin="TEST"
+    )
+    assert len(trades) == 0, "Should cancel after 3-bar TTL with no fill"
+
+
+def test_maker_vs_taker_fees(simple_bars):
+    """Maker entry fee (1.5bps), taker exit fee (4.5bps + slip) applied correctly."""
+    from scalp_backtest_lib import simulate_maker
+
+    df = prep(simple_bars)
+    fee_maker_bps = 1.5
+    fee_taker_bps = 4.5
+    slip_bps = 0.5
+
+    i_signal = 20
+    limit_px = np.full(len(df), np.nan)
+    limit_px[i_signal] = 100.0  # Limit
+
+    sig = np.zeros(len(df))
+    sig[i_signal] = 1
+
+    df_test = df.copy()
+    # Fill at bar i+1 at L=100.0
+    df_test.loc[i_signal + 1, "l"] = 99.9
+
+    # Time-stop exit at bar i+1+60 at open=100.0
+    target_px = np.full(len(df), np.nan)
+    stop_px = np.full(len(df), np.nan)
+
+    trades = simulate_maker(
+        df_test, sig, limit_px, target_px, stop_px,
+        fee_maker_bps=fee_maker_bps, fee_taker_bps=fee_taker_bps, slip_bps=slip_bps,
+        entry_ttl=3, hold_bars=60, coin="TEST"
+    )
+    assert len(trades) >= 1
+    t = trades[0]
+    # Entry: no slip (maker), fee = -1.5 bps
+    # Exit: taker, fee = -4.5 bps, slip = -0.5 bps (applied on exit side)
+    # Gross (from entry to exit, flat market) should be about 0, but net should deduct all costs
+    # net_bps = gross - entry_fee - exit_fee - exit_slip
+    # In flat market: gross ≈ 0, so net ≈ -(1.5 + 4.5 + 0.5) = -6.5 bps (approximation)
+    # Verify total fees extracted = 1.5 (entry maker) + 4.5 (exit taker) + 0.5 (exit slip)
+    # For flat market: net_bps should be approximately -6.5
+    expected_total_cost = fee_maker_bps + fee_taker_bps + slip_bps
+    assert t.net_bps <= -expected_total_cost + 0.1, \
+        f"Expected net_bps ≈ -{expected_total_cost}, got {t.net_bps}"
+
+
+def test_maker_target_from_next_bar(prepped_volatile):
+    """Maker target only valid from bar after entry (not entry bar itself)."""
+    from scalp_backtest_lib import simulate_maker
+
+    df = prepped_volatile
+    fee_maker_bps = 1.5
+    fee_taker_bps = 4.5
+    slip_bps = 0.5
+
+    i_signal = 50
+    entry_px = df.loc[i_signal + 1, "o"]
+    atr = df.loc[i_signal, "atr14"]
+
+    # Set limit and target close together
+    limit_px = np.full(len(df), np.nan)
+    limit_px[i_signal] = entry_px * 0.99  # Entry limit
+
+    target_px = np.full(len(df), np.nan)
+    target_px[i_signal] = entry_px * 1.01  # Target 1% above entry
+
+    sig = np.zeros(len(df))
+    sig[i_signal] = 1
+
+    df_test = df.copy()
+    # Entry at bar i+1
+    df_test.loc[i_signal + 1, "l"] = limit_px[i_signal] - 0.1  # Fill at limit
+
+    # Entry bar (i+1) also has high > target -> should NOT exit (target only from next bar)
+    df_test.loc[i_signal + 1, "h"] = target_px[i_signal] + 0.5
+
+    # Stop far away
+    stop_px = np.full(len(df), np.nan)
+    stop_px[i_signal] = entry_px * 0.90
+
+    trades = simulate_maker(
+        df_test, sig, limit_px, target_px, stop_px,
+        fee_maker_bps=fee_maker_bps, fee_taker_bps=fee_taker_bps, slip_bps=slip_bps,
+        entry_ttl=3, hold_bars=60, coin="TEST"
+    )
+
+    assert len(trades) >= 1
+    t = trades[0]
+    # Target should NOT be hit on entry bar (i+1), should exit later on time or target after
+    # We check that it's not a "target" exit on the entry bar itself
+    assert t.exit_i > i_signal + 1 or t.exit_reason != "target", \
+        f"Target should not be valid on entry bar; exit at {t.exit_i}, reason {t.exit_reason}"
