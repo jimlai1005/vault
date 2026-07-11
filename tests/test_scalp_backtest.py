@@ -261,7 +261,10 @@ def test_maker_no_fill_in_entry_ttl(simple_bars):
 
 
 def test_maker_vs_taker_fees(simple_bars):
-    """Maker entry fee (1.5bps), taker exit fee (4.5bps + slip) applied correctly."""
+    """Registered F2b cost contract (exact formulas):
+    - taker exit (stop/time): net = side*(exit/entry-1)*1e4 - 1.5 - 4.5 - 1*slip
+    - maker exit (target):    net = side*(exit/entry-1)*1e4 - 1.5 - 1.5 (ZERO slip)
+    Slip is paid ONLY on the taker exit leg, once. Maker legs pay no slip."""
     from scalp_backtest_lib import simulate_maker
 
     df = prep(simple_bars)
@@ -269,38 +272,66 @@ def test_maker_vs_taker_fees(simple_bars):
     fee_taker_bps = 4.5
     slip_bps = 0.5
 
+    # --- Case 1: time-stop (taker) exit; flat market ---
     i_signal = 20
     limit_px = np.full(len(df), np.nan)
-    limit_px[i_signal] = 100.0  # Limit
+    limit_px[i_signal] = 100.0
 
     sig = np.zeros(len(df))
     sig[i_signal] = 1
 
     df_test = df.copy()
-    # Fill at bar i+1 at L=100.0
-    df_test.loc[i_signal + 1, "l"] = 99.9
-
-    # Time-stop exit at bar i+1+60 at open=100.0
-    target_px = np.full(len(df), np.nan)
-    stop_px = np.full(len(df), np.nan)
+    df_test.loc[i_signal + 1, "l"] = 99.9  # fill at L=100.0
 
     trades = simulate_maker(
-        df_test, sig, limit_px, target_px, stop_px,
+        df_test, sig, limit_px, None, None,
+        fee_maker_bps=fee_maker_bps, fee_taker_bps=fee_taker_bps, slip_bps=slip_bps,
+        entry_ttl=3, hold_bars=10, coin="TEST"
+    )
+    assert len(trades) == 1
+    t = trades[0]
+    assert t.exit_reason == "time"
+    raw = t.side * (t.exit_px / t.entry_px - 1) * 1e4
+    expected_net = raw - fee_maker_bps - fee_taker_bps - slip_bps  # raw - 6.0 - slip
+    assert abs(t.net_bps - expected_net) < 1e-9, \
+        f"Taker exit: expected net {expected_net}, got {t.net_bps}"
+    # Flat market sanity: raw = 0 -> net = -6.5 exactly
+    assert abs(t.net_bps - (-6.5)) < 1e-9
+
+    # --- Case 2: target (maker) exit: net = raw - 3.0, zero slip on both legs ---
+    i_signal2 = 40
+    limit_px2 = np.full(len(df), np.nan)
+    limit_px2[i_signal2] = 100.0
+
+    target_px = np.full(len(df), np.nan)
+    target_px[i_signal2] = 100.5
+
+    stop_px = np.full(len(df), np.nan)
+    stop_px[i_signal2] = 90.0  # far away, never hit
+
+    sig2 = np.zeros(len(df))
+    sig2[i_signal2] = 1
+
+    df_test2 = df.copy()
+    df_test2.loc[i_signal2 + 1, "l"] = 99.9    # fill at L=100.0 on entry bar
+    df_test2.loc[i_signal2 + 2, "h"] = 100.6   # h > T (strict) on bar after entry
+
+    trades2 = simulate_maker(
+        df_test2, sig2, limit_px2, target_px, stop_px,
         fee_maker_bps=fee_maker_bps, fee_taker_bps=fee_taker_bps, slip_bps=slip_bps,
         entry_ttl=3, hold_bars=60, coin="TEST"
     )
-    assert len(trades) >= 1
-    t = trades[0]
-    # Entry: no slip (maker), fee = -1.5 bps
-    # Exit: taker, fee = -4.5 bps, slip = -0.5 bps (applied on exit side)
-    # Gross (from entry to exit, flat market) should be about 0, but net should deduct all costs
-    # net_bps = gross - entry_fee - exit_fee - exit_slip
-    # In flat market: gross ≈ 0, so net ≈ -(1.5 + 4.5 + 0.5) = -6.5 bps (approximation)
-    # Verify total fees extracted = 1.5 (entry maker) + 4.5 (exit taker) + 0.5 (exit slip)
-    # For flat market: net_bps should be approximately -6.5
-    expected_total_cost = fee_maker_bps + fee_taker_bps + slip_bps
-    assert t.net_bps <= -expected_total_cost + 0.1, \
-        f"Expected net_bps ≈ -{expected_total_cost}, got {t.net_bps}"
+    assert len(trades2) == 1
+    t2 = trades2[0]
+    assert t2.exit_reason == "target"
+    assert t2.exit_px == target_px[i_signal2], \
+        f"Target fills at T exactly (zero slip), got {t2.exit_px}"
+    raw2 = t2.side * (t2.exit_px / t2.entry_px - 1) * 1e4
+    expected_net2 = raw2 - 2 * fee_maker_bps  # raw - 3.0, no slip
+    assert abs(t2.net_bps - expected_net2) < 1e-9, \
+        f"Maker target exit: expected net {expected_net2}, got {t2.net_bps}"
+    # raw = 50 bps (100 -> 100.5) -> net = 47.0 exactly
+    assert abs(t2.net_bps - 47.0) < 1e-9
 
 
 def test_maker_target_from_next_bar(prepped_volatile):

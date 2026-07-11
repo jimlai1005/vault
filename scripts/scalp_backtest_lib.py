@@ -180,11 +180,15 @@ def simulate_maker(
     fills at limit_px[i] with maker fee, zero entry slip.
 
     Exit priority (starting bar after entry):
-    1. STOP: triggered same bar as entry; taker fee + slip; gap-through at worse of stop/open
-    2. TARGET: triggered from bar after entry; taker fee (1.5 bps), zero exit slip
-    3. TIME-STOP: at open[entry_i + hold_bars] with taker fee + slip
+    1. STOP: active from entry bar; taker exit (fee_taker_bps + 1x slip);
+       gap-through fills at worse of stop/open
+    2. TARGET: strict h[k] > T (long) / l[k] < T (short), valid only from bar AFTER
+       entry; maker exit (fee_maker_bps, ZERO slip)
+    3. TIME-STOP: at open[entry_j + hold_bars]; taker exit (fee_taker_bps + 1x slip)
 
-    Returns list[Trade] with entry_fee = fee_maker_bps (maker), exit_fee + slip applied pessimistically.
+    Cost contract (registered F2b rules): slip is paid ONLY on the taker exit leg
+    (stop/time), once. Maker legs (entry, target exit) pay zero slip.
+    net_bps = side*(exit_px/entry_px - 1)*1e4 - entry_fee - exit_fee - exit_slip.
     """
     trades, i, n = [], 0, len(df)
     o, h, l, atr = df["o"].values, df["h"].values, df["l"].values, df["atr14"].values
@@ -230,12 +234,12 @@ def simulate_maker(
                     exit_j, exit_px, reason = k, max(stop, o[k]), "stop"
                     break
 
-            # TARGET: only valid from bar after entry (k > entry_j)
+            # TARGET: strict cross, only valid from bar after entry (k > entry_j)
             if not np.isnan(tgt) and k > entry_j:
-                if s == 1 and h[k] >= tgt:
+                if s == 1 and h[k] > tgt:
                     exit_j, exit_px, reason = k, tgt, "target"
                     break
-                elif s == -1 and l[k] <= tgt:
+                elif s == -1 and l[k] < tgt:
                     exit_j, exit_px, reason = k, tgt, "target"
                     break
 
@@ -243,20 +247,22 @@ def simulate_maker(
         if exit_j is None:
             exit_j, exit_px, reason = last, o[last], "time"
 
-        # Apply exit slip (taker side): pessimistic
-        exit_px_with_slip = exit_px * (1 - s * slip_bps / 1e4)
+        # Cost model per registered F2b rules (slip ONLY on taker exit leg, once):
+        # - target exit  -> maker leg: fee_maker_bps, ZERO slip
+        # - stop/time    -> taker leg: fee_taker_bps + 1x slip
+        if reason == "target":
+            exit_fee = fee_maker_bps
+            exit_slip = 0.0
+        else:  # "stop" / "time"
+            exit_fee = fee_taker_bps
+            exit_slip = slip_bps
 
-        # Compute PnL: entry at entry_px (maker, no slip), exit at exit_px_with_slip (taker slip applied)
-        # gross_bps = direction * (exit/entry - 1) * 1e4 + 2*slip (following spec)
-        # net_bps = gross - entry_fee - exit_fee
-        gross = s * (exit_px_with_slip / entry_px - 1) * 1e4 + 2 * slip_bps
-
-        # Entry fee: maker (fee_maker_bps on entry)
-        # Exit fee: taker (fee_taker_bps on exit)
-        net = s * (exit_px_with_slip / entry_px - 1) * 1e4 - fee_maker_bps - fee_taker_bps
+        # gross = raw price move (no costs); exit_px is the raw fill price
+        gross = s * (exit_px / entry_px - 1) * 1e4
+        net = gross - fee_maker_bps - exit_fee - exit_slip
 
         trades.append(
-            Trade(coin, int(s), entry_j, exit_j, entry_px, exit_px_with_slip, gross, net, reason)
+            Trade(coin, int(s), entry_j, exit_j, entry_px, exit_px, gross, net, reason)
         )
         i = exit_j + 1  # Move past this exit, no overlap
 
