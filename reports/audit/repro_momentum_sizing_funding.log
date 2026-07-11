@@ -1,0 +1,32 @@
+panel: 731 days x 4 coins (2024-07-11 -> 2026-07-11)
+
+baseline (3x leverage, as shipped) sharpe= 0.217  total_ret=  -31.9%  mdd=  -65.1%
+counterfactual: 1x leverage cap  sharpe= 0.175  total_ret=    1.6%  mdd=  -24.0%
+counterfactual: 2x leverage cap  sharpe= 0.197  total_ret=  -10.6%  mdd=  -46.2%
+counterfactual: 20% vol-target overlay sharpe= 0.691  total_ret=   35.4%  mdd=  -18.8%
+  sensitivity: vol-target=15%    sharpe= 0.754  total_ret=   36.7%  mdd=  -16.5%
+  sensitivity: vol-target=25%    sharpe= 0.658  total_ret=   35.4%  mdd=  -21.0%
+  sensitivity: vol-target=30%    sharpe= 0.632  total_ret=   35.1%  mdd=  -22.9%
+  sensitivity: vol_lookback=10d  sharpe=-0.033  total_ret=  -10.5%  mdd=  -44.7%
+  sensitivity: vol_lookback=40d  sharpe= 0.783  total_ret=   42.2%  mdd=  -18.4%
+
+--- fee cost drag ---
+FEE_RATE = 0.0005 (5.0 bps per notional traded)
+
+--- funding overlay (baseline leverage, real HL fundingHistory) ---
+  funding rows for BTC: 17539 (2024-07-11 -> 2026-07-11)
+  funding rows for ETH: 17539 (2024-07-11 -> 2026-07-11)
+  funding rows for SOL: 17539 (2024-07-11 -> 2026-07-11)
+  funding rows for HYPE: 14002 (2024-12-05 -> 2026-07-11)
+  total_price_pnl=$-1,320  total_fee=$754  total_funding_pnl=$-2,531
+  funding pnl annualized: $-1,264/yr (-12.64%/yr of starting capital)
+with funding PnL added           sharpe= 0.084  total_ret=  -46.1%  mdd=  -70.0%
+baseline (no funding, for comparison) sharpe= 0.217  total_ret=  -31.9%  mdd=  -65.1%
+
+--- combined: vol-target sizing AND real funding together ---
+vol-target(20%) + funding        sharpe= 0.568  total_ret=   26.6%  mdd=  -19.6%
+  sensitivity: vol-target=15% + funding sharpe= 0.636  total_ret=   28.8%  mdd=  -16.9%
+  sensitivity: vol-target=25% + funding sharpe= 0.534  total_ret=   25.7%  mdd=  -21.9%
+  sensitivity: vol-target=30% + funding sharpe= 0.505  total_ret=   24.6%  mdd=  -24.0%
+  sensitivity: vol_lookback=10d + funding sharpe=-0.102  total_ret=  -13.9%  mdd=  -44.8%
+  sensitivity: vol_lookback=40d + funding sharpe= 0.683  total_ret=   34.5%  mdd=  -19.2%
