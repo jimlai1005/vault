@@ -1,6 +1,12 @@
 //@version=6
 // CTA Crowding-Fade — TradingView replica of vault CTA forward-test engine
 // Source of truth: src/hlvault/cta/{signals,live,config,risk}.py @ 2026-07-05
+// 2026-07-14: 加入 B1 vol-target sizing（sub-project L Stage 1 驗證的研究層 baseline）：
+//   進場名目 × m，m = clip(σ_target / σ_ann, 0.25, 1.0)；σ = 4h log return 的零均值
+//   EWMA（span 180 bars ≈ 30d，RiskMetrics 遞迴）年化 ×√(bars/年)，closed-bar、
+//   進場鎖定（Pine 的「close 下單、次根 open 成交」= 研究引擎 shift-by-one 語意）。
+//   注意：TV 資料源（尤其 Long Accounts 歷史長度）與研究用 Binance 快取不同，
+//   數字不會與 reports/cta-l-stage1-verdict.md 逐位對應，只看形狀與方向。
 //
 // 對應關係：
 //   - 訊號在 bar close 計算、下一根 bar open 成交（= live 的 shift(1) / 回測 simulate 語意）
@@ -30,8 +36,14 @@ import TradingView/Request/3 as req
 
 // ───────────────────────── inputs ─────────────────────────
 grpSide  = "多空開關"
-enableLong  = input.bool(false, "啟用做多 (ENABLE_LONG)",  group = grpSide, tooltip = "生產值 false")
+enableLong  = input.bool(true,  "啟用做多 (ENABLE_LONG)",  group = grpSide, tooltip = "生產值 false（實盤 short-only）；此處依 owner 要求預設開")
 enableShort = input.bool(true,  "啟用做空 (ENABLE_SHORT)", group = grpSide, tooltip = "生產值 true")
+
+grpB1 = "B1 vol-target sizing（L Stage 1）"
+useB1        = input.bool(true,   "啟用 B1（進場名目 × m）", group = grpB1, tooltip = "m = clip(σ_target/σ_ann, floor, 1.0)，cap-only：只縮不放大。關掉＝固定名目（=B0）")
+sigmaTarget  = input.float(60.0,  "σ_target（年化 %）",      group = grpB1, tooltip = "研究主配置 60%") / 100.0
+sigmaSpan    = input.int(180,     "EWMA span（bars）",       group = grpB1, tooltip = "研究主配置 180 bars＝4h 圖的 30 天；前 span 根 warmup 期 m=1")
+clipFloor    = input.float(0.25,  "m 下限",                  group = grpB1, tooltip = "研究主配置 0.25")
 
 grpSig = "訊號參數（生產值）"
 emaFastLen      = input.int(20,    "EMA fast",                        group = grpSig)
@@ -101,6 +113,25 @@ fuel = not na(oi) and not na(oiPrev) and oi > oiPrev
 atrV  = ta.atr(atrLen)
 atrOk = not na(atrV) and atrV > 0
 
+// ───────────────────────── B1 vol-target multiplier ─────────────────────────
+// 零均值 EWMA 變異（RiskMetrics 遞迴，對齊 scripts/cta_l_stage1.py 的 _ewma_log_return_vol）：
+//   var_i = (1-α)·var_{i-1} + α·r_i²，α = 2/(span+1)，r = log(close/close[1])
+// 年化：×√(bars/年)，bars/年依圖表週期換算（4h 圖 = 2190，與研究一致）。
+// shift 語意：這裡在 bar close 更新 σ、下單，次根 open 成交——成交 bar 看到的 σ
+// 恰好只含成交前已收盤的資料，等價於研究引擎的 sigma_used[i] = sigma_raw[i-1]。
+alphaEw = 2.0 / (sigmaSpan + 1)
+logRet  = math.log(close / close[1])
+var float ewVar = na
+ewVar := na(logRet) ? ewVar : na(ewVar) ? logRet * logRet : (1 - alphaEw) * ewVar + alphaEw * logRet * logRet
+barsPerYear = 365.0 * 24.0 * 3600.0 / timeframe.in_seconds()
+sigmaAnn = na(ewVar) ? na : math.sqrt(ewVar) * math.sqrt(barsPerYear)
+
+// warmup（前 span 根）與資料不足時 m=1.0（＝baseline 行為），與研究一致。
+// bar_index 是訊號 bar、成交在次根（k+1）——條件用 span-1 補回這一根位移，
+// 使「解除 warmup 的成交 bar」= 研究引擎的 row i = span（fresh review 抓的 off-by-one）
+b1Ready = bar_index >= sigmaSpan - 1 and not na(sigmaAnn) and sigmaAnn > 0
+mVol = useB1 and b1Ready ? math.max(clipFloor, math.min(1.0, sigmaTarget / sigmaAnn)) : 1.0
+
 // ───────────────────────── exits（先於進場評估）─────────────────────────
 entryTime   = strategy.opentrades > 0 ? strategy.opentrades.entry_time(strategy.opentrades - 1) : na
 // 減一根 bar：這裡在 bar close 判斷、次根 open 成交，回測 simulate 是「當根 open_time 滿 14 天就以當根 open 出場」，
@@ -122,7 +153,8 @@ shortSig = enableShort and trendDn and crowdLongOk  and fuel and atrOk
 longSig  = enableLong  and trendUp and crowdShortOk and fuel and atrOk
 
 var float atrAtEntry = na
-qty = notionalUsd / close
+// B1：進場名目 × m，於下單當根鎖定（qty 只在進場時讀取一次 = 進場鎖定；存續期不重調）
+qty = notionalUsd * mVol / close
 
 if strategy.position_size == 0 and shortSig
     atrAtEntry := atrV
@@ -147,7 +179,7 @@ if strategy.position_size > 0
 plot(emaF, "EMA fast", color = color.new(color.teal,   0))
 plot(emaS, "EMA slow", color = color.new(color.orange, 0))
 
-var table info = table.new(position.top_right, 1, 5, border_width = 1)
+var table info = table.new(position.top_right, 1, 6, border_width = 1)
 if barstate.islast
     tfOk  = timeframe.period == "240"
     lsrOk = not na(lsr)
@@ -162,3 +194,5 @@ if barstate.islast
          bgcolor = color.new(color.gray, 70), text_color = color.white)
     table.cell(info, 0, 4, "crowd flt: " + (useCrowdFilter ? "ON" : "OFF") + " | fuel: " + (fuel ? "on" : "off") + " | trend: " + (trendDn ? "dn" : trendUp ? "up" : "flat"),
          bgcolor = color.new(color.gray, 70), text_color = color.white)
+    table.cell(info, 0, 5, "B1: " + (useB1 ? (b1Ready ? "m=" + str.tostring(mVol, "#.###") + " (σ=" + str.tostring(sigmaAnn * 100, "#.#") + "%)" : "warmup中 m=1") : "OFF (m=1)"),
+         bgcolor = useB1 ? color.new(color.blue, 70) : color.new(color.gray, 70), text_color = color.white)
