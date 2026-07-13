@@ -1,4 +1,4 @@
-# Sub-project K：CTA sizing/conditioning 分階段優化（預註冊）
+# Sub-project L：CTA sizing/conditioning 分階段優化（預註冊）
 
 **狀態：預註冊。本檔 commit 後才准產出任何正式數字。**
 方法論模板：`docs/superpowers/specs/2026-07-12-momentum-voltarget-retest.md`（NO-GO 收檔，
@@ -6,12 +6,12 @@
 
 ## §0 定位與邊界
 
-- **K 判定的是 sizing / conditioning 層，不是訊號**。CTA 訊號（`4h-p10-fuel24`，
+- **L 判定的是 sizing / conditioning 層，不是訊號**。CTA 訊號（`4h-p10-fuel24`，
   EMA20/50 趨勢＋逆向 crowd filter＋OI fuel）的 GO/NO-GO 已由 phase-2b 判定為
   **NO-GO（綁定）**，正由 owner-override live forward-test（2026-07-04 起）購買真 OOS 證據。
-  **K 的任何結果都不翻轉 phase-2b 判定**。K 的產出是：若訊號在 forward-test 存活，
+  **L 的任何結果都不翻轉 phase-2b 判定**。L 的產出是：若訊號在 forward-test 存活，
   屆時該用什麼 sizing/conditioning/配置層。
-- **實盤 forward-test 配置凍結**。K 的成果不得中途部署到 live 引擎——中途改配置會毀掉
+- **實盤 forward-test 配置凍結**。L 的成果不得中途部署到 live 引擎——中途改配置會毀掉
   正在累積的 OOS 證據。任何部署動作（含改 `NOTIONAL_PER_TRADE`）屬實盤紅線，必問 owner。
 - **crowd filter 本體不可作為 ablation 對象**（不得放寬、移除、改參數）——三源印證它就是
   alpha（`reports/cta-overnight-synthesis-2026-07-06.md:12`）。Stage 2 的 ablation 一律是
@@ -59,7 +59,7 @@
   Sharpe 類統計量，無路徑問題。
 - **試驗計數 N（累計、預先寫死）**：Stage 1 記 N=8（1 主＋4 敏感度＋3 保守餘裕）。
   Stage 2 每個 ablation 記 3（1 主＋2 敏感度），依序累計：A1 用 N=11、A2 用 N=14、A3 用 N=17。
-  訊號層歷史探索（~50 試驗）不計入——因為 K 不重判訊號；此取捨已在 §0 交代。
+  訊號層歷史探索（~50 試驗）不計入——因為 L 不重判訊號；此取捨已在 §0 交代。
 - **判定紀律**：每 stage/ablation 只有一個**主配置**受判定；敏感度組只呈報、不得改選。
   任一 gate 不過＝該線收檔，**不再有變體、不重試**。gate 腳本的 bug 修正不算重試，
   但「bug 修正」的認定標準先寫死：不得改動任何 §3/§4 主配置常數與 gate 門檻；
@@ -71,7 +71,7 @@
 
 - **B0（baseline）**：現行 fixed-notional——每次進場每幣 $100。邏輯與 phase-2b 引擎
   一致（錨定見 guard 0），但成本掛載照下方定義、**產出一律出自同一個新引擎
-  simulate_k（guard 1）**，不得用原始路徑產 B0 的 csv。
+  simulate_l（guard 1）**，不得用原始路徑產 B0 的 csv。
 - **V1（variant）**：進場 notional_i = $100 × m_i,t，
   m_i,t = clip(σ_target / σ_i,t, 0.25, **1.0**)。
   - σ_i,t：幣 i 的 4h log return EWMA 波動，span=180 bars（30 天），年化 ×√2190，
@@ -81,12 +81,12 @@
   - **為什麼不是 momentum 版 overlay**：momentum 用「策略自身 trailing realized vol」做分母，
     CTA 的書常年平盤（短邊 1-3 年空窗屬正常），該分母在空窗期趨近 0 會把槓桿頂到 cap——
     病態。改用標的波動、逐部位、cap-only。
-- **成本掛載**：K 的所有 run（含 B0）用 0.045%＋1bp slippage = **0.055%/side**，
+- **成本掛載**：L 的所有 run（含 B0）用 0.045%＋1bp slippage = **0.055%/side**，
   fee 與 slippage 皆按實際 notional（含 m）計。
 - **結構性質（regression guards，實作驗收用）**：
   0. **引擎錨定**：新引擎在 m ≡ 1.0 且 slippage=0 之下，必須逐位元重現 phase-2b
      原始路徑（`cta_proxy_lib.run_cell` → `p2b.simulate`）的輸出——錨定到已審計引擎。
-  1. **K-baseline 恆等**：B0 = 新引擎 m ≡ 1.0＋slippage 1bp；V1 與 B0 出自同一引擎。
+  1. **L-baseline 恆等**：B0 = 新引擎 m ≡ 1.0＋slippage 1bp；V1 與 B0 出自同一引擎。
   2. **ledger 恆等**：V1 與 B0 的 trade ledger（coin, entry_ts, exit_ts）集合恆等——
      V1 只改大小，不改進出場。
   3. **線性縮放**：強制注入常數 m ≡ 0.5 時，逐日報酬必須 = 0.5 × B0 逐日報酬
@@ -104,20 +104,20 @@
 
 | Gate | 判準 |
 |---|---|
-| G-K1 | 全窗 MAR(V1) ≥ 1.3 × MAR(B0)。若 MAR(B0) ≤ 0：改為 MAR(V1) > 0 且 Sharpe(d_t) > 0 |
-| G-K2 | 6 折中 ≥4 折 MAR(V1) ≥ MAR(B0)（每折 MDD 下限規則見 §2） |
-| G-K3 | paired bootstrap（§2 聯合重抽）ΔSharpe 90% CI 下界 > −0.15（非劣性：de-lever 可以小傷 Sharpe，不能大傷） |
-| G-K4 | 成本 ×1.5（0.0825%/side，B0 與 V1 同調）下 G-K1 仍成立 |
-| G-K5 | 端點 −30/−60/−90d 三組（各自截斷窗重跑，B0/V1 成對）中 G-K1 的方向（V1 ≥ B0）零翻轉 |
+| G-L1 | 全窗 MAR(V1) ≥ 1.3 × MAR(B0)。若 MAR(B0) ≤ 0：改為 MAR(V1) > 0 且 Sharpe(d_t) > 0 |
+| G-L2 | 6 折中 ≥4 折 MAR(V1) ≥ MAR(B0)（每折 MDD 下限規則見 §2） |
+| G-L3 | paired bootstrap（§2 聯合重抽）ΔSharpe 90% CI 下界 > −0.15（非劣性：de-lever 可以小傷 Sharpe，不能大傷） |
+| G-L4 | 成本 ×1.5（0.0825%/side，B0 與 V1 同調）下 G-L1 仍成立 |
+| G-L5 | 端點 −30/−60/−90d 三組（各自截斷窗重跑，B0/V1 成對）中 G-L1 的方向（V1 ≥ B0）零翻轉 |
 
 只呈報不作 gate：paired ΔMAR bootstrap CI（附 §2 的 MDD 碎裂 caveat）、敏感度組全表、
-m 分佈摘要。設計註記：MAR 與 Sharpe 對均勻槓桿縮放不變，故 G-K1/G-K2 量測的是
+m 分佈摘要。設計註記：MAR 與 Sharpe 對均勻槓桿縮放不變，故 G-L1/G-L2 量測的是
 vol-timing 的跨時間／跨幣**重配**效果，不是水位效果——這是刻意的。Stage 1 的採納門檻
 建構為「點估計幅度（1.3×）＋逐折一致性＋Sharpe 非劣性＋成本與端點穩健」；
 DSR 式推論門檻從 Stage 2 起適用。
 
 **判定語義（先寫死）**：全過 → V1 成為 **B1 baseline**，Stage 2 開門；此結論僅適用研究層，
-部署另議（§0）。任一不過 → sub-project K 全案收檔（Stage 2/3 不開門），CTA 維持
+部署另議（§0）。任一不過 → sub-project L 全案收檔（Stage 2/3 不開門），CTA 維持
 fixed-notional，verdict 記錄後不再有變體。
 
 ## §4 Stage 2 協議：預註冊 ablation，一次一個，掙門票
@@ -166,27 +166,27 @@ fixed-notional，verdict 記錄後不再有變體。
 ## §6 誠實條款
 
 1. **Proxy 極限**：funding ≠ 持倉、volume ≠ OI；overlap 驗證 gate PASS 但量級偏弱
-   （`reports/cta_proxy_layer2b_verdict.md:43-60,153-162`）。所有 K 結論繼承此極限。
-2. **pseudo-OOS**：§2 folds 的參數未擬合，但資料已被反覆探索。K 的「過」不等於訊號可上實盤；
+   （`reports/cta_proxy_layer2b_verdict.md:43-60,153-162`）。所有 L 結論繼承此極限。
+2. **pseudo-OOS**：§2 folds 的參數未擬合，但資料已被反覆探索。L 的「過」不等於訊號可上實盤；
    訊號生死由 live forward-test 決定。
 3. **常數是判斷不是校準**：σ_target=60%、clip 0.25、折數門檻 4/6、非劣性邊際 −0.15
    皆 ex-ante 合理值——模型判斷，信心有限。敏感度組如與主配置方向矛盾，verdict 必須降級敘述。
 4. **funding／資金費率 accrual 未建模**（與 phase-2b 同），方向與幅度未知，如實標註。
 5. 若任何 gate 結果落在門檻 ±10% 邊緣帶，verdict 不得寫「穩健通過」，必須標註邊緣性。
 6. **folds 的已知瑕疵（接受、不修）**：折長不均（F1 約 15.5 個月、F6 僅 6 個月）在
-   G-K2 同權投票；F1 前 30 天是 σ warmup（m=1，V1=B0），天然偏向「無差異」；
+   G-L2 同權投票；F1 前 30 天是 σ warmup（m=1，V1=B0），天然偏向「無差異」；
    非複利固定基底在極端折可產生 |MDD|>100%（layer2b 已記錄 −148% artifact），
    折內比較因兩腿同基底仍有效，但該折的 MAR 絕對值不具尺度意義。
 
 ## §7 執行與驗證（驗證不自驗）
 
-1. 每個 config 輸出逐日報酬 csv ＋ trade ledger csv 至 `data/cache/cta_k/`（gitignored、
+1. 每個 config 輸出逐日報酬 csv ＋ trade ledger csv 至 `data/cache/cta_l/`（gitignored、
    可由腳本重生）。
 2. gate 腳本是唯一計算來源（B 與 V 同源同基），只從 csv 讀數、不產生新模擬；
-   自比測試（variant=baseline）必須得出 ΔSharpe CI 含 0、G-K1 比值 = 1。
+   自比測試（variant=baseline）必須得出 ΔSharpe CI 含 0、G-L1 比值 = 1。
 3. **fresh-context verifier**：只拿 csv ＋本檔 gate 定義，獨立重算全部 gate；
    與執行者的 gate 表逐格一致才可寫 verdict。
 4. **opus 二審**：只看數字表做獨立 GO/NO-GO 判讀；與執行判定不一致時呈 owner，不得自行取捨。
-5. Verdict 落 `reports/cta-k-stage{n}-verdict.md`，含端點敏感度全表與 §6 重述。
+5. Verdict 落 `reports/cta-l-stage{n}-verdict.md`，含端點敏感度全表與 §6 重述。
 
 執行計畫（嚼碎版）：`docs/superpowers/plans/2026-07-13-cta-staged-sizing-plan.md`。
