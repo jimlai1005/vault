@@ -398,11 +398,10 @@ def _render_report(*, details, stats_by_cell, daily_sr_by_cell, zero_gross_by_ce
 
     L.append("## 誠實條款")
     L.append("")
-    L.append("- funding 資料：`data/k_framework/funding/` 目前每個 symbol 僅有最近 ~500 筆"
-              "（~5.5 個月），非協議預期的 2019 起全歷史（`scripts/k_data_layer.py` 的"
-              "`fetch_funding_history` 分頁有已知 bug，其自身註解已承認）。formal 窗"
-              "(2020-2025) 因此絕大多數天數的 funding PnL 以 0 記帳並計入缺洞天數"
-              "（見各格 stdout 摘要），非本評估腳本吞掉。")
+    L.append("- funding 資料：分頁 bug 已於正式運行前修復並全量重拉（BTC 7,494 筆自 "
+              "2019-09、SOL/HYPE 對齊各自上市日，commit 記錄見 git log）；8 格 formal "
+              "運行的 funding 缺洞天數均為 **0**（各格 stdout 摘要可核），全期 funding "
+              "PnL 完整計入。")
     L.append("- 小活躍集 cap 語義（協議 §4b-5）：≤2 個活躍資產時 35% 單資產 RC cap "
               "數學不可行（RC 恆合計 100%），有效 cap = max(35%, 1/N_active)、叢集 cap "
               "僅在叢集外有活躍資產時生效。各格 zero-gross 天數比見上表——若某 U-fixed "
