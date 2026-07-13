@@ -190,3 +190,26 @@ fixed-notional，verdict 記錄後不再有變體。
 5. Verdict 落 `reports/cta-l-stage{n}-verdict.md`，含端點敏感度全表與 §6 重述。
 
 執行計畫（嚼碎版）：`docs/superpowers/plans/2026-07-13-cta-staged-sizing-plan.md`。
+
+## §8 修正案記錄
+
+### 修正案 1（2026-07-13，owner 裁決）：MDD 分母公式顯式化
+
+§2 的 MDD 未寫顯式公式。Stage 1 執行中，實作者與 fresh-context 盲測驗證者各採一種
+合法讀法（相對 running peak vs 相對固定基底），G-L2 結論相反（3/6 FAIL vs 4/6 PASS），
+機械對帳證實此為兩表全部分歧的唯一根因。owner 裁決預註冊本意為**固定基底**：
+
+```
+eq_t = 1 + Σ_{s≤t} r_s        （r 為 $500 固定基底之算術日報酬，非複利）
+MDD  = min_t [ eq_t − max_{s≤t} eq_s ]   （以固定基底 = 1 為分母，等同不除）
+```
+
+數值錨（機器可驗證）：依此式，B0 主窗（2020-09-14→2026-06-30，成本 0.055%/side）
+全窗 MDD = −0.336189359482（−33.6189%）。
+
+誠實記錄：本修正案在**看到兩讀法會翻轉 G-L2 之後**由 owner 裁決通過（post-hoc）。
+當時的證據鏈（repo 三個先例與方法論模板實算腳本皆 running-peak、spec §1:20 自引的
+−32% 錨與 running-peak 吻合、opus 兩輪裁決最終改判 running-peak 為作者本意）收斂於
+另一讀法；owner 行使 plan T7 預寫的裁決權改判固定基底。完整軌跡與兩讀法全表見
+`reports/cta-l-stage1-verdict.md` §2-§4。自本修正案起，L 案（含 Stage 2/3）所有 MDD
+一律依上式，不再有裁量空間。
