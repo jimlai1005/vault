@@ -450,6 +450,27 @@ class CtaEngine:
         decision = signals.decide(
             sig["trend_up"], sig["trend_dn"], sig["crowd_long"], sig["crowd_short"],
             sig["fuel"], enable_long=cfg.ENABLE_LONG, enable_short=cfg.ENABLE_SHORT)
+
+        # B1 vol-target sizing (sub-project L Stage 1; opt-in). m stays 1.0
+        # (and the log line/entries record stay byte-identical to pre-B1)
+        # unless SIGMA_TARGET is configured -- see config.py's SIGMA_TARGET
+        # docstring for the wallet-A/cta2 no-op guarantee. Computed here (not
+        # only when an entry is confirmed) so the per-cycle log line always
+        # shows the multiplier the NEXT entry on this coin would use — an
+        # owner audit surface independent of whether an entry actually fires
+        # this cycle (spec §7 "verification-not-self-verified").
+        m_mult, sigma_val, sizing_fail = 1.0, float("nan"), None
+        sizing_log_suffix = ""
+        if cfg.SIGMA_TARGET is not None:
+            m_mult, sigma_val, sizing_fail = signals.sizing_multiplier(
+                closed["close"], sigma_target=cfg.SIGMA_TARGET, span_bars=cfg.SIGMA_SPAN_BARS,
+                clip_lo=cfg.SIGMA_CLIP_LO, clip_hi=cfg.SIGMA_CLIP_HI)
+            if sizing_fail is not None:
+                # Fail-safe degradation must be loud (engineering principle
+                # #3), never silently folded into m=1.0.
+                logger.warning(f"{coin}: sizing fail-safe m=1.0 ({sizing_fail})")
+            sizing_log_suffix = f" m={m_mult:.3f} sigma={sigma_val:.4g}"
+
         # One INFO line per coin per rebalance: a forward-test engine that only
         # logs on actions is unverifiable for days at a time (entries are rare
         # by design, ~every other day across the universe in the backtest).
@@ -457,7 +478,7 @@ class CtaEngine:
             f"{coin}: decision={decision} trend={'up' if sig['trend_up'] else 'dn' if sig['trend_dn'] else '-'} "
             f"crowd_pct={sig.get('crowd_pct', float('nan')):.1f} "
             f"crowd={'L' if sig['crowd_long'] else 'S' if sig['crowd_short'] else '-'} "
-            f"fuel={sig['fuel']} atr={sig['atr']:.4g} mid={mid:.6g}")
+            f"fuel={sig['fuel']} atr={sig['atr']:.4g} mid={mid:.6g}{sizing_log_suffix}")
         if decision == "flat" or mid <= 0:
             return
         d = -1 if decision == "short" else 1
@@ -466,6 +487,17 @@ class CtaEngine:
         if not risk.atr_gate_ok(sig["atr"]):
             logger.info(f"{coin}: no valid ATR, skipping entry")
             return
+        # Entry notional: NOTIONAL_PER_TRADE * m. m==1.0 when B1 is disabled,
+        # in its warmup window, or in its fail-safe path -> entry_notional ==
+        # NOTIONAL_PER_TRADE exactly (float * 1.0 is bit-exact), so every
+        # downstream computation below is byte-identical to pre-B1 when
+        # SIGMA_TARGET is unset. m is computed ONCE above and locked into the
+        # entry record below — it is never recomputed for an already-open
+        # position (spec §3 "m 在部位存續期間鎖定於進場值"): an open position
+        # never re-enters this branch (guarded by the `if abs(cur_sz) > 1e-9:
+        # return` earlier in this method), so the lock is structural, not a
+        # separate flag to maintain.
+        entry_notional = cfg.NOTIONAL_PER_TRADE * m_mult
         # Structural gross-leverage entry cap: a NEW entry must never push
         # total account notional beyond MAX_GROSS_LEVERAGE x equity. Applies
         # ONLY to entries — the exit/stop/orphan paths above are risk-reducing
@@ -475,14 +507,14 @@ class CtaEngine:
             logger.error(f"{coin}: equity ${gross_state['equity']:,.2f} <= 0 — "
                          "gross-leverage cap treats this as over-limit, skipping entry")
             return
-        if gross_state["gross"] + cfg.NOTIONAL_PER_TRADE > cfg.MAX_GROSS_LEVERAGE * gross_state["equity"]:
+        if gross_state["gross"] + entry_notional > cfg.MAX_GROSS_LEVERAGE * gross_state["equity"]:
             logger.info(f"{coin}: gross-leverage cap — gross ${gross_state['gross']:,.2f} "
-                        f"+ ${cfg.NOTIONAL_PER_TRADE:,.2f} would exceed "
+                        f"+ ${entry_notional:,.2f} would exceed "
                         f"{cfg.MAX_GROSS_LEVERAGE:g}x equity ${gross_state['equity']:,.2f}; "
                         "skipping entry")
             return
         atr = sig["atr"]
-        size = risk.position_size(cfg.NOTIONAL_PER_TRADE, mid)
+        size = risk.position_size(entry_notional, mid)
         if size <= 0:
             return
         if not self._place_order(coin, is_buy=(d == 1), size=size, reduce_only=False):
@@ -490,10 +522,16 @@ class CtaEngine:
             return
         # Confirmed open: charge it against the cycle's gross budget so the
         # NEXT coin's cap check sees it (same-cycle accumulation).
-        gross_state["gross"] += cfg.NOTIONAL_PER_TRADE
-        entries[coin] = {"dir": d, "entry_px": mid,
-                         "stop": risk.stop_level(d, mid, atr, cfg.STOP_ATR_MULT),
-                         "entry_ms": now_ms}
+        gross_state["gross"] += entry_notional
+        entry = {"dir": d, "entry_px": mid,
+                "stop": risk.stop_level(d, mid, atr, cfg.STOP_ATR_MULT),
+                "entry_ms": now_ms}
+        if cfg.SIGMA_TARGET is not None:
+            # Additive field, gated behind the opt-in so wallet A / cta2 (B1
+            # off) keep the exact pre-B1 entries-record schema — bit-for-bit
+            # backward compatible state file, not just unchanged trading size.
+            entry["m"] = m_mult
+        entries[coin] = entry
         # Persist IMMEDIATELY (before the next coin is processed): a crash
         # after the open landed but before the loop-end save would leave a
         # REAL position with no stop/max-hold anchor. The orphan path would

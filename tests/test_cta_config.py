@@ -130,3 +130,61 @@ def test_coinalyze_key_falls_back_to_research_when_absent(monkeypatch, tmp_path)
     env.write_text("COIN_UNIVERSE=ETH,SOL\n")  # no COINALYZE_API_KEY override
     cfg = _reload_config(monkeypatch, str(env))
     assert cfg.COINALYZE_API_KEY == "research-fallback-key"
+
+
+# ---- B1 vol-target sizing: SIGMA_* defaults + import-time validity guard ---
+
+def test_sigma_target_default_is_none_b1_off(monkeypatch):
+    # Backward compatibility (wallet A / cta2): no env key -> B1 disabled.
+    cfg = _reload_config(monkeypatch, None)
+    assert cfg.SIGMA_TARGET is None
+    assert cfg.SIGMA_SPAN_BARS == 180
+    assert cfg.SIGMA_CLIP_LO == 0.25
+    assert cfg.SIGMA_CLIP_HI == 1.0
+
+
+def test_sigma_target_empty_string_means_off(monkeypatch, tmp_path):
+    env = tmp_path / ".env.cta3"
+    env.write_text("SIGMA_TARGET=\n")
+    cfg = _reload_config(monkeypatch, str(env))
+    assert cfg.SIGMA_TARGET is None
+
+
+def test_sigma_target_valid_value_enables(monkeypatch, tmp_path):
+    env = tmp_path / ".env.cta3"
+    env.write_text("SIGMA_TARGET=0.60\nSIGMA_SPAN_BARS=90\nSIGMA_CLIP_LO=0.5\n")
+    cfg = _reload_config(monkeypatch, str(env))
+    assert cfg.SIGMA_TARGET == 0.60
+    assert cfg.SIGMA_SPAN_BARS == 90
+    assert cfg.SIGMA_CLIP_LO == 0.5
+    assert cfg.SIGMA_CLIP_HI == 1.0   # never env-configurable (cap-only invariant)
+
+
+@pytest.mark.parametrize("val", ["0", "-0.5"])
+def test_sigma_target_nonpositive_raises_at_import(monkeypatch, tmp_path, val):
+    # A set-but-nonsensical SIGMA_TARGET must refuse to start, not be
+    # silently repaired downstream.
+    env = tmp_path / ".env.cta3"
+    env.write_text(f"SIGMA_TARGET={val}\n")
+    with pytest.raises(RuntimeError, match="SIGMA_TARGET"):
+        _reload_config(monkeypatch, str(env))
+
+
+@pytest.mark.parametrize("clip_lo", ["0", "-0.1", "1.5"])
+def test_sigma_clip_lo_out_of_range_raises_when_b1_on(monkeypatch, tmp_path, clip_lo):
+    env = tmp_path / ".env.cta3"
+    env.write_text(f"SIGMA_TARGET=0.60\nSIGMA_CLIP_LO={clip_lo}\n")
+    with pytest.raises(RuntimeError, match="SIGMA_CLIP_LO"):
+        _reload_config(monkeypatch, str(env))
+
+
+def test_sigma_guard_does_not_fire_when_sigma_target_unset(monkeypatch, tmp_path):
+    # Negative assertion: with SIGMA_TARGET unset the guard must NOT trigger,
+    # even in the presence of an out-of-range SIGMA_CLIP_LO -- the unset path
+    # must stay bit-identical to pre-B1 behavior (no new failure mode for the
+    # two existing live instances, whose env files never set any SIGMA_* key).
+    env = tmp_path / ".env.cta3"
+    env.write_text("SIGMA_CLIP_LO=0\n")   # invalid, but B1 is off
+    cfg = _reload_config(monkeypatch, str(env))   # must not raise
+    assert cfg.SIGMA_TARGET is None
+    assert cfg.SIGMA_CLIP_LO == 0.0

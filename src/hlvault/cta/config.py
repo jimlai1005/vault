@@ -110,6 +110,51 @@ MAX_DRAWDOWN_PCT = _env_float("MAX_DRAWDOWN_PCT", "0.20")
 MIN_ORDER_NOTIONAL = _env_float("MIN_ORDER_NOTIONAL", "12")
 ORDER_SLIPPAGE = _env_float("ORDER_SLIPPAGE", "0.05")
 
+# ---- vol-target sizing (sub-project L B1; opt-in, default OFF) --------
+# SIGMA_TARGET unset OR empty -> B1 completely disabled: every entry uses
+# NOTIONAL_PER_TRADE unchanged (m == 1.0 always, no sigma is ever computed, no
+# extra log fields, no new "m" key in the entries state record). Wallet A's
+# .env.cta and instance cta2's .env.cta2 never set this key, so this is a
+# guaranteed no-op for both existing live instances (bit-for-bit backward
+# compatible) -- see hlvault.cta.live._process_coin and
+# hlvault.cta.signals.sizing_multiplier for the consuming logic.
+#
+# Set e.g. "0.60" (60% annualized) to enable, on a NEW instance only: entry
+# notional = NOTIONAL_PER_TRADE * m, where
+#   m = clip(SIGMA_TARGET / sigma_i, SIGMA_CLIP_LO, SIGMA_CLIP_HI)
+# and sigma_i is coin i's zero-mean EWMA volatility of 4h closed-bar log
+# returns (span SIGMA_SPAN_BARS, annualized x sqrt(2190)).
+#
+# SIGMA_CLIP_HI is fixed at 1.0 and is deliberately NOT an env knob: cap-only
+# sizing (spec §0 "槓桿只縮不加" -- docs/superpowers/specs/
+# 2026-07-13-cta-staged-sizing-design.md) is a structural invariant of this
+# feature, not an owner-tunable parameter.
+_sigma_target_raw = _env_str("SIGMA_TARGET", "")
+SIGMA_TARGET = float(_sigma_target_raw) if _sigma_target_raw else None
+SIGMA_SPAN_BARS = _env_int("SIGMA_SPAN_BARS", "180")
+SIGMA_CLIP_LO = _env_float("SIGMA_CLIP_LO", "0.25")
+SIGMA_CLIP_HI = 1.0
+
+# Import-time validity guard (engineering principle #3/#5 forcing function):
+# a nonsensical B1 config must refuse to start, loudly, rather than be
+# silently "repaired" downstream (clipping a bad value to a floor would hide
+# the misconfiguration behind normal-looking orders). Deliberately gated on
+# SIGMA_TARGET being SET: when B1 is off (wallet A / cta2 -- the key absent
+# from their env files) this block is a no-op and the unset path stays
+# bit-identical to pre-B1 behavior.
+if SIGMA_TARGET is not None:
+    if SIGMA_TARGET <= 0:
+        raise RuntimeError(
+            f"SIGMA_TARGET={SIGMA_TARGET} is invalid: must be > 0 (annualized "
+            "vol target, e.g. 0.60). To DISABLE B1 vol-target sizing, leave "
+            "SIGMA_TARGET unset or empty -- do not set it to 0.")
+    if not (0 < SIGMA_CLIP_LO <= 1.0):
+        raise RuntimeError(
+            f"SIGMA_CLIP_LO={SIGMA_CLIP_LO} is invalid: must be in (0, 1] "
+            "(lower bound of the cap-only multiplier m; SIGMA_CLIP_HI is "
+            "fixed at 1.0). This guard fires only because SIGMA_TARGET is "
+            f"set ({SIGMA_TARGET}).")
+
 # ---- beta sleeve (Alpha+Beta instances only; default OFF => wallet A intact) ---
 # A persistent long in BETA_COIN sized to equity * BETA_TARGET_FRACTION. <=0
 # disables the sleeve entirely (no reads, no orders): wallet A never sets the
@@ -152,7 +197,8 @@ COINALYZE_THROTTLE_SECONDS = _env_float("COINALYZE_THROTTLE_SECONDS", "1.6")  # 
 BINANCE_KLINES_URL = "https://fapi.binance.com/fapi/v1/klines"
 # coin -> Binance USDT-M symbol (klines) ; Coinalyze future-market symbol resolved at runtime
 BINANCE_SYMBOLS = {"BTC": "BTCUSDT", "ETH": "ETHUSDT", "SOL": "SOLUSDT",
-                   "HYPE": "HYPEUSDT", "DOGE": "DOGEUSDT", "XRP": "XRPUSDT"}
+                   "HYPE": "HYPEUSDT", "DOGE": "DOGEUSDT", "XRP": "XRPUSDT",
+                   "DOT": "DOTUSDT"}  # DOT: added 2026-07-14 for the B1 instance universe
 
 # ---- notify / state ---------------------------------------------------
 TELEGRAM_BOT_TOKEN = _env_str("TELEGRAM_BOT_TOKEN", "")

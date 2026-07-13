@@ -12,6 +12,8 @@ closed bar (equivalent to the backtest's shift(1)-then-act-next-bar, since the
 live engine only ever sees closed bars)."""
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pandas as pd
 
@@ -143,3 +145,77 @@ def should_exit(direction: int, trend_up: bool, trend_dn: bool, fuel: bool,
     if held_days >= max_hold_days:
         return "maxhold"
     return None
+
+
+# ---- B1 vol-target sizing (sub-project L Stage 1; opt-in, live-layer) -----
+# Per-position entry-notional multiplier: m = clip(sigma_target / sigma,
+# clip_lo, clip_hi). Cap-only by construction — hlvault.cta.config fixes
+# SIGMA_CLIP_HI at 1.0 (never owner-configurable), so this can only ever
+# shrink notional relative to NOTIONAL_PER_TRADE, matching spec §0 "槓桿只縮
+# 不加". Reference: docs/superpowers/specs/2026-07-13-cta-staged-sizing-
+# design.md §3; scripts/cta_l_stage1.py's _ewma_log_return_vol/build_sigma_m/
+# make_m_fn is the research-layer twin this reproduces (same math, adapted for
+# the live engine's closed-bar cadence — see sizing_multiplier()'s docstring
+# for why no extra .shift(1) is applied here).
+
+BARS_PER_YEAR_4H = 2190.0   # 365 * 24 / 4 -- spec §3 "年化 x sqrt(2190)"
+
+
+def ewma_log_return_vol(close: pd.Series, span: int, bars_per_year: float) -> pd.Series:
+    """Zero-mean EWMA volatility of closed-bar log returns (RiskMetrics-style),
+    the same recursion as scripts/cta_l_stage1.py's _ewma_log_return_vol —
+    deliberately NOT pandas .ewm().std() (that mean-centers the series around
+    an EWM mean of returns AND applies an opaque small-sample bias-correction
+    factor, which would make an independent hand/spot check meaningless; see
+    that module's docstring for the full rationale). NaN at index 0 (no prior
+    close to form a return); the seed at index 1 is r_1^2 alone; index i>=2
+    recurses var_i = (1-alpha)*var_{i-1} + alpha*r_i^2, alpha = 2/(span+1)
+    (pandas' own span<->alpha mapping, adjust=False)."""
+    alpha = 2.0 / (span + 1)
+    px = close.to_numpy(dtype=float)
+    n = len(px)
+    log_ret = np.full(n, np.nan)
+    if n > 1:
+        log_ret[1:] = np.log(px[1:] / px[:-1])
+    var_raw = np.full(n, np.nan)
+    for i in range(1, n):
+        r2 = log_ret[i] * log_ret[i]
+        prev = var_raw[i - 1]
+        var_raw[i] = r2 if np.isnan(prev) else (1 - alpha) * prev + alpha * r2
+    sigma_raw = np.sqrt(var_raw) * math.sqrt(bars_per_year)
+    return pd.Series(sigma_raw, index=close.index)
+
+
+def sizing_multiplier(close: pd.Series, *, sigma_target: float, span_bars: int,
+                      clip_lo: float, clip_hi: float,
+                      bars_per_year: float = BARS_PER_YEAR_4H
+                      ) -> tuple[float, float, "str | None"]:
+    """B1 entry-notional multiplier for ONE coin, evaluated on a CLOSED-bar
+    close series — the live engine's `closed = frame.iloc[:-1]` (see
+    live.py's _process_coin). No additional `.shift(1)` is applied here,
+    unlike the research-layer build_sigma_m (which shifts because it walks
+    the FULL unclipped history bar-by-bar): `close` already excludes the
+    still-forming bar, so its last value already reflects only fully-known
+    returns — the exact same closed-bar, no-extra-shift convention
+    compute_signals() documents for trend/crowd/fuel/atr above.
+
+    The caller is expected to compute this ONCE per entry decision and lock
+    the resulting `m` into the entry record for the life of the trade (spec
+    §3 "m 在部位存續期間鎖定於進場值"); this function itself is stateless and
+    has no memory of prior calls — the lock is the caller's responsibility
+    (in live.py, it falls out of the entry path never re-running for an
+    already-open position).
+
+    Returns (m, sigma, fail_reason). `fail_reason` is None on a normally
+    computed m; otherwise a short string describing why the fail-safe m=1.0
+    fired (insufficient closed-bar history, or a non-finite/non-positive
+    sigma) — the caller MUST log this (engineering principle #3: a sizing
+    degradation must be visible, not silently folded into m=1.0)."""
+    if len(close) <= span_bars:
+        return 1.0, float("nan"), (
+            f"insufficient bars for sigma ({len(close)} <= span {span_bars})")
+    sigma = float(ewma_log_return_vol(close, span_bars, bars_per_year).iloc[-1])
+    if not math.isfinite(sigma) or sigma <= 0:
+        return 1.0, float("nan"), f"sigma not computable (got {sigma!r})"
+    m = float(np.clip(sigma_target / sigma, clip_lo, clip_hi))
+    return m, sigma, None

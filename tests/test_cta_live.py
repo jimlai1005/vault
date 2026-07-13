@@ -1,4 +1,5 @@
 import logging
+import math
 import time
 
 import pandas as pd
@@ -909,3 +910,218 @@ def test_alert_prefix_is_CTA_for_wallet_a(monkeypatch):
     # drive a halt so the drawdown alert fires (peak >> current)
     e.check_drawdown()
     assert sent and sent[0].startswith("CTA ")
+
+
+# ---- B1 vol-target sizing (sub-project L Stage 1; opt-in) ------------------
+# _short_signal_frame()'s close path is the deterministic exponential decay
+# 100 * 0.99**i -- a CONSTANT per-bar log return, so its zero-mean EWMA
+# volatility hits its steady-state value from bar 1 onward regardless of
+# window length (see test_cta_signals.py's
+# test_ewma_log_return_vol_on_constant_ratio_series_is_steady_state). That
+# gives every test below a hand-checkable expected sigma:
+_SIGMA_ACTUAL = abs(math.log(0.99)) * math.sqrt(2190.0)   # ~0.4706 (47.06% ann.)
+
+
+def _sigma_sizing_cfg(monkeypatch, tmp_path, *, sigma_target, span_bars=180, clip_lo=0.25):
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    monkeypatch.setattr(cfg, "STATE_FILE", tmp_path / "s.json")
+    monkeypatch.setattr(cfg, "COIN_UNIVERSE", ["BTC"])
+    monkeypatch.setattr(cfg, "ENABLE_LONG", False)
+    monkeypatch.setattr(cfg, "ENABLE_SHORT", True)
+    monkeypatch.setattr(cfg, "REBALANCE_INTERVAL_HOURS", 4)
+    monkeypatch.setattr(cfg, "NOTIONAL_PER_TRADE", 100.0)
+    monkeypatch.setattr(cfg, "DATA_STALENESS_HOURS", 8)
+    monkeypatch.setattr(cfg, "SIGMA_TARGET", sigma_target)
+    monkeypatch.setattr(cfg, "SIGMA_SPAN_BARS", span_bars)
+    monkeypatch.setattr(cfg, "SIGMA_CLIP_LO", clip_lo)
+
+
+class _FreshShortSignalData:
+    def __init__(self, coins, lookback_bars):
+        pass
+
+    def frame_for(self, coin):
+        return _short_signal_frame()
+
+    def is_coin_stale(self, coin, staleness_hours):
+        return False
+
+
+def test_sigma_target_default_off_notional_and_log_unchanged(monkeypatch, tmp_path, caplog):
+    # Acceptance 2: the "SIGMA_TARGET unset" identity test. Deliberately does
+    # NOT monkeypatch SIGMA_TARGET/SIGMA_SPAN_BARS/SIGMA_CLIP_LO -- the module
+    # default (SIGMA_TARGET is None) is exactly the wallet-A / cta2 shape.
+    monkeypatch.setattr(cfg, "WALLET_ADDRESS", "0xabc")
+    monkeypatch.setattr(cfg, "STATE_FILE", tmp_path / "s.json")
+    monkeypatch.setattr(cfg, "COIN_UNIVERSE", ["BTC"])
+    monkeypatch.setattr(cfg, "ENABLE_LONG", False)
+    monkeypatch.setattr(cfg, "ENABLE_SHORT", True)
+    monkeypatch.setattr(cfg, "REBALANCE_INTERVAL_HOURS", 4)
+    monkeypatch.setattr(cfg, "NOTIONAL_PER_TRADE", 100.0)
+    monkeypatch.setattr(cfg, "DATA_STALENESS_HOURS", 8)
+    assert cfg.SIGMA_TARGET is None   # module default; the case under test
+
+    from hlvault.cta import data as data_mod
+    monkeypatch.setattr(data_mod, "CtaData", _FreshShortSignalData)
+
+    ex = _FakeExchange()
+    e = _engine(_FakeInfo(mid=50.0, positions=[], sz_decimals=3), ex, live=True)
+    with caplog.at_level(logging.INFO, logger="cta"):
+        e.maybe_rebalance()
+
+    assert len(ex.orders) == 1
+    o = ex.orders[0]
+    assert o["coin"] == "BTC" and o["is_buy"] is False and o["reduce_only"] is False
+    assert o["size"] == 2.0                       # NOTIONAL_PER_TRADE(100)/mid(50), unscaled
+    assert "BTC" in e.state["entries"]
+    assert "m" not in e.state["entries"]["BTC"]    # no additive schema field when B1 is off
+    assert not any("sigma=" in r.message for r in caplog.records)   # decision log byte-unchanged
+
+
+def test_sigma_target_enabled_scales_down_entry_notional(monkeypatch, tmp_path):
+    _sigma_sizing_cfg(monkeypatch, tmp_path, sigma_target=0.20)   # well below realized ~0.4706
+    from hlvault.cta import data as data_mod
+    monkeypatch.setattr(data_mod, "CtaData", _FreshShortSignalData)
+
+    ex = _FakeExchange()
+    e = _engine(_FakeInfo(mid=50.0, positions=[], sz_decimals=3), ex, live=True)
+    e.maybe_rebalance()
+
+    expected_m = 0.20 / _SIGMA_ACTUAL
+    assert 0.25 < expected_m < 1.0   # sanity: must land strictly inside the clip band
+    assert len(ex.orders) == 1
+    o = ex.orders[0]
+    expected_size = (100.0 * expected_m) / 50.0
+    assert abs(o["size"] - expected_size) < 0.002   # sz_decimals=3 rounding tolerance
+    assert abs(e.state["entries"]["BTC"]["m"] - expected_m) < 1e-6
+
+
+def test_sigma_target_clips_at_lower_bound(monkeypatch, tmp_path):
+    _sigma_sizing_cfg(monkeypatch, tmp_path, sigma_target=0.02, clip_lo=0.25)  # ratio << 0.25
+    from hlvault.cta import data as data_mod
+    monkeypatch.setattr(data_mod, "CtaData", _FreshShortSignalData)
+
+    ex = _FakeExchange()
+    e = _engine(_FakeInfo(mid=50.0, positions=[], sz_decimals=3), ex, live=True)
+    e.maybe_rebalance()
+
+    assert e.state["entries"]["BTC"]["m"] == 0.25
+    assert len(ex.orders) == 1
+    assert abs(ex.orders[0]["size"] - (100.0 * 0.25) / 50.0) < 0.002
+
+
+def test_sigma_target_insufficient_bars_fail_safe_logs_and_uses_baseline(monkeypatch, tmp_path, caplog):
+    # SIGMA_SPAN_BARS (250) exceeds the 199 closed bars _short_signal_frame()
+    # provides (200-bar frame minus the dropped forming bar) -> fail-safe.
+    _sigma_sizing_cfg(monkeypatch, tmp_path, sigma_target=0.20, span_bars=250)
+    from hlvault.cta import data as data_mod
+    monkeypatch.setattr(data_mod, "CtaData", _FreshShortSignalData)
+
+    ex = _FakeExchange()
+    e = _engine(_FakeInfo(mid=50.0, positions=[], sz_decimals=3), ex, live=True)
+    with caplog.at_level(logging.WARNING, logger="cta"):
+        e.maybe_rebalance()
+
+    assert len(ex.orders) == 1
+    assert ex.orders[0]["size"] == 2.0             # fail-safe m=1.0 -> baseline notional
+    assert e.state["entries"]["BTC"]["m"] == 1.0
+    assert any("sizing fail-safe" in r.message and "BTC" in r.message
+               for r in caplog.records)
+
+
+def test_sigma_target_m_locked_no_resize_on_later_cycle(monkeypatch, tmp_path):
+    # Spec: "m 在部位存續期間鎖定於進場值" -- once opened, a later cycle (even
+    # with a DIFFERENT SIGMA_TARGET, which would produce a different m if
+    # recomputed) must not touch the existing position's size. This is
+    # structural in the live engine: an open position only ever re-enters the
+    # "manage exits/stops" branch of _process_coin, never the entry-sizing
+    # branch, until it is flat again.
+    _sigma_sizing_cfg(monkeypatch, tmp_path, sigma_target=0.20)
+    from hlvault.cta import data as data_mod
+    monkeypatch.setattr(data_mod, "CtaData", _FreshShortSignalData)
+
+    ex = _FakeExchange()
+    e = _engine(_FakeInfo(mid=50.0, positions=[], sz_decimals=3), ex, live=True)
+    e.maybe_rebalance()
+    assert len(ex.orders) == 1
+    locked_m = e.state["entries"]["BTC"]["m"]
+    assert locked_m != 1.0
+
+    # Second cycle: a very different sigma_target (would clip to 0.25 if
+    # recomputed) and the exchange now reports the position open.
+    monkeypatch.setattr(cfg, "SIGMA_TARGET", 0.02)
+    e.state["last_rebalance_ms"] = 0   # force due again
+    e.info = _FakeInfo(mid=50.0, sz_decimals=3, positions=[
+        {"coin": "BTC", "szi": "-2.0", "marginUsed": "50", "unrealizedPnl": "0"}])
+    e.maybe_rebalance()
+
+    assert len(ex.orders) == 1                              # no resize order placed
+    assert e.state["entries"]["BTC"]["m"] == locked_m        # unchanged
+
+
+def test_gross_cap_checks_scaled_entry_notional_not_baseline(monkeypatch, tmp_path, caplog):
+    # Review finding (minor 3): the gross-leverage cap must gate on the
+    # SCALED entry_notional (NOTIONAL_PER_TRADE * m), not the $100 baseline.
+    # Construction: equity $35 -> cap 2.0x = $70. Baseline $100 > $70 would be
+    # BLOCKED (proven by the control run below); with SIGMA_TARGET=0.20 the
+    # multiplier is ~0.425 -> entry_notional ~$42.50 <= $70 -> must be ALLOWED.
+    expected_m = 0.20 / _SIGMA_ACTUAL
+    assert 0.25 < expected_m < 1.0
+    assert 100.0 * expected_m < 70.0 < 100.0    # the case is genuinely discriminating
+
+    from hlvault.cta import data as data_mod
+
+    # Control: B1 off (module default SIGMA_TARGET=None) -> full $100 blocked.
+    _sigma_sizing_cfg(monkeypatch, tmp_path, sigma_target=0.20)
+    monkeypatch.setattr(cfg, "SIGMA_TARGET", None)
+    monkeypatch.setattr(cfg, "MAX_GROSS_LEVERAGE", 2.0)
+    monkeypatch.setattr(data_mod, "CtaData", _FreshShortSignalData)
+    ex_ctl = _FakeExchange()
+    e_ctl = _engine(_FakeInfo(mid=50.0, positions=[], spot_usdc=35.0, sz_decimals=3),
+                    ex_ctl, live=True)
+    with caplog.at_level(logging.INFO, logger="cta"):
+        e_ctl.maybe_rebalance()
+    assert ex_ctl.orders == []
+    assert "BTC" not in e_ctl.state["entries"]
+    assert any("gross-leverage cap" in r.message and "BTC" in r.message
+               for r in caplog.records)
+
+    # Same wallet, B1 on: the scaled notional fits under the cap -> allowed.
+    monkeypatch.setattr(cfg, "SIGMA_TARGET", 0.20)
+    monkeypatch.setattr(cfg, "STATE_FILE", tmp_path / "s2.json")
+    ex = _FakeExchange()
+    e = _engine(_FakeInfo(mid=50.0, positions=[], spot_usdc=35.0, sz_decimals=3),
+                ex, live=True)
+    e.maybe_rebalance()
+    assert len(ex.orders) == 1
+    assert abs(ex.orders[0]["size"] - (100.0 * expected_m) / 50.0) < 0.002
+    assert abs(e.state["entries"]["BTC"]["m"] - expected_m) < 1e-6
+
+
+def test_old_state_entry_without_m_field_manages_and_exits(monkeypatch, tmp_path):
+    # Review finding (minor 4): a state file written by pre-B1 code (or by a
+    # B1-off instance) has entries WITHOUT an "m" field. New code with B1
+    # ENABLED must load it and manage/exit the position normally -- no
+    # KeyError, no re-sizing, exit clears the entry. (m is only ever read at
+    # entry time and never looked up from the record on the exit path, so the
+    # absence of the key must be a non-event.)
+    _sigma_sizing_cfg(monkeypatch, tmp_path, sigma_target=0.20)
+    monkeypatch.setattr(cfg, "STOP_ATR_MULT", 2.0)
+    from hlvault.cta import data as data_mod
+    monkeypatch.setattr(data_mod, "CtaData", _NoData)   # stale -> manage exits only
+
+    ex = _FakeExchange()
+    # short from the old state whose stop (110) is breached by live mid 120
+    info = _FakeInfo(mid=120.0, positions=[{"coin": "BTC", "szi": "-1.0",
+                     "marginUsed": "50", "unrealizedPnl": "0"}])
+    old_entry = {"dir": -1, "entry_px": 100.0, "stop": 110.0,
+                 "entry_ms": int(time.time() * 1000)}   # NOTE: no "m" key
+    e = _engine(info, ex, live=True,
+                state={"halted": False, "peak_equity": 1000.0, "_alerted_this_halt": False,
+                       "_flatten_complete": False, "last_rebalance_ms": 0,
+                       "entries": {"BTC": old_entry}})
+    e.maybe_rebalance()   # must not raise
+
+    assert ("BTC", 1.0) in ex.closed             # stop exit fired normally
+    assert "BTC" not in e.state["entries"]       # bookkeeping cleared
+    assert [o for o in ex.orders if not o["reduce_only"]] == []   # no re-size/re-entry

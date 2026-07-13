@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import pandas as pd
 
@@ -130,3 +132,142 @@ def test_compute_signals_end_to_end_matches_direction():
                        out["crowd_short"], out["fuel"],
                        enable_long=False, enable_short=True)
     assert d == "short"
+
+
+# ---- B1 vol-target sizing (sub-project L Stage 1) --------------------------
+
+def test_ewma_log_return_vol_matches_independent_hand_recursion():
+    # Independent RiskMetrics zero-mean EWMA recursion, written separately
+    # from signals.ewma_log_return_vol's own recursion (not a re-call of the
+    # function under test) -- spec requirement: hand-calc cross-check, not a
+    # self-comparison.
+    closes = pd.Series([100.0, 101.0, 99.0, 102.5, 98.0, 97.0, 103.0, 105.0, 104.2, 110.0])
+    span = 4
+    bars_per_year = 2190.0
+    got = signals.ewma_log_return_vol(closes, span, bars_per_year)
+
+    alpha = 2.0 / (span + 1)
+    px = closes.to_numpy()
+    n = len(px)
+    expected = [float("nan")] * n
+    var_prev = None
+    for i in range(1, n):
+        r = math.log(px[i] / px[i - 1])
+        r2 = r * r
+        var_i = r2 if var_prev is None else (1 - alpha) * var_prev + alpha * r2
+        var_prev = var_i
+        expected[i] = math.sqrt(var_i) * math.sqrt(bars_per_year)
+
+    assert math.isnan(got.iloc[0])
+    for i in range(1, n):
+        assert abs(got.iloc[i] - expected[i]) < 1e-9, (i, got.iloc[i], expected[i])
+
+
+def test_ewma_log_return_vol_on_constant_ratio_series_is_steady_state():
+    # A perfectly smooth exponential path (log return constant every bar) has
+    # a well-known closed form: the RiskMetrics recursion's seed (var_1=r^2)
+    # IS the fixed point, so sigma is the SAME constant at every bar from
+    # index 1 onward. This is the exact close-path used by _short_signal_frame
+    # in test_cta_live.py and test_compute_signals_end_to_end_matches_direction
+    # above (100 * 0.99**i) -- pinning its sigma here gives every B1 live-layer
+    # test a hand-checkable expected value instead of an opaque one.
+    n = 200
+    closes = pd.Series(100 * 0.99 ** np.arange(n))
+    sigma = signals.ewma_log_return_vol(closes, span=180, bars_per_year=2190.0)
+    r = math.log(0.99)
+    expected = abs(r) * math.sqrt(2190.0)
+    assert abs(sigma.iloc[-1] - expected) < 1e-9
+    # steady-state from bar 1 onward (no warmup drift on a constant-return path)
+    assert abs(sigma.iloc[5] - expected) < 1e-9
+    assert abs(sigma.iloc[-1] - 0.4706) < 1e-3   # ~47% annualized, sanity anchor
+
+
+def test_sizing_multiplier_disabled_path_not_applicable_returns_baseline_shape():
+    # sizing_multiplier itself has no "disabled" branch (config.py's
+    # SIGMA_TARGET is None gates the call entirely) -- this test documents
+    # that at sigma_target == sigma (target exactly matches realized vol) the
+    # multiplier is 1.0, the natural "no scaling" case.
+    n = 200
+    closes = pd.Series(100 * 0.99 ** np.arange(n))
+    r = math.log(0.99)
+    sigma_actual = abs(r) * math.sqrt(2190.0)
+    m, sigma, fail = signals.sizing_multiplier(
+        closes, sigma_target=sigma_actual, span_bars=180, clip_lo=0.25, clip_hi=1.0)
+    assert fail is None
+    assert abs(m - 1.0) < 1e-9
+    assert abs(sigma - sigma_actual) < 1e-9
+
+
+def test_sizing_multiplier_scales_down_when_target_below_realized_vol():
+    n = 200
+    closes = pd.Series(100 * 0.99 ** np.arange(n))
+    r = math.log(0.99)
+    sigma_actual = abs(r) * math.sqrt(2190.0)   # ~0.4706
+    target = 0.20   # well below realized vol, well above clip_lo*sigma_actual
+    m, sigma, fail = signals.sizing_multiplier(
+        closes, sigma_target=target, span_bars=180, clip_lo=0.25, clip_hi=1.0)
+    assert fail is None
+    expected_m = target / sigma_actual
+    assert 0.25 < expected_m < 1.0   # sanity: this case must land strictly inside the clip band
+    assert abs(m - expected_m) < 1e-6
+
+
+def test_sizing_multiplier_clips_at_lower_bound():
+    n = 200
+    closes = pd.Series(100 * 0.99 ** np.arange(n))
+    m, sigma, fail = signals.sizing_multiplier(
+        closes, sigma_target=0.02, span_bars=180, clip_lo=0.25, clip_hi=1.0)
+    assert fail is None
+    assert m == 0.25   # clipped: 0.02/sigma_actual << 0.25
+
+
+def test_sizing_multiplier_clips_at_upper_bound_cap_only():
+    n = 200
+    closes = pd.Series(100 * 0.99 ** np.arange(n))
+    m, sigma, fail = signals.sizing_multiplier(
+        closes, sigma_target=5.0, span_bars=180, clip_lo=0.25, clip_hi=1.0)
+    assert fail is None
+    assert m == 1.0   # clipped: target/sigma_actual >> 1.0, cap-only (never amplifies)
+
+
+def test_sizing_multiplier_insufficient_bars_is_fail_safe_m_one():
+    # Fewer than span+1 closes -> not enough log returns to trust the EWMA:
+    # fail-safe m=1.0 with a non-None reason string the caller must log.
+    closes = pd.Series(100 * 0.99 ** np.arange(50))
+    m, sigma, fail = signals.sizing_multiplier(
+        closes, sigma_target=0.60, span_bars=180, clip_lo=0.25, clip_hi=1.0)
+    assert m == 1.0
+    assert math.isnan(sigma)
+    assert fail is not None and "insufficient" in fail.lower()
+
+
+def test_sizing_multiplier_zero_sigma_is_fail_safe_m_one():
+    # Review finding (minor 2): the "sigma non-finite / <= 0" branch. A
+    # perfectly CONSTANT price series has zero log return every bar, so the
+    # EWMA variance is exactly 0 -> sigma == 0.0: dividing sigma_target by it
+    # would blow up (inf -> clipped to 1.0 by accident, hiding the anomaly).
+    # The fail-safe must fire instead: m=1.0, sigma reported NaN, and a
+    # non-None reason string the caller logs (principle #3: loud degradation).
+    closes = pd.Series([100.0] * 200)
+    m, sigma, fail = signals.sizing_multiplier(
+        closes, sigma_target=0.60, span_bars=180, clip_lo=0.25, clip_hi=1.0)
+    assert m == 1.0
+    assert math.isnan(sigma)
+    assert fail is not None and "not computable" in fail.lower()
+
+
+def test_sizing_multiplier_nan_sigma_is_fail_safe_m_one():
+    # Same branch, non-finite flavor: a NaN LAST close makes the final bar's
+    # log return NaN, so the EWMA at the decision bar is NaN -> fail-safe,
+    # never a NaN-sized order. (A NaN in the MIDDLE of the window would
+    # reseed the recursion a few bars later -- the seed rule var_i = r_i^2
+    # when var_{i-1} is NaN -- so only a trailing NaN reliably exercises the
+    # non-finite branch at the point of use.)
+    vals = list(100 * 0.99 ** np.arange(200))
+    vals[-1] = float("nan")
+    closes = pd.Series(vals)
+    m, sigma, fail = signals.sizing_multiplier(
+        closes, sigma_target=0.60, span_bars=180, clip_lo=0.25, clip_hi=1.0)
+    assert m == 1.0
+    assert math.isnan(sigma)
+    assert fail is not None and "not computable" in fail.lower()
