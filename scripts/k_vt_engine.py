@@ -270,6 +270,11 @@ def dd_ladder_step(state: LadderState, equity: float, cell_target: float, *,
          because dd sits in that band; the protocol's own wording ("直到 DD
          回升 >-10% → NORMAL") makes RECOVERY a distinct path-dependent
          state whose only exit is dd > reduced_dd.
+      3. The §4b-7b empty-book rule (a NO_ADD day that ends with gross==0
+         is treated as a FLAT trigger, breaking the absorbing state) is
+         enforced in `sizing_pipeline`, NOT here: this pure state-machine
+         step never sees the book's weights, and "today's gross" only
+         exists after vol_scale/apply_no_add have run.
     """
     peak = max(state.peak_equity, equity)
     dd = (equity - peak) / peak if peak > 0 else 0.0  # always <= 0
@@ -348,7 +353,10 @@ def sizing_pipeline(raw_w, cov, *, prev_w, ladder_state: LadderState, equity: fl
     rc_cap -> cluster_cap -> vol_scale(target=that target); (3) apply the
     no_add clamp as a final post-processing step, and force an all-zero
     weight for FLAT via target_ann_vol=0.0 (vol_scale's own zero-target
-    branch), rather than a separate special case.
+    branch), rather than a separate special case; (4) protocol §4b-7b: a
+    NO_ADD day that ends with an empty book (gross==0) is re-routed to a
+    FLAT trigger day -- see the inline comment below for the absorbing-
+    state mechanics this breaks.
 
     `equity` here is a plain float (this is a pure per-day step); the
     caller (e.g. a backtest driver) owns advancing equity/peak day to day.
@@ -375,6 +383,22 @@ def sizing_pipeline(raw_w, cov, *, prev_w, ladder_state: LadderState, equity: fl
 
     if enable_ladder and no_add:
         w = apply_no_add(w, prev_w)
+
+    if (enable_ladder and new_state.name == "NO_ADD"
+            and float(np.sum(np.abs(w))) == 0.0):
+        # Protocol §4b-7b (owner ruling): an empty book inside the NO_ADD
+        # band is an ABSORBING state -- with zero exposure, equity freezes,
+        # dd never leaves the (-18%, -15%] band, and apply_no_add's
+        # |w_today| <= |w_yesterday| == 0 pins the book at zero forever
+        # (observed in the runner dev smoke test: cell 4 frozen 375 days to
+        # window end after signals crossed the dead zone). Route the day
+        # through the EXISTING flat path instead: this becomes a FLAT
+        # trigger day (20-trading-day cooldown -> RECOVERY at reduced
+        # target -> NORMAL once dd recovers above -10%). Zero new
+        # parameters; NO_ADD with an open book (gross > 0) is untouched.
+        new_state = LadderState(new_state.peak_equity, "FLAT", cooldown_days)
+        target_vol = 0.0
+        no_add = False
 
     return PipelineResult(w=w, ladder_state=new_state, rc_cap_iters=rc_iters,
                            cluster_cap_iters=cl_iters, target_vol_used=target_vol,

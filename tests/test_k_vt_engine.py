@@ -25,6 +25,7 @@ from k_vt_engine import (  # noqa: E402
     dd_ladder_step,
     rc_cap,
     risk_contributions,
+    sizing_pipeline,
     vol_scale,
 )
 
@@ -297,6 +298,88 @@ def test_ladder_peak_never_resets_on_a_trough():
     state, target, _ = dd_ladder_step(state, 105.0, cell_target)
     assert state.peak_equity == 105.0
     assert state.name == "NORMAL"
+
+
+# ---- protocol §4b-7b: NO_ADD empty book routes to FLAT ----
+
+def test_no_add_empty_book_routes_to_flat_cooldown_then_recovery_rebuild():
+    # Absorbing-state repro (runner dev smoke test: cell 4 frozen 375 days):
+    # dd stuck in the NO_ADD band with an empty book -> equity frozen ->
+    # no_add clamps |w| <= |0| forever. §4b-7b: such a day must become a
+    # FLAT trigger day, run the existing 20-day cooldown into RECOVERY,
+    # after which the book may rebuild.
+    coins = ["A", "B"]
+    cov = np.eye(2) * 1e-4
+    state = LadderState(peak_equity=100.0)
+    equity = 84.0                 # dd = -16% -> NO_ADD band
+    prev_w = np.zeros(2)          # book already empty (signal dead zone)
+    dead_signals = np.zeros(2)
+
+    # trigger day: NO_ADD + gross==0 -> re-routed to FLAT with full cooldown
+    res = sizing_pipeline(dead_signals, cov, prev_w=prev_w, ladder_state=state,
+                          equity=equity, cell_target=0.20, coins=coins)
+    assert res.ladder_state.name == "FLAT"
+    assert res.ladder_state.cooldown_remaining == 20
+    assert res.no_add is False
+    assert float(np.sum(np.abs(res.w))) == 0.0
+    state, prev_w = res.ladder_state, res.w
+
+    # 19 more cooldown days: FLAT, zero exposure -- even with live signals
+    # again (equity can't move; the book is flat)
+    live_signals = np.array([0.5, -0.4])
+    for _ in range(19):
+        res = sizing_pipeline(live_signals, cov, prev_w=prev_w, ladder_state=state,
+                              equity=equity, cell_target=0.20, coins=coins)
+        assert res.ladder_state.name == "FLAT"
+        assert float(np.sum(np.abs(res.w))) == 0.0
+        state, prev_w = res.ladder_state, res.w
+
+    # day 21 ("20 天後"): cooldown over -> RECOVERY at reduced target, and
+    # the book CAN rebuild (gross > 0) -- the absorbing state is broken.
+    res = sizing_pipeline(live_signals, cov, prev_w=prev_w, ladder_state=state,
+                          equity=equity, cell_target=0.20, coins=coins)
+    assert res.ladder_state.name == "RECOVERY"
+    assert res.target_vol_used == 0.10
+    assert float(np.sum(np.abs(res.w))) > 0.0
+
+
+def test_no_add_with_open_book_is_not_rerouted_to_flat():
+    # Regression guard for §4b-7b: NO_ADD with positions keeps its exact
+    # pre-ruling semantics -- state stays NO_ADD, no_add=True, per-asset
+    # magnitudes clamped to yesterday's, book NOT flattened.
+    coins = ["A", "B"]
+    cov = np.eye(2) * 1e-4
+    state = LadderState(peak_equity=100.0)
+    prev_w = np.array([0.3, -0.2])
+    raw_w = np.array([0.6, -0.5])  # wants to grow -> must be clamped
+
+    res = sizing_pipeline(raw_w, cov, prev_w=prev_w, ladder_state=state,
+                          equity=84.0, cell_target=0.20, coins=coins)
+
+    assert res.ladder_state.name == "NO_ADD"
+    assert res.no_add is True
+    assert float(np.sum(np.abs(res.w))) > 0.0
+    assert np.all(np.abs(res.w) <= np.abs(prev_w) + 1e-12)
+
+
+def test_recovery_rebreach_of_flat_threshold_retriggers_cooldown_cycle():
+    # §4b-7b 循環節流: RECOVERY that breaches -18% again is a fresh FLAT
+    # trigger with a fresh 20-day cooldown, cycling back to RECOVERY --
+    # not a stuck state in either direction.
+    state = LadderState(peak_equity=100.0, name="RECOVERY", cooldown_remaining=0)
+
+    state, target, no_add = dd_ladder_step(state, 80.0, 0.20)  # dd = -20%
+    assert state.name == "FLAT"
+    assert state.cooldown_remaining == 20
+    assert target == 0.0 and no_add is False
+
+    # cooldown runs its fixed course (equity still deep under water)
+    for _ in range(19):
+        state, target, _ = dd_ladder_step(state, 80.0, 0.20)
+        assert state.name == "FLAT" and target == 0.0
+    state, target, _ = dd_ladder_step(state, 80.0, 0.20)
+    assert state.name == "RECOVERY"
+    assert target == 0.10
 
 
 # ---------------------------------------------------------------------------
