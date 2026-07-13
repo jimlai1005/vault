@@ -1,0 +1,164 @@
+//@version=6
+// CTA Crowding-Fade — TradingView replica of vault CTA forward-test engine
+// Source of truth: src/hlvault/cta/{signals,live,config,risk}.py @ 2026-07-05
+//
+// 對應關係：
+//   - 訊號在 bar close 計算、下一根 bar open 成交（= live 的 shift(1) / 回測 simulate 語意）
+//   - 停損為 intrabar 觸發（= 回測語意；live 是每 4h 對 mid 檢查，會比這裡晚觸發）
+//   - 帳戶層級的 2x 總槓桿上限與 20% MDD 熔斷是跨幣種的，單 symbol 回測無法重現，此處省略
+//   - 手續費 0.045%/側 = 回測腳本 research_cta_positioning_phase2b.py 的假設
+//
+// 資料注意（核心！）：
+//   crowd 訊號需要「散戶多頭帳戶比例」序列。生產用 Coinalyze 的 Binance accounts long%；
+//   這裡改走 TradingView 官方 Request library 的 cryptoDerivativeMetric(..., "Long Accounts", ...)——
+//   比猜一個現貨/合約 ticker id（多半查無資料）可靠，且「Long Accounts」本身就是帳戶多頭佔比，
+//   口徑與生產的 long% 一致（都是 accounts 維度，非 position 維度）。只在 syminfo.type=="crypto" 時才拉取。
+//   OI 預設抓 <圖表符號>_OI；圖表請用 Binance USDT-M 永續（如 BINANCE:BTCUSDT.P，4h）。
+//   任一資料抓不到時右上角會顯示紅色警告，且該條件永遠不成立（不會有交易）。
+
+strategy("CTA Crowding-Fade (vault replica)", shorttitle = "CTA-CF",
+     overlay = true,
+     initial_capital = 10000,
+     commission_type = strategy.commission.percent,
+     commission_value = 0.045,
+     slippage = 0,
+     pyramiding = 0,
+     calc_on_order_fills = false,
+     process_orders_on_close = false,
+     max_bars_back = 1000)
+import TradingView/Request/3 as req
+
+// ───────────────────────── inputs ─────────────────────────
+grpSide  = "多空開關"
+enableLong  = input.bool(false, "啟用做多 (ENABLE_LONG)",  group = grpSide, tooltip = "生產值 false")
+enableShort = input.bool(true,  "啟用做空 (ENABLE_SHORT)", group = grpSide, tooltip = "生產值 true")
+
+grpSig = "訊號參數（生產值）"
+emaFastLen      = input.int(20,    "EMA fast",                        group = grpSig)
+emaSlowLen      = input.int(50,    "EMA slow",                        group = grpSig)
+trendWarmupBars = input.int(50,    "Trend warmup bars",               group = grpSig, tooltip = "前 N 根 bar 趨勢旗標強制 false")
+crowdPctile     = input.float(10.0,"CROWD_PCTILE",                    group = grpSig, tooltip = "空單需 crowd 百分位 >= 100-此值；多單需 <= 此值")
+crowdWinBars    = input.int(540,   "Crowd 滾動窗 bars (90d × 6)",     group = grpSig)
+crowdMinBars    = input.int(180,   "Crowd 最少樣本 bars (30d × 6)",   group = grpSig)
+useCrowdFilter  = input.bool(true, "套用 crowd 過濾（A/B：關掉＝只用 trend+fuel）", group = grpSig, tooltip = "生產＝ON。關掉可測 crowd 在 trend+fuel 之上是否真的加值")
+fuelBars        = input.int(6,     "Fuel lookback bars (24h ÷ 4h)",   group = grpSig)
+atrLen          = input.int(14,    "ATR period (Wilder)",             group = grpSig)
+stopAtrMult     = input.float(2.0, "Stop ATR mult",                   group = grpSig)
+maxHoldDays     = input.int(14,    "Max hold (days)",                 group = grpSig)
+
+grpSize = "部位"
+notionalUsd = input.float(300.0, "每筆固定名目 (USD)", group = grpSize, tooltip = "生產 NOTIONAL_PER_TRADE=$300（.env.cta）")
+
+grpData = "外部資料"
+oiOverride = input.string("", "OI ticker（留空 = 圖表符號 + \"_OI\"）", group = grpData)
+
+// ───────────────────────── external data ─────────────────────────
+// Long Accounts %：TradingView 官方 Request library，僅 crypto 標的提供，且要求
+// metrics timeframe >= 圖表週期——圖表非 4h 時退回圖表週期本身，避免 runtime error
+oiTicker    = oiOverride == "" ? syminfo.tickerid + "_OI" : oiOverride
+bool   doDeriv   = syminfo.type == "crypto"
+int    chartSec  = timeframe.in_seconds()
+string metricsTF = timeframe.in_seconds("240") >= chartSec ? "240" : timeframe.period
+
+lsr = doDeriv ? req.cryptoDerivativeMetric(syminfo.tickerid, "Long Accounts", metricsTF) : na
+oi  = request.security(oiTicker, timeframe.period, close, ignore_invalid_symbol = true)
+
+// ───────────────────────── signals ─────────────────────────
+// trend: EMA20 vs EMA50, 前 trendWarmupBars 根強制中性 (signals.py:19-29)
+emaF = ta.ema(close, emaFastLen)
+emaS = ta.ema(close, emaSlowLen)
+warm = bar_index >= trendWarmupBars
+trendDn = warm and emaS > emaF
+trendUp = warm and emaF > emaS
+
+// crowd: 當前 LSR 在過去 crowdWinBars 根（含當根）內的百分位，樣本不足 crowdMinBars 時為 na
+// (signals.py:32-62 — (w <= cur).mean()*100, min_periods=180)
+crowdRank(float src, int winBars, int minBars) =>
+    float r = na
+    if not na(src)
+        int cnt = 0
+        int valid = 0
+        int maxi = math.min(winBars - 1, bar_index)
+        for i = 0 to maxi
+            float v = src[i]
+            if not na(v)
+                valid += 1
+                if v <= src
+                    cnt += 1
+        if valid >= minBars
+            r := 100.0 * cnt / valid
+    r
+
+crowdPct   = crowdRank(lsr, crowdWinBars, crowdMinBars)
+crowdLong  = not na(crowdPct) and crowdPct >= 100.0 - crowdPctile   // 散戶擠多 → 逆勢做空條件
+crowdShort = not na(crowdPct) and crowdPct <= crowdPctile           // 散戶擠空 → 逆勢做多條件
+
+// fuel: OI 高於 24h 前 (signals.py:65-74)
+oiPrev = oi[fuelBars]
+fuel = not na(oi) and not na(oiPrev) and oi > oiPrev
+
+// ATR: Wilder (signals.py:77-88; ta.atr 即 Wilder 平滑)
+atrV  = ta.atr(atrLen)
+atrOk = not na(atrV) and atrV > 0
+
+// ───────────────────────── exits（先於進場評估）─────────────────────────
+entryTime   = strategy.opentrades > 0 ? strategy.opentrades.entry_time(strategy.opentrades - 1) : na
+// 減一根 bar：這裡在 bar close 判斷、次根 open 成交，回測 simulate 是「當根 open_time 滿 14 天就以當根 open 出場」，
+// 不減的話會固定晚一根 4h bar 出場
+holdExpired = not na(entryTime) and (time - entryTime) >= (maxHoldDays * 86400 - timeframe.in_seconds()) * 1000
+
+// 出場：趨勢翻轉（含轉中性）／fuel 消失／持有到期 在 bar close 評估、次根 open 市價出場，
+// 因此同一根 bar 內必然先於 intrabar 停損成交——與回測 simulate 的判斷順序一致
+if strategy.position_size < 0 and (not trendDn or not fuel or holdExpired)
+    strategy.close("S", comment = not trendDn ? "trend flip" : not fuel ? "fuel gone" : "max hold")
+if strategy.position_size > 0 and (not trendUp or not fuel or holdExpired)
+    strategy.close("L", comment = not trendUp ? "trend flip" : not fuel ? "fuel gone" : "max hold")
+
+// ───────────────────────── entries ─────────────────────────
+// crowd 過濾可關（A/B）：關掉時 crowd 條件恆真，只剩 trend+fuel
+crowdLongOk  = not useCrowdFilter or crowdLong
+crowdShortOk = not useCrowdFilter or crowdShort
+shortSig = enableShort and trendDn and crowdLongOk  and fuel and atrOk
+longSig  = enableLong  and trendUp and crowdShortOk and fuel and atrOk
+
+var float atrAtEntry = na
+qty = notionalUsd / close
+
+if strategy.position_size == 0 and shortSig
+    atrAtEntry := atrV
+    strategy.entry("S", strategy.short, qty = qty)
+    strategy.exit("S-SL", from_entry = "S", stop = close + stopAtrMult * atrAtEntry, comment = "2xATR stop")
+if strategy.position_size == 0 and longSig
+    atrAtEntry := atrV
+    strategy.entry("L", strategy.long, qty = qty)
+    strategy.exit("L-SL", from_entry = "L", stop = close - stopAtrMult * atrAtEntry, comment = "2xATR stop")
+
+// 成交後把停損錨定到實際進場價（risk.py:46-69 停損 = entry ± 2×ATR(進場時)）。
+// 注意：進場當根的 intrabar 停損以「訊號 bar close」為錨（下單時還不知道成交價），
+// 與回測的「進場 open」錨差一個開盤跳空幅度——4h 永續跳空極小，量級遠小於 ATR
+if strategy.position_size < 0
+    epS = strategy.opentrades.entry_price(strategy.opentrades - 1)
+    strategy.exit("S-SL", from_entry = "S", stop = epS + stopAtrMult * atrAtEntry, comment = "2xATR stop")
+if strategy.position_size > 0
+    epL = strategy.opentrades.entry_price(strategy.opentrades - 1)
+    strategy.exit("L-SL", from_entry = "L", stop = epL - stopAtrMult * atrAtEntry, comment = "2xATR stop")
+
+// ───────────────────────── plots & diagnostics ─────────────────────────
+plot(emaF, "EMA fast", color = color.new(color.teal,   0))
+plot(emaS, "EMA slow", color = color.new(color.orange, 0))
+
+var table info = table.new(position.top_right, 1, 5, border_width = 1)
+if barstate.islast
+    tfOk  = timeframe.period == "240"
+    lsrOk = not na(lsr)
+    oiOk  = not na(oi)
+    table.cell(info, 0, 0, tfOk ? "TF 4h ✓" : "⚠ 圖表週期非 4h（生產是 4h）",
+         bgcolor = tfOk ? color.new(color.green, 80) : color.new(color.red, 60), text_color = color.white)
+    table.cell(info, 0, 1, lsrOk ? "Long Accounts % ✓" : "⚠ Long Accounts 抓不到（非 crypto 或該幣無此指標，永不進場）",
+         bgcolor = lsrOk ? color.new(color.green, 80) : color.new(color.red, 60), text_color = color.white)
+    table.cell(info, 0, 2, oiOk ? "OI 資料 ✓" : "⚠ OI 抓不到：檢查 " + oiTicker,
+         bgcolor = oiOk ? color.new(color.green, 80) : color.new(color.red, 60), text_color = color.white)
+    table.cell(info, 0, 3, "crowd pct: " + (na(crowdPct) ? "warmup中" : str.tostring(crowdPct, "#.#")),
+         bgcolor = color.new(color.gray, 70), text_color = color.white)
+    table.cell(info, 0, 4, "crowd flt: " + (useCrowdFilter ? "ON" : "OFF") + " | fuel: " + (fuel ? "on" : "off") + " | trend: " + (trendDn ? "dn" : trendUp ? "up" : "flat"),
+         bgcolor = color.new(color.gray, 70), text_color = color.white)
