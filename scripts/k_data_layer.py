@@ -46,7 +46,29 @@ for d in [KLINES_DIR, FUNDING_DIR, REPORTS_DIR]:
 
 BINANCE_FAPI = "https://fapi.binance.com/fapi/v1"
 FIXED_UNIVERSE = {"BTCUSDT", "ETHUSDT", "SOLUSDT", "HYPEUSDT"}  # HYPE on Binance
-HYPE_LISTING_DATE = "2024-11-01"  # Binance listing date for HYPE
+# Funding pagination start: before Binance FAPI launch (2019-09) so first page = true start
+FUNDING_EPOCH_MS = int(pd.Timestamp("2019-01-01", tz="UTC").timestamp() * 1000)
+
+
+def binance_rows_to_df_qv(rows: list) -> pd.DataFrame:
+    """Like scalp_lib.binance_rows_to_df but KEEPS quote asset volume (qv, raw index 7).
+
+    Binance kline array: [0]=openTime [1]=o [2]=h [3]=l [4]=c [5]=base volume
+    [6]=closeTime [7]=quote asset volume (USDT notional) [8]=trades ...
+    The PIT universe filter needs qv: base volume (v) is coin-denominated, and
+    comparing it against a $100M threshold silently drops high-price coins (BTC).
+    """
+    df = pd.DataFrame(rows, columns=["t", "o", "h", "l", "c", "v", "T", "qv", "n",
+                                     "tb", "tq", "ig"])[["t", "o", "h", "l", "c", "v", "qv", "n"]]
+    if df.empty:
+        return df
+    for col in ("o", "h", "l", "c", "v", "qv"):
+        df[col] = df[col].astype(float)
+    df["t"] = df["t"].astype("int64")
+    df["n"] = df["n"].astype(int)
+    df = df.drop_duplicates("t").sort_values("t").reset_index(drop=True)
+    df["ts"] = pd.to_datetime(df["t"], unit="ms", utc=True)
+    return df
 
 
 def ts_ms(date_str: str) -> int:
@@ -111,7 +133,7 @@ def fetch_all_klines(start_date: str = "2020-01-01", end_date: str = "2026-07-02
                 failed.append(symbol)
                 continue
 
-            df = binance_rows_to_df(rows)
+            df = binance_rows_to_df_qv(rows)  # keep quote volume for PIT filter
 
             # Save compressed
             path = KLINES_DIR / f"{symbol}_1d.csv.gz"
@@ -136,8 +158,11 @@ def build_pit_universe(start_date: str = "2020-07-01", end_date: str = "2026-07-
                        kline_dir: Path = KLINES_DIR):
     """
     Task 2: Build PIT universe schedule.
-    Each quarter: compute trailing 90d volume, filter >= $100M and >= 180d old, keep top 8.
-    No forward-looking: only use data before quarter start date.
+    Each quarter: MEDIAN daily quote (USDT notional) volume over trailing 90d,
+    filter >= $100M and listed >= 180 days, keep top 8.
+    No forward-looking: only use bars strictly before quarter start date.
+    Listing date = first available 1d bar (clamped at 2020-01-01 for symbols
+    listed earlier; conservative, only shortens apparent age).
     """
     print(f"\n{'='*60}")
     print(f"Task 2: Build PIT Universe schedule (quarterly)")
@@ -172,14 +197,16 @@ def build_pit_universe(start_date: str = "2020-07-01", end_date: str = "2026-07-
         lookback_end = quarter_ts - timedelta(days=1)  # Last day before quarter start
         lookback_start = lookback_end - timedelta(days=90)
 
-        # Compute trailing 90d volume for each symbol
+        # Compute trailing 90d MEDIAN daily quote volume (USDT notional) per symbol
         volumes = {}
         listing_dates = {}  # Track when each symbol listed
 
         for kline_file in kline_files:
             symbol = kline_file.stem.split("_")[0]
             try:
-                df = pd.read_csv(kline_file, usecols=["t", "v"])
+                # qv = quote asset volume (USDT); v (base volume) is coin units
+                # and must NOT be compared against a dollar threshold.
+                df = pd.read_csv(kline_file, usecols=["t", "qv"])
                 df["t"] = pd.to_datetime(df["t"], unit="ms", utc=True)
 
                 # Find listing date (first bar)
@@ -192,15 +219,13 @@ def build_pit_universe(start_date: str = "2020-07-01", end_date: str = "2026-07-
                     window = df[mask]
 
                     if len(window) > 0:
-                        # Compute 90d volume (convert volume to nominal in quote currency)
-                        # Note: Binance USDT perp volume is in USDT already
-                        vol_usdt = window["v"].sum()
-                        volumes[symbol] = vol_usdt
-            except Exception as e:
+                        # Median daily USDT notional over trailing 90d (per protocol)
+                        volumes[symbol] = window["qv"].median()
+            except Exception:
                 pass
 
-        # Filter: >= $100M volume AND >= 180 days old
-        min_volume = 100e6  # $100M
+        # Filter: median daily notional >= $100M AND >= 180 days old
+        min_volume = 100e6  # $100M median daily quote volume
         min_listing_days = 180
 
         filtered = {}
@@ -231,8 +256,11 @@ def build_pit_universe(start_date: str = "2020-07-01", end_date: str = "2026-07-
     md_file = REPORTS_DIR / "k-universe-schedule.md"
     with open(md_file, "w") as f:
         f.write("# Momentum-VT v1: PIT Universe Schedule\n\n")
-        f.write("Each quarter: Binance USDT-perp symbols with trailing 90d volume >= $100M\n")
-        f.write("and ≥180 days since listing (computed with data BEFORE quarter start).\n\n")
+        f.write("Each quarter: Binance USDT-perp symbols with trailing 90d MEDIAN daily\n")
+        f.write("quote volume (USDT notional) >= $100M and >=180 days since first Binance\n")
+        f.write("perp bar (computed only with bars BEFORE quarter start; no look-ahead).\n")
+        f.write("Note: symbols listed before 2020-01-01 have listing date clamped to\n")
+        f.write("2020-01-01 (data start) — conservative, only shortens apparent age.\n\n")
         f.write("| Quarter | Universe (Top 8) |\n")
         f.write("|---|---|\n")
         for quarter_date in sorted(universe_schedule.keys()):
@@ -278,16 +306,14 @@ def fetch_funding_history(kline_dir: Path = KLINES_DIR,
             print(f"Progress: {i}/{len(to_fetch)}")
 
         try:
-            # Binance fundingRate API: /fapi/v1/fundingRate
-            # 1000 per request, paginated
+            # Binance fundingRate API: /fapi/v1/fundingRate, 1000/req.
+            # Must paginate FORWARD from an epoch startTime: without startTime the
+            # endpoint returns only the most recent records (bug: ~500 latest bars).
             rows = []
-            startTime = None
+            startTime = FUNDING_EPOCH_MS
 
             while True:
-                params = {"symbol": symbol, "limit": 1000}
-                if startTime:
-                    params["startTime"] = startTime
-
+                params = {"symbol": symbol, "limit": 1000, "startTime": startTime}
                 r = requests.get(f"{BINANCE_FAPI}/fundingRate", params=params, timeout=20)
                 r.raise_for_status()
                 batch = r.json()
@@ -297,7 +323,10 @@ def fetch_funding_history(kline_dir: Path = KLINES_DIR,
                     break
 
                 rows.extend(batch)
-                startTime = int(batch[-1]["fundingTime"]) + 1
+                last_ft = int(batch[-1]["fundingTime"])
+                if last_ft + 1 <= startTime:  # guard: no forward progress
+                    break
+                startTime = last_ft + 1
 
                 if len(batch) < 1000:
                     break
@@ -309,17 +338,19 @@ def fetch_funding_history(kline_dir: Path = KLINES_DIR,
 
             # Convert to DataFrame
             df = pd.DataFrame(rows)
-            df["fundingTime"] = pd.to_datetime(df["fundingTime"], unit="ms", utc=True)
+            df["fundingTime"] = pd.to_datetime(df["fundingTime"].astype("int64"), unit="ms", utc=True)
             df["fundingRate"] = df["fundingRate"].astype(float)
-            df = df[["fundingTime", "fundingRate"]].sort_values("fundingTime").reset_index(drop=True)
+            df = (df[["fundingTime", "fundingRate"]]
+                  .drop_duplicates("fundingTime")
+                  .sort_values("fundingTime").reset_index(drop=True))
 
             # Save
             path = FUNDING_DIR / f"{symbol}_funding.csv.gz"
             df.to_csv(path, index=False, compression="gzip")
             success_count += 1
 
-            if i % 10 == 0:
-                print(f"  {symbol}: {len(df)} bars → {path.name}")
+            print(f"  {symbol}: {len(df)} records, "
+                  f"{df['fundingTime'].iloc[0].date()} → {df['fundingTime'].iloc[-1].date()}")
 
         except Exception as e:
             print(f"  {symbol}: ERROR {e}")
