@@ -130,25 +130,42 @@ def _bisect_scale_to_cap(w: np.ndarray, cov: np.ndarray, idx: list[int], cap: fl
 
 def rc_cap(w, cov, cap: float = 0.35, max_iter: int = 10) -> tuple[np.ndarray, int]:
     """Protocol §1 step 2: cap-and-shrink any asset whose |RC_i| exceeds
-    `cap`. Released risk is NOT reallocated to other assets ("釋出部分不再
-    分配"). Iterates because shrinking one violator can push another asset's
-    RC over the cap (through the shared covariance denominator); each round
-    re-derives every currently-violating asset's exact required scale via
-    `_bisect_scale_to_cap` (see module docstring for why exact, not the
-    protocol's one-shot heuristic).
+    the EFFECTIVE cap. Released risk is NOT reallocated to other assets
+    ("釋出部分不再分配"). Iterates because shrinking one violator can push
+    another asset's RC over the cap (through the shared covariance
+    denominator); each round re-derives every currently-violating asset's
+    exact required scale via `_bisect_scale_to_cap` (see module docstring
+    for why exact, not the protocol's one-shot heuristic).
+
+    Small-N rule (protocol §4b-5, owner ruling): RCs sum to 1 over the
+    active book, so with N_active <= 2 a 35% per-asset cap is INFEASIBLE
+    and iterating it grinds the whole book toward zero (observed in the
+    runner smoke test: U-fixed 100% flat before HYPE listed). Effective
+    cap = max(cap, 1/N_active), where N_active = number of assets with
+    nonzero weight, counted BEFORE capping: N>=3 keeps 35% (1/3 < 0.35),
+    N==2 -> 50%, N<=1 -> cap does not act (pass-through).
 
     Returns (w_capped, iterations_used); iterations_used is the number of
     shrink-and-recompute rounds that were actually needed (0 if the input
     already satisfied the cap)."""
     w = np.array(w, dtype=float)
     cov = np.asarray(cov, dtype=float)
+    n_active = int(np.count_nonzero(w))
+    if n_active <= 1:
+        return w, 0
+    eff_cap = max(cap, 1.0 / n_active)
     for outer in range(max_iter):
         rc = risk_contributions(w, cov)
-        viol = np.where(np.abs(rc) > cap)[0]
+        # 1e-9 slack: after a violator is bisected onto the boundary, the
+        # complementary assets' RCs can land at eff_cap + O(bisection tol);
+        # without slack the loop would ping-pong on hair-splitting
+        # adjustments until max_iter (relevant at N==2, where feasibility
+        # is exactly on the boundary RC1 == RC2 == 0.5).
+        viol = np.where(np.abs(rc) > eff_cap + 1e-9)[0]
         if viol.size == 0:
             return w, outer
         for i in viol:
-            w, _ = _bisect_scale_to_cap(w, cov, [int(i)], cap)
+            w, _ = _bisect_scale_to_cap(w, cov, [int(i)], eff_cap)
     return w, max_iter
 
 
@@ -165,11 +182,24 @@ def cluster_cap(w, cov, coins: list[str], cluster_coins=DEFAULT_CLUSTER,
     in `coins` (e.g. a universe missing SOL) are simply skipped. A single
     bisection round always solves this exactly (it's one scalar constraint
     on one scalar unknown, unlike rc_cap's potentially-interacting per-asset
-    constraints); max_iter=5 is a defensive bound, not an expected budget."""
+    constraints); max_iter=5 is a defensive bound, not an expected budget.
+
+    Small-N rule (protocol §4b-5, owner ruling): when EVERY active
+    (nonzero-weight) asset belongs to the cluster, the cluster's aggregate
+    RC is identically 1 (RCs sum to 1 over the active book, and uniformly
+    scaling the entire book leaves every RC unchanged -- so bisection's
+    only "solution" is k -> 0, zeroing the book). The cap only binds when
+    there is an active NON-cluster book whose risk share it protects;
+    with no active non-cluster asset the layer does not act."""
     w = np.array(w, dtype=float)
     cov = np.asarray(cov, dtype=float)
     idx_s = [i for i, c in enumerate(coins) if c in cluster_coins]
     if not idx_s:
+        return w, 0
+    has_active_outside = any(
+        w[i] != 0 for i, c in enumerate(coins) if c not in cluster_coins
+    )
+    if not has_active_outside:
         return w, 0
     for outer in range(max_iter):
         rc = risk_contributions(w, cov)

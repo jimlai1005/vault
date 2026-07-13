@@ -65,6 +65,53 @@ def test_rc_cap_is_identity_when_no_violation():
     assert iters == 0
 
 
+# ---- protocol §4b-5: small-N effective cap ----
+
+def test_rc_cap_two_active_assets_uses_50pct_cap_and_does_not_zero_book():
+    # N_active=2: RCs sum to 1, so the literal 35% cap is infeasible -- the
+    # first draft ground the whole book to zero here (U-fixed was 100% flat
+    # before HYPE listed). Effective cap = max(0.35, 1/2) = 0.5 must bind.
+    w = np.array([np.sqrt(0.7), np.sqrt(0.3)])
+    cov = np.eye(2)
+    rc_before = risk_contributions(w, cov)
+    assert rc_before[0] == pytest.approx(0.7, abs=1e-9)
+
+    w_capped, iters = rc_cap(w, cov, cap=0.35, max_iter=10)
+
+    rc_after = risk_contributions(w_capped, cov)
+    assert np.max(np.abs(rc_after)) <= 0.5 + 1e-6   # bound by 50%, not 35%
+    assert np.all(np.abs(w_capped) > 1e-6)          # NOT zeroed
+    assert w_capped[0] < w[0]                        # the violator did shrink
+
+
+def test_rc_cap_single_active_asset_passes_through_untouched():
+    # N_active=1 (zero-weight assets don't count): its RC is identically 1,
+    # no per-asset cap can be satisfied -- protocol §4b-5: the layer must
+    # not act at all.
+    w = np.array([0.8, 0.0, 0.0])
+    cov = np.eye(3)
+
+    w_capped, iters = rc_cap(w, cov, cap=0.35, max_iter=10)
+
+    assert np.allclose(w_capped, w)
+    assert iters == 0
+
+
+def test_rc_cap_four_active_assets_keeps_35pct_cap():
+    # Regression: N_active=4 -> effective cap = max(0.35, 1/4) = 0.35,
+    # i.e. exactly the pre-§4b-5 behavior.
+    w = np.array([np.sqrt(0.6), np.sqrt(0.2), np.sqrt(0.1), np.sqrt(0.1)])
+    cov = np.eye(4)
+    rc_before = risk_contributions(w, cov)
+    assert rc_before[0] == pytest.approx(0.6, abs=1e-9)
+
+    w_capped, iters = rc_cap(w, cov, cap=0.35, max_iter=10)
+
+    rc_after = risk_contributions(w_capped, cov)
+    assert np.max(np.abs(rc_after)) <= 0.35 + 1e-9
+    assert iters < 10
+
+
 # ---------------------------------------------------------------------------
 # 3: cluster_cap
 # ---------------------------------------------------------------------------
@@ -111,6 +158,24 @@ def test_cluster_cap_is_identity_when_no_violation_or_cluster_absent():
     w2_capped, iters2 = cluster_cap(w2, cov2, coins2, cluster_coins=("BTC", "ETH", "SOL"), cap=0.75)
     assert np.allclose(w2_capped, w2)
     assert iters2 == 0
+
+
+def test_cluster_cap_inactive_when_only_cluster_assets_active():
+    # protocol §4b-5: with no ACTIVE non-cluster asset (HYPE flat here), the
+    # cluster's aggregate RC is identically 1 and invariant under uniform
+    # scaling of the whole book, so the 75% constraint is unsolvable -- the
+    # first draft's bisection "solved" it by driving the book to zero. The
+    # layer must not act at all.
+    coins = ["BTC", "ETH", "SOL", "HYPE"]
+    w = np.array([0.5, 0.4, 0.3, 0.0])
+    cov = np.eye(4)
+    rc = risk_contributions(w, cov)
+    assert float(np.sum(np.abs(rc[:3]))) == pytest.approx(1.0, abs=1e-9)  # >0.75 by construction
+
+    w_capped, iters = cluster_cap(w, cov, coins, cluster_coins=("BTC", "ETH", "SOL"), cap=0.75)
+
+    assert np.allclose(w_capped, w)  # untouched -- in particular NOT zeroed
+    assert iters == 0
 
 
 # ---------------------------------------------------------------------------
