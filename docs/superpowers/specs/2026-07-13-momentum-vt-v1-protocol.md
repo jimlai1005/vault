@@ -73,6 +73,18 @@ K spec 的誠實聲明（死案不改判、GO 掛新策略名）與 Stage 3 設�
 NO-GO 入檔，8 格結果全數呈報（含不利格），本線收檔——**沒有 v1.1 參數微調輪**；
 若 owner 屆時要開 v2，必須是新假說（如封存中的條件變數），不是新參數。
 
+## 4b. 執行期裁決修訂（2026-07-13，實作發現，owner 代決者裁定）
+
+1. **RC/cluster cap 實作**：字面的 `w_i *= sqrt(cap/RC_i)` 因分母同縮而漸進不達 cap——
+   改為對含分母效應的聚合 RC 函數**二分搜尋**求根；協議意圖以後置條件為準
+   （max|RC_i| ≤ 35%、叢集 ≤75%），數學推導在 `scripts/k_vt_engine.py` docstring。
+2. **疊層資料流**：DD 階梯先行決定當日 target，再進 rc_cap → cluster_cap →
+   vol_scale(target)，最後套 NO_ADD/FLAT 約束——§1 圖示的層序依此解讀。
+3. **HYPE 起點**：Binance HYPEUSDT perp 實際 2025-05-30 上市（非 HL 的 2024-11）；
+   U-fixed 中 HYPE 自 2025-05-30 納入，如實申報。
+4. **滯後慣例釘死**：標準無前視語義＝「t 日收盤用 ≤t 資料決策、賺 t+1 日報酬」；
+   訊號、Σ、階梯狀態一律照此，不額外多滯後一天。
+
 ## 5. 工程與驗證
 
 - 引擎基於 `scripts/research_momentum_voltarget.py`（已驗無前視）擴建：RC caps、
