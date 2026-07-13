@@ -85,6 +85,10 @@
   3. **mtm 歸屬（釘死）**：resize 於 bar i 收盤執行——bar i 自身的 mark-to-market
      用 resize **前**的有效 notional，bar i+1 起用 resize 後；restore 同規則
      （restore bar 自身用恢復前的 0.5×，次一 bar 起用恢復後）。
+  4. **執行期裁決（2026-07-14，T2 實作期記錄，早於任何正式 run）**：出場判定源自
+     前一 bar 訊號、於當前 bar 開盤／盤中執行，時序上**先於**收盤時刻的 restore——
+     故部位在窗後第一根 bar 出場時，以仍縮放的 notional 出場、restore 不執行
+     （「窗內出場不恢復」規則的對稱延伸；記錄於引擎 docstring 與此處）。
 - **被縮放 trade 的記帳語義（ledger schema，寫死）**：
   - `notional` 欄＝**進場鎖定值**（不因縮放改寫）；`m` 欄＝進場鎖定 m_total。
   - 新增 `resize_events` 欄：JSON list，每筆
