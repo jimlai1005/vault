@@ -69,3 +69,34 @@ def get_account_equity(info, address: str) -> float:
             spot_usdc = float(bal.get("total", 0.0))
             break
     return spot_usdc + positions_equity
+
+
+def get_full_account_equity(info, address: str) -> float:
+    """Spot USDC + perp marginSummary.accountValue — the whole wallet, every
+    bucket counted exactly once.
+
+    2026-07-21 incident: get_account_equity above (spot USDC + position
+    economics) is blind to cash parked as perp free margin — a flat book with
+    all funds on the perp side read as $0.00 and tripped a phantom 100%
+    drawdown halt. accountValue closes that hole: measured live 2026-07-25
+    (8 samples over 32s, 18 resting orders) it held accountValue ==
+    totalMarginUsed + withdrawable + resting-order reserved margin with zero
+    jitter — i.e. it is invariant to order place/cancel/fill, value only moves
+    between buckets inside it. The 2026-07-04-era observation of accountValue
+    swinging with resting orders did not reproduce; as extra insurance the
+    drawdown breaker debounces (DRAWDOWN_CONFIRM_CYCLES) so one glitchy
+    reading can never flatten the book.
+
+    Known limit: spot holdings other than USDC are not counted (gridbot holds
+    none by design). Kept separate from get_account_equity above because the
+    momentum engine reuses that basis for ITS wallet shape — changing it there
+    would silently change momentum's live risk math."""
+    perp = info.user_state(address)
+    account_value = float(perp.get("marginSummary", {}).get("accountValue", 0.0))
+    spot = info.spot_user_state(address)
+    spot_usdc = 0.0
+    for bal in spot.get("balances", []):
+        if bal.get("coin") == "USDC":
+            spot_usdc = float(bal.get("total", 0.0))
+            break
+    return spot_usdc + account_value

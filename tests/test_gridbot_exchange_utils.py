@@ -1,4 +1,6 @@
-from hlvault.gridbot.exchange_utils import get_account_equity, round_price, round_size
+from hlvault.gridbot.exchange_utils import (
+    get_account_equity, get_full_account_equity, round_price, round_size,
+)
 
 
 class _FakeInfo:
@@ -37,3 +39,42 @@ def test_round_price_respects_significant_figures_and_decimals():
 
 def test_round_size_truncates_not_rounds():
     assert round_size(0.5559, sz_decimals=2) == 0.55
+
+
+class _FakeInfoFull:
+    def __init__(self, account_value, spot_usdc):
+        self._av = account_value
+        self._spot = spot_usdc
+
+    def user_state(self, address):
+        return {"marginSummary": {"accountValue": str(self._av)},
+                "assetPositions": [], "withdrawable": "0"}
+
+    def spot_user_state(self, address):
+        return {"balances": [{"coin": "USDC", "total": str(self._spot)}]}
+
+
+def test_full_equity_is_spot_plus_perp_account_value():
+    # live measurement 2026-07-25: spot 1048.04 + perp accountValue 46.63,
+    # accountValue == marginUsed + withdrawable + resting-order reserved margin
+    info = _FakeInfoFull(account_value=46.63, spot_usdc=1048.04)
+    assert abs(get_full_account_equity(info, "0xabc") - 1094.67) < 1e-9
+
+
+def test_full_equity_counts_free_margin_the_old_basis_missed():
+    # 2026-07-21 incident shape: flat book, all cash on the perp side —
+    # old basis read $0.00, full basis must see the account value
+    info = _FakeInfoFull(account_value=1077.96, spot_usdc=0.0)
+    assert get_account_equity(info, "0xabc") == 0.0
+    assert abs(get_full_account_equity(info, "0xabc") - 1077.96) < 1e-9
+
+
+def test_full_equity_tolerates_missing_margin_summary():
+    class _Empty:
+        def user_state(self, address):
+            return {}
+
+        def spot_user_state(self, address):
+            return {"balances": [{"coin": "USDC", "total": "12.5"}]}
+
+    assert get_full_account_equity(_Empty(), "0xabc") == 12.5

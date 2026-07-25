@@ -34,6 +34,8 @@ WALLET_PRIVATE_KEY = os.getenv("WALLET_PRIVATE_KEY", "")
 WALLET_ADDRESS = os.getenv("WALLET_ADDRESS", "")
 ALLOCATED_CAPITAL = _env_float("ALLOCATED_CAPITAL", "1000")
 MAX_DRAWDOWN_PCT = _env_float("MAX_DRAWDOWN_PCT", "0.20")
+MAX_BAD_EQUITY_READS = int(_env_float("MAX_BAD_EQUITY_READS", "10"))  # consecutive failed equity reads before halting (no flatten)
+DRAWDOWN_CONFIRM_CYCLES = int(_env_float("DRAWDOWN_CONFIRM_CYCLES", "3"))  # consecutive breaching readings before flatten+halt
 LIVE_TRADING = _env_bool("LIVE_TRADING", "false")
 NETWORK = _env_str("NETWORK", "mainnet")
 HL_API_URL = "https://api.hyperliquid.xyz" if NETWORK == "mainnet" else "https://api.hyperliquid-testnet.xyz"

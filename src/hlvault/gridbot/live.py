@@ -20,7 +20,7 @@ from hyperliquid.info import Info
 from . import config as cfg
 from .allocator import allocate_capital
 from .exchange_utils import (
-    MAX_LEVERAGE_FALLBACK, get_account_equity, get_max_leverage, get_mid_price,
+    MAX_LEVERAGE_FALLBACK, get_full_account_equity, get_max_leverage, get_mid_price,
     get_sz_decimals, round_price, round_size,
 )
 from .resilience import ResilientExchange
@@ -107,19 +107,97 @@ class GridBotEngine:
     def check_drawdown(self) -> bool:
         """Returns True if halted (caller must stop trading this cycle)."""
         if self.state.get("halted"):
-            logger.error("HALTED — manual re-arm required (clear 'halted' in state file after review)")
+            logger.error("HALTED — restart the service to re-arm (resumes only if drawdown "
+                         "has recovered); or clear 'halted' in the state file after review")
             return True
-        current = get_account_equity(self.info, cfg.WALLET_ADDRESS)
+        try:
+            current = get_full_account_equity(self.info, cfg.WALLET_ADDRESS)
+        except Exception as e:
+            return self._equity_read_failed(f"EQUITY READ FAILED ({e!r})")
+        if current <= 0.0:
+            # 2026-07-21 incident: flat book + cash parked in perp free margin
+            # reads as $0 through this basis (spot USDC + position economics),
+            # indistinguishable from a wiped account. A reading this implausible
+            # is a failed read, not a drawdown — any real gradual loss trips
+            # MAX_DRAWDOWN_PCT long before equity crosses zero.
+            return self._equity_read_failed(
+                f"EQUITY READ IMPLAUSIBLE (${current:,.2f}, peak ${self.state.get('peak_equity', 0.0):,.2f})"
+            )
+        self.state["bad_equity_reads"] = 0
         peak = max(self.state.get("peak_equity", 0.0), current)
         drawdown = (peak - current) / peak if peak > 0 else 0.0
         self.state["peak_equity"] = peak
         if drawdown >= cfg.MAX_DRAWDOWN_PCT:
-            logger.error(f"DRAWDOWN CIRCUIT BREAKER: {drawdown:.1%} (peak ${peak:,.2f} -> now ${current:,.2f})")
-            self._flatten_everything()
-            self.state["halted"] = True
+            breach = int(self.state.get("drawdown_breach_cycles", 0)) + 1
+            self.state["drawdown_breach_cycles"] = breach
+            logger.error(f"DRAWDOWN CIRCUIT BREAKER: {drawdown:.1%} "
+                         f"(peak ${peak:,.2f} -> now ${current:,.2f}) — "
+                         f"breach cycle {breach}/{cfg.DRAWDOWN_CONFIRM_CYCLES}, "
+                         "not trading this cycle")
+            if breach >= cfg.DRAWDOWN_CONFIRM_CYCLES:
+                self._flatten_everything()
+                self.state["halted"] = True
             save_state(cfg.STATE_FILE, self.state)
             return True
+        self.state["drawdown_breach_cycles"] = 0
         return False
+
+    def rearm_if_recovered(self) -> None:
+        """A service (re)start is the operator's re-arm request — the one
+        self-service lever that needs no state-file surgery (2026-07-21: the
+        owner had no way to clear a halt themselves). Re-run the drawdown
+        check against the persisted peak: resume only if the breach has
+        actually cleared; a failed or implausible read, or a drawdown still
+        past the threshold, keeps the halt. peak_equity is never reset here,
+        so an ongoing drawdown is still measured against the true high.
+        Called from run_forever() only — --status/--once stay side-effect
+        free."""
+        if not self.state.get("halted"):
+            return
+        try:
+            current = get_full_account_equity(self.info, cfg.WALLET_ADDRESS)
+        except Exception as e:
+            logger.error(f"HALTED and equity re-check failed ({e!r}) — staying halted")
+            return
+        peak = self.state.get("peak_equity", 0.0)
+        if current <= 0.0 or peak <= 0.0:
+            logger.error(f"HALTED and equity re-check implausible (${current:,.2f}) — staying halted")
+            return
+        drawdown = (peak - current) / peak
+        if drawdown >= cfg.MAX_DRAWDOWN_PCT:
+            logger.error(f"HALTED and still breaching: drawdown {drawdown:.1%} >= "
+                         f"{cfg.MAX_DRAWDOWN_PCT:.0%} (peak ${peak:,.2f} -> ${current:,.2f}) "
+                         "— staying halted")
+            return
+        logger.warning(f"RE-ARMED on restart: drawdown {drawdown:.1%} < {cfg.MAX_DRAWDOWN_PCT:.0%} "
+                       f"(peak ${peak:,.2f} -> ${current:,.2f}) — resuming trading")
+        self.state["halted"] = False
+        self.state["bad_equity_reads"] = 0
+        self.state["drawdown_breach_cycles"] = 0
+        save_state(cfg.STATE_FILE, self.state)
+
+    def _equity_read_failed(self, reason: str) -> bool:
+        """A non-positive or failed equity read is a read failure, not a
+        drawdown — never flatten on it (2026-07-21: flat book + cash parked
+        in perp free margin reads $0 through this basis and is
+        indistinguishable from a wiped account). Skip the cycle loudly; after
+        MAX_BAD_EQUITY_READS consecutive failures stop idling invisibly and
+        halt (still no flatten) so the operator's manual re-arm gate takes
+        over instead of a silent forever-skip. The counter lives in the state
+        file, not in memory — a crash/restart loop (systemd Restart=on-failure)
+        must not keep resetting the countdown."""
+        bad_reads = int(self.state.get("bad_equity_reads", 0)) + 1
+        self.state["bad_equity_reads"] = bad_reads
+        logger.error(f"{reason} — treated as failed read "
+                     f"({bad_reads}/{cfg.MAX_BAD_EQUITY_READS} consecutive): "
+                     "skipping cycle, no flatten")
+        if bad_reads >= cfg.MAX_BAD_EQUITY_READS:
+            logger.error("EQUITY UNREADABLE for %d consecutive cycles — halting WITHOUT flatten; "
+                         "manual re-arm required (clear 'halted' in state file after review)",
+                         bad_reads)
+            self.state["halted"] = True
+        save_state(cfg.STATE_FILE, self.state)
+        return True
 
     def _flatten_everything(self) -> None:
         """CLAUDE.md #3: only forget a level/lot once its cancel/flatten is
@@ -337,6 +415,7 @@ class GridBotEngine:
         save_state(cfg.STATE_FILE, self.state)
 
     def run_forever(self) -> None:
+        self.rearm_if_recovered()
         while True:
             try:
                 self.run_once()
@@ -370,7 +449,7 @@ def main():
     engine = GridBotEngine(live_trading=False if args.dry_run else None)
     if args.status:
         engine.bootstrap_if_needed()
-        equity = get_account_equity(engine.info, cfg.WALLET_ADDRESS)
+        equity = get_full_account_equity(engine.info, cfg.WALLET_ADDRESS)
         print(f"equity: ${equity:,.2f}  halted={engine.state.get('halted')}")
         for coin, c in engine.state["coins"].items():
             print(f"  {coin}: anchor={c['anchor']:.6g} step={c['step_pct']*100:.3f}% "
