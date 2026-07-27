@@ -9,7 +9,7 @@
 `BINANCE_SYMBOLS`（`data.py:206` 直接字典索引）沒有對應項，會導致 B1 實例
 每個 cycle `KeyError: 'DOT'` 崩潰重啟。
 
-**已於 2026-07-14 修復（與本 runbook 同一 commit）**：`config.py` 的
+**已於 2026-07-14 修復（commit `4c27858`，早於本 runbook 兩個 commit）**：`config.py` 的
 `BINANCE_SYMBOLS` 已加入 `"DOT": "DOTUSDT"`。這是純新增字典鍵——wallet A／B
 的 `COIN_UNIVERSE` 皆不含 DOT，對運行中實例是死碼、零行為變化；全套
 pytest（295）修復後全綠。Coinalyze 側本就是動態查詢（DOT＝`DOTUSDT_PERP.A`），
