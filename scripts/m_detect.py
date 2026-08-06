@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import m_config as cfg  # noqa: E402
+import pandas as pd
 
 
 @dataclass(frozen=True)
@@ -124,3 +125,48 @@ def compute_sl(pattern, pts):
     """spec §4.5.2：SL 由 X/A 與形態常數唯一決定，【不吃 D】。"""
     s = pts["direction"]
     return pts["p_A"] - s * cfg.SL_LEVEL_OVER_XA[pattern] * abs(pts["p_A"] - pts["p_X"])
+
+
+def dedup(events):
+    """spec §4.6：連通分量分組 + 三段 tie-break。
+
+    相鄰關係不具傳遞性，故必須取【連通分量】（transitive closure），
+    不能取 clique。tie-break：as_of 最小 → pivot_length 最小 → event_id 字典序。
+    """
+    if events.empty:
+        return events.copy()
+    keep_rows = []
+    for _, grp in events.groupby(["symbol", "interval", "pattern", "direction"],
+                                 sort=False):
+        rows = grp.to_dict("records")
+        parent = list(range(len(rows)))
+
+        def find(i):
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        def union(i, j):
+            ri, rj = find(i), find(j)
+            if ri != rj:
+                parent[max(ri, rj)] = min(ri, rj)
+
+        keys = ("t_X", "t_A", "t_B", "t_C")
+        for i in range(len(rows)):
+            for j in range(i + 1, len(rows)):
+                same = sum(rows[i][k] == rows[j][k] for k in keys)
+                if same >= 3:
+                    union(i, j)
+
+        comps = {}
+        for i in range(len(rows)):
+            comps.setdefault(find(i), []).append(rows[i])
+        for members in comps.values():
+            best = min(members, key=lambda r: (r["as_of"], r["pivot_length"],
+                                               r["event_id"]))
+            best = dict(best)
+            best["dedup_merged"] = len(members) - 1
+            keep_rows.append(best)
+    out = pd.DataFrame(keep_rows)
+    return out.sort_values("event_id").reset_index(drop=True)
