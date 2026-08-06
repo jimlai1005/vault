@@ -63,3 +63,64 @@ def normalize_alternating(df, L, as_of_idx):
         else:
             seq.append(p)
     return seq
+
+
+def _band(target, tol):
+    """spec §4.4：單點目標加對稱百分比帶；區間目標原樣使用。"""
+    lo, hi = target
+    if lo == hi:
+        return lo * (1 - tol), hi * (1 + tol)
+    return lo, hi
+
+
+def _in_band(value, target, tol):
+    lo, hi = _band(target, tol)
+    return lo <= value <= hi
+
+
+def passes_prefilters(pattern, pts, tol):
+    """spec §4.3：as_of 前即可檢驗的過濾條件（只涉及 X/A/B/C）。"""
+    xa = abs(pts["p_A"] - pts["p_X"])
+    ab = abs(pts["p_A"] - pts["p_B"])
+    bc = abs(pts["p_C"] - pts["p_B"])
+    if xa == 0 or ab == 0:
+        return False
+    if pattern == "cypher":
+        xc = abs(pts["p_C"] - pts["p_X"])
+        return (_in_band(ab / xa, cfg.CYPHER_RATIOS["ab_over_xa"], tol)
+                and _in_band(xc / xa, cfg.CYPHER_RATIOS["xc_over_xa"], tol))
+    ab_xa, bc_ab, _, _ = cfg.HARMONIC_RATIOS[pattern]
+    if ab_xa is not None and not _in_band(ab / xa, ab_xa, tol):
+        return False
+    return _in_band(bc / ab, bc_ab, tol)
+
+
+def compute_prz(pattern, pts, tol, tol_ad):
+    """spec §4.3：回傳 (prz_low, prz_high)；交集為空回傳 None。"""
+    s = pts["direction"]                       # +1 bullish, -1 bearish
+    xa = abs(pts["p_A"] - pts["p_X"])
+    bc = abs(pts["p_C"] - pts["p_B"])
+    intervals = []
+    if pattern == "cypher":
+        xc = abs(pts["p_C"] - pts["p_X"])
+        lo, hi = _band(cfg.CYPHER_RATIOS["cd_over_xc"], tol_ad)
+        intervals.append(sorted((pts["p_C"] - s * hi * xc, pts["p_C"] - s * lo * xc)))
+    else:
+        _, _, cd_bc, ad_xa = cfg.HARMONIC_RATIOS[pattern]
+        if ad_xa is not None:
+            lo, hi = _band(ad_xa, tol_ad)
+            intervals.append(sorted((pts["p_A"] - s * hi * xa, pts["p_A"] - s * lo * xa)))
+        if cd_bc is not None:
+            lo, hi = _band(cd_bc, tol)
+            intervals.append(sorted((pts["p_C"] - s * hi * bc, pts["p_C"] - s * lo * bc)))
+    if not intervals:
+        raise AssertionError(f"{pattern} 無任何 PRZ 約束——spec §4.3 禁止此情況")
+    lo = max(i[0] for i in intervals)
+    hi = min(i[1] for i in intervals)
+    return None if lo > hi else (lo, hi)
+
+
+def compute_sl(pattern, pts):
+    """spec §4.5.2：SL 由 X/A 與形態常數唯一決定，【不吃 D】。"""
+    s = pts["direction"]
+    return pts["p_A"] - s * cfg.SL_LEVEL_OVER_XA[pattern] * abs(pts["p_A"] - pts["p_X"])

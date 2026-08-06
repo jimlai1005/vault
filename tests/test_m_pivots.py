@@ -62,6 +62,29 @@ def test_closed_run_takes_extreme_open_run_takes_running_extreme():
     assert [(p.kind, p.idx) for p in seq] == [("high", 3), ("low", 5), ("high", 6)]
 
 
+def test_truncation_identity_randomized():
+    """因果恆等式回歸防線（Task 5 sonnet 審查建議併入）。
+
+    對任意截斷時刻 T：normalize_alternating(截斷資料, L, T) 必須恆等於
+    normalize_alternating(完整資料, L, T)——這是「零 look-ahead」的數學定義。
+    fixture 測試靠特定期望值間接驗證，抓不到未來重新引入的 look-ahead。
+    """
+    import numpy as np
+    rng = np.random.default_rng(11)
+    n = 300
+    close = 100 * np.exp(np.cumsum(rng.normal(0, 0.01, n)))
+    df = pd.DataFrame({"t": [i * 3_600_000 for i in range(n)],
+                       "o": close, "h": close * (1 + rng.uniform(0, 0.005, n)),
+                       "l": close * (1 - rng.uniform(0, 0.005, n)), "c": close,
+                       "v": 1.0, "qv": 1.0})
+    for L in (2, 5, 10):
+        for T in (60, 150, 240):
+            full = m_detect.normalize_alternating(df, L, as_of_idx=T)
+            trunc = m_detect.normalize_alternating(
+                df.iloc[:T + 1].reset_index(drop=True), L, as_of_idx=T)
+            assert full == trunc, f"L={L} T={T}: 截斷改變了序列（look-ahead！）"
+
+
 def test_sequence_strictly_alternates():
     highs = [0, 1, 5, 1, 0, 1, 8, 1, 0, 0, 1, 0]
     lows = [0, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0, 0]
