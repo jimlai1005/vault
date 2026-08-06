@@ -78,3 +78,53 @@ def load_klines(symbol, interval, start_ms=None, end_ms=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(path, index=False)
     return df
+
+
+def quarter_start_ms(year, q):
+    month = {1: 1, 2: 4, 3: 7, 4: 10}[q]
+    from datetime import datetime, timezone
+    return int(datetime(year, month, 1, tzinfo=timezone.utc).timestamp() * 1000)
+
+
+def quarters(first, last):
+    out, cur = [], first
+    while cur <= last:
+        out.append(cur)
+        cur = (cur[0] + 1, 1) if cur[1] == 4 else (cur[0], cur[1] + 1)
+    return out
+
+
+def build_pit_universe_m(symbols, quarters=None):
+    """Point-in-time 季度輪換幣種宇宙（spec §7.1）。
+
+    複製 k_data_layer.build_pit_universe 的邏輯，但門檻參數化、季度延伸至
+    2026-Q2、1d 資料由本模組自行抓取。
+
+    每季只用【季度開始前】的資料：trailing 90 日中位 quote volume >= $50M
+    且上市 >= 180 天，取 top 30。
+    """
+    qs = quarters if quarters is not None else globals()["quarters"](
+        cfg.UNIVERSE_FIRST_QUARTER, cfg.UNIVERSE_LAST_QUARTER)
+    day = 86_400_000
+    universe = {}
+    for (y, q) in qs:
+        cutoff = quarter_start_ms(y, q)
+        rows = []
+        for sym in symbols:
+            df = load_klines(sym, "1d")
+            df = df[df["t"] < cutoff]                        # ← PIT 的核心：只看過去
+            if df.empty:
+                continue
+            listed_days = (cutoff - int(df["t"].min())) / day
+            if listed_days < cfg.UNIVERSE_MIN_LISTED_DAYS:
+                continue
+            trailing = df[df["t"] >= cutoff - 90 * day]
+            if trailing.empty:
+                continue
+            med_qv = float(trailing["qv"].median())
+            if med_qv < cfg.UNIVERSE_MIN_QUOTE_VOL:
+                continue
+            rows.append((sym, med_qv))
+        rows.sort(key=lambda r: -r[1])
+        universe[(y, q)] = [s for s, _ in rows[:cfg.UNIVERSE_TOP_N]]
+    return universe

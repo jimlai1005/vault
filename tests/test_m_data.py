@@ -54,3 +54,39 @@ def test_cache_roundtrip(tmp_path, monkeypatch):
     b = m_data.load_klines("BTCUSDT", "1h", cfg.FETCH_START_MS,
                            cfg.FETCH_START_MS + step * 10 - 1)
     pd.testing.assert_frame_equal(a, b)
+
+
+def test_pit_universe_uses_only_prior_data(monkeypatch, tmp_path):
+    """季度 Q 的幣單只能由 Q 開始【之前】的資料決定（spec §7.1）。"""
+    step = cfg.INTERVAL_MS["1d"] if hasattr(cfg, "INTERVAL_MS") else 86_400_000
+    q_start = m_data.quarter_start_ms(2021, 1)
+
+    seen_max_t = []
+
+    def fake_load(symbol, interval, start_ms=None, end_ms=None):
+        assert interval == "1d"
+        n = 400
+        df = pd.DataFrame({
+            "t": [q_start - (n - i) * step for i in range(n)],
+            "o": 1.0, "h": 1.0, "l": 1.0, "c": 1.0, "v": 1.0,
+            "qv": 1e8 if symbol == "AAAUSDT" else 1e6,     # BBB 流動性不足
+        })
+        # 塞入未來資料：若被使用，seen_max_t 會超過 q_start
+        future = df.copy()
+        future["t"] = future["t"] + n * step
+        future["qv"] = 1e12
+        out = pd.concat([df, future], ignore_index=True)
+        seen_max_t.append(out["t"].max())
+        return out
+
+    monkeypatch.setattr(m_data, "load_klines", fake_load)
+    uni = m_data.build_pit_universe_m(["AAAUSDT", "BBBUSDT"], quarters=[(2021, 1)])
+
+    assert uni[(2021, 1)] == ["AAAUSDT"], "只有流動性達標的幣入選"
+    assert max(seen_max_t) > q_start, "測試本身要餵入未來資料才有意義"
+
+
+def test_pit_universe_quarters_extend_to_2026q2():
+    qs = m_data.quarters(cfg.UNIVERSE_FIRST_QUARTER, cfg.UNIVERSE_LAST_QUARTER)
+    assert qs[0] == (2020, 3)
+    assert qs[-1] == (2026, 2), "OOS 尾端三個月必須有幣單（spec §7.1）"
