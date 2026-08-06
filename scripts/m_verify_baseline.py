@@ -130,15 +130,21 @@ def main():
     ok &= hit
     print(f"  R_net = {r_net:.6f}  預期 1.464175  {'OK' if hit else 'FAIL'}")
 
-    print("\n=== spec §4.5.4: 分批出場 R_net 錨例（擋『每腿各扣成本再折半』的誤讀）===")
+    print("\n=== spec §4.5.4: 分批出場 R_net 錨例 ===")
+    print("  擋的誤讀是『進場費先 50/50 分攤到每腿、再各加權 0.5』（fee_in 被乘 0.5 兩次）；")
+    print("  『每腿各扣【全額】成本再加權 0.5』則等於正確值，是合法的等價寫法。")
     e2, sl2, x1, x2 = 100.0, 98.0, 101.0, 102.0
     risk2 = abs(e2 - sl2)
     gross = 0.5 * (x1 - e2) / risk2 + 0.5 * (x2 - e2) / risk2
     cost2 = 0.00015 * e2 + 0.5 * (0.00045 + 0.0001) * x1 + 0.5 * (0.00045 + 0.0001) * x2
     r_batch = gross - cost2 / risk2
-    # 誤讀版：進場費先折半，再把整條 R 折半 -> fee_in 被乘 0.5 兩次
+    # 誤讀版：fee_in 先 50/50 分攤到每腿，再對每腿加權 0.5 -> fee_in 被乘 0.5 兩次
     bad = sum(0.5 * ((px - e2) - (0.5 * 0.00015 * e2 + (0.00045 + 0.0001) * px)) / risk2
               for px in (x1, x2))
+    # 等價寫法：每腿各扣【全額】成本再加權 0.5，應等於正確值
+    equiv = sum(0.5 * ((px - e2) - (0.00015 * e2 + (0.00045 + 0.0001) * px)) / risk2
+                for px in (x1, x2))
+    assert abs(equiv - 0.7145875) < 1e-9, "等價寫法應得同一個值"
     hit = abs(r_batch - 0.7145875) < 1e-9 and abs(bad - r_batch) > 1e-6
     ok &= hit
     print(f"  R_net = {r_batch:.7f}  預期 0.7145875 | 誤讀版 = {bad:.7f} "

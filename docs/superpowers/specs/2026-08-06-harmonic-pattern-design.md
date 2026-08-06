@@ -398,7 +398,9 @@ R_net = 0.5·R_gross(leg1) + 0.5·R_gross(leg2) − cost_R_total
                  + 0.5·(fee_out + slip_out) · P_exit2
   cost_R_total   = cost_abs_total / |P_entry − sl|
 
-【不得】對每腿各自扣成本後再加權平均——那會把 fee_in 乘 0.5 兩次。
+【不得】先把 fee_in 按 50/50 分攤到兩腿、再對每腿的 R_net 各加權 0.5
+——那會把 fee_in 乘 0.5 兩次，成本少算一半。
+（「每腿各扣【全額】成本再加權 0.5」在數學上等於上式，是合法的等價寫法。）
 
 若 TP1 未觸及即 SL/time_stop/censored → 兩腿同時終結，退化為單一終局（與主設定相同）。
 ```
@@ -411,7 +413,7 @@ cost_abs = 0.00015·100 + 0.5·0.00055·101 + 0.5·0.00055·102 = 0.070825
 R_net    = 0.750000 − 0.070825/2 = 0.7145875
 ```
 
-（誤讀成「每腿各扣成本再折半」會得 `0.7183375`，差 `0.00375 R`。此錨例即為擋住該誤讀而設——這個變體佔 480 格中的 240 格，沒有錨例的話測試會照實作者自己的讀法寫，抓不到。）
+（誤讀成「進場費先 50/50 分攤到每腿、再各加權 0.5」會得 `0.7183375`，差 `0.00375 R`。此錨例即為擋住該誤讀而設——這個變體佔 480 格中的 240 格，沒有錨例的話測試會照實作者自己的讀法寫，抓不到。）
 
 **八種終局**（互斥且窮盡；分批變體的複合終局記為 `(leg1_reason, leg2_reason)` 對）：
 
@@ -609,7 +611,7 @@ M-G0 任一項不過 → 公式逆向工程有誤，作廢重來。
     兩次執行中【所有 as_of <= T 的事件】構成的集合完全相同，且每一列逐欄位相同。
     不得有事件消失，【也不得有事件出現】。
 
-斷言 2（回測層）：對【term_date <= T】的交易，
+斷言 2（回測層）：對【term_date <= T】的交易（term_date 取【完整跑】的值），
     fill / sl / exit_reason / R_net / term_date 逐欄位相同。
 ```
 
@@ -757,9 +759,9 @@ OOS 上**同時**評估並**都寫進 verdict**：(a) 全 8 形態合併；(b) `
 |---|---|
 | `tests/test_m_patterns.py` | 比例完美的 Gartley 必須被偵測；`AD/XA` 偏離 20% 必須不被偵測；PRZ 交集為空必須作廢；同一 XABC 同時滿足 Bat 與 Crab 前置過濾時**必須產生兩個事件**（§4.2 末段） |
 | `tests/test_m_pivots.py` | §4.1.1 因果式合併：X/A/B 取封閉段極值；C 取 running extreme；同段後續出現更極端 pivot 時**產生新候選而非修改舊事件**；頭尾 `L` 根不判定 pivot |
-| `tests/test_m_nolookahead.py` | **M-G1 截斷式斷言**（§6.2）：三個分位點各測一次，事件集合**不得有增有減**，trades 欄位全同 |
+| `tests/test_m_nolookahead.py` | **M-G1 截斷式斷言**（§6.2）：三個分位點各測一次。偵測層在**去重前**的事件表上比對 `as_of <= T` 的事件集合（**不得有增有減**）；回測層**只對 `term_date <= T`**（取完整跑的值）的交易斷言欄位全同 |
 | `tests/test_m_baseline_formula.py` | **M-G0 四項斷言 a/b/c/d**。必須 `import scripts.m_config` 取 `SL_LEVEL_OVER_XA`（不得複製常數）；M-G0b 用捨入區間重疊；**M-G0c 必須從 `points` 絕對座標推導**（不得吃洩漏的 `ad_xa`） |
-| `tests/test_m_rmultiple.py` | §5.3 錨例 `R_net == 1.464175`（絕對誤差 < 1e-9）；四種 R=0 終局計入分母且有 `term_date`；`censored` mark-to-market；**分批變體的 `0.5·R(leg1) + 0.5·R(leg2)` 與 breakeven 定義**（§4.5.4） |
+| `tests/test_m_rmultiple.py` | §5.3 單腿錨例 `R_net == 1.464175` 與 **§4.5.4 分批錨例 `R_net == 0.7145875`**（皆絕對誤差 < 1e-9）；分批須另驗「fee_in 只全額收一次」——把它 50/50 分攤再各加權 0.5 會得 `0.7183375`，測試必須拒絕該值；**三種** R=0 終局計入分母且有 `term_date`；`censored` mark-to-market；breakeven 定義 |
 | `tests/test_m_dedup.py` | §4.6 連通分量：`e1~e2`、`e2~e3` 但 `e1≁e3` → 併為一列且 `dedup_merged == 2`；tie-break 三段各一例；**不同 `pattern` 不得合併** |
 | `tests/test_m_stats.py` | §6.1 `lower_95` 錨例 `-0.150005`（絕對誤差 < 1e-9）；`sr` 用 `ddof=1`；對照臂日曆對齊後兩序列等長 |
 
