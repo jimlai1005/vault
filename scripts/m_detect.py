@@ -170,3 +170,68 @@ def dedup(events):
             keep_rows.append(best)
     out = pd.DataFrame(keep_rows)
     return out.sort_values("event_id").reset_index(drop=True)
+
+
+def _extreme(pts):
+    prices = [pts["p_X"], pts["p_A"], pts["p_B"], pts["p_C"]]
+    return max(prices) if pts["direction"] == 1 else min(prices)
+
+
+def build_events(df, symbol, interval, tol=None, tol_ad=None, lengths=None,
+                 do_dedup=True):
+    """spec §4：K 線 → 事件表。
+
+    do_dedup=False 供 M-G1 的偵測層斷言使用（spec §6.2：截斷斷言必須在去重前評估）。
+    """
+    tol = cfg.TOL if tol is None else tol
+    tol_ad = cfg.TOL_AD_XA if tol_ad is None else tol_ad
+    lengths = cfg.PIVOT_LENGTHS if lengths is None else lengths
+    rows = []
+    for L in lengths:
+        piv_all = find_pivots(df, L)
+        for p_c in piv_all:
+            seq = normalize_alternating(df, L, as_of_idx=p_c.confirm_idx)
+            if len(seq) < 4 or seq[-1].idx != p_c.idx:
+                continue
+            x, a, b, c = seq[-4:]
+            direction = 1 if x.kind == "low" else -1
+            if [x.kind, a.kind, b.kind, c.kind] not in (
+                    ["low", "high", "low", "high"], ["high", "low", "high", "low"]):
+                continue
+            pts = dict(p_X=x.price, p_A=a.price, p_B=b.price, p_C=c.price,
+                       direction=direction)
+            xa = abs(pts["p_A"] - pts["p_X"])
+            ab = abs(pts["p_A"] - pts["p_B"])
+            if xa == 0 or ab == 0:
+                continue
+            for pattern in cfg.PATTERNS:
+                if not passes_prefilters(pattern, pts, tol):
+                    continue
+                prz = compute_prz(pattern, pts, tol, tol_ad)
+                if prz is None:
+                    continue
+                prz_lo, prz_hi = prz
+                sl = compute_sl(pattern, pts)
+                d_trigger = prz_hi if direction == 1 else prz_lo
+                leg = abs(_extreme(pts) - d_trigger)
+                f1, f2 = (cfg.TP_FACTORS_SHARK if pattern == "shark"
+                          else cfg.TP_FACTORS)
+                gid = (f"{symbol}_{interval}_{direction}_{L}_"
+                       f"{x.t}_{a.t}_{b.t}_{c.t}")
+                rows.append(dict(
+                    event_id=f"{symbol}_{interval}_{direction}_{L}_{c.t}_{pattern}",
+                    xabc_group_id=gid, symbol=symbol, interval=interval,
+                    pattern=pattern, direction=direction, pivot_length=L,
+                    t_X=x.t, t_A=a.t, t_B=b.t, t_C=c.t,
+                    p_X=x.price, p_A=a.price, p_B=b.price, p_C=c.price,
+                    as_of=c.confirm_t,
+                    ratio_ab_xa=ab / xa, ratio_bc_ab=abs(c.price - b.price) / ab,
+                    ratio_xc_xa=abs(c.price - x.price) / xa,
+                    prz_low=prz_lo, prz_high=prz_hi, sl=sl,
+                    tp1_planned=d_trigger + direction * f1 * leg,
+                    tp2_planned=d_trigger + direction * f2 * leg,
+                    dedup_merged=0, tol_used=tol))
+    ev = pd.DataFrame(rows)
+    if ev.empty or not do_dedup:
+        return ev
+    return dedup(ev)

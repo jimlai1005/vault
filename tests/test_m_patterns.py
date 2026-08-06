@@ -81,3 +81,40 @@ def test_sl_does_not_depend_on_fill():
     x, a = 0.0, 100.0
     sl = m_detect.compute_sl("bat", _xabc(x, a, 50.0, 70.0))
     assert sl == a - cfg.SL_LEVEL_OVER_XA["bat"] * (a - x)
+
+
+import numpy as np
+import pandas as pd
+
+
+def _zigzag_bars(anchors, n):
+    """piecewise-linear 路徑：錨點即 pivot，段內嚴格單調故無多餘 pivot。"""
+    path = np.interp(np.arange(n), [i for i, _ in anchors], [v for _, v in anchors])
+    return pd.DataFrame({"t": [i * 3_600_000 for i in range(n)],
+                         "o": path, "h": path, "l": path, "c": path,
+                         "v": 1.0, "qv": 1.0})
+
+
+def _gartley_bars():
+    # X@4=100, A@10=200, B@16=138.2, C@22=169.1（AB/XA=0.618、BC/AB=0.5 精確）
+    return _zigzag_bars([(0, 150.0), (4, 100.0), (10, 200.0),
+                         (16, 138.2), (22, 169.1), (39, 120.0)], 40)
+
+
+def test_build_events_emits_required_schema():
+    ev = m_detect.build_events(_gartley_bars(), symbol="BTCUSDT", interval="1h",
+                               lengths=(2,))
+    assert len(ev) >= 1, "合成 Gartley 必須至少產生一個事件"
+    assert set(ev["pattern"]) == {"gartley"}
+    required = {"event_id", "xabc_group_id", "symbol", "interval", "pattern",
+                "direction", "pivot_length", "t_X", "t_A", "t_B", "t_C",
+                "p_X", "p_A", "p_B", "p_C", "as_of", "ratio_ab_xa",
+                "ratio_bc_ab", "ratio_xc_xa", "prz_low", "prz_high", "sl",
+                "tp1_planned", "tp2_planned", "dedup_merged", "tol_used"}
+    assert required.issubset(set(ev.columns))
+
+
+def test_every_event_as_of_is_after_its_C_confirm():
+    ev = m_detect.build_events(_gartley_bars(), "BTCUSDT", "1h", lengths=(2,))
+    assert len(ev) >= 1
+    assert (ev["as_of"] > ev["t_C"]).all()
