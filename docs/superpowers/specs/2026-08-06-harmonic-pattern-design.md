@@ -390,18 +390,35 @@ leg2：TP1 觸及後 SL 移至【損益兩平價】
       breakeven = P_entry · (1 + direction·(fee_in + fee_out + slip_out))
       出場於 tp2 / breakeven / time_stop / censored 之先到者，出場腿 taker。
 
-進場成本按 50/50 分攤至兩腿。
-R_net = 0.5 · R_net(leg1) + 0.5 · R_net(leg2)      # 兩腿分母皆為 |P_entry − sl|
+R_net = 0.5·R_gross(leg1) + 0.5·R_gross(leg2) − cost_R_total
+
+  R_gross(leg_i) = direction · (P_exit_i − P_entry) / |P_entry − sl|
+  cost_abs_total = fee_in · P_entry                       ← 進場只收一次，【全額】
+                 + 0.5·(fee_out + slip_out) · P_exit1     ← 每個出場腿按其半額收
+                 + 0.5·(fee_out + slip_out) · P_exit2
+  cost_R_total   = cost_abs_total / |P_entry − sl|
+
+【不得】對每腿各自扣成本後再加權平均——那會把 fee_in 乘 0.5 兩次。
 
 若 TP1 未觸及即 SL/time_stop/censored → 兩腿同時終結，退化為單一終局（與主設定相同）。
 ```
+
+**數值錨例（必過的單元測試）**：`P_entry = 100`、`sl = 98`、`P_exit1 = 101`、`P_exit2 = 102`，maker 進場、兩腿皆 taker 出場：
+
+```
+gross    = 0.5·(1/2) + 0.5·(2/2) = 0.750000
+cost_abs = 0.00015·100 + 0.5·0.00055·101 + 0.5·0.00055·102 = 0.070825
+R_net    = 0.750000 − 0.070825/2 = 0.7145875
+```
+
+（誤讀成「每腿各扣成本再折半」會得 `0.7183375`，差 `0.00375 R`。此錨例即為擋住該誤讀而設——這個變體佔 480 格中的 240 格，沒有錨例的話測試會照實作者自己的讀法寫，抓不到。）
 
 **八種終局**（互斥且窮盡；分批變體的複合終局記為 `(leg1_reason, leg2_reason)` 對）：
 
 | 終局 | `R_net` | 終止日 `term_date` |
 |---|---|---|
 | `tp1` / `tp2` / `sl` / `time_stop` | 依 §5.3 計算 | 出場日 |
-| `no_fill` | `0` | TTL 最後一根的收盤日 |
+| `no_fill`（TTL 耗盡未成交，**或資料截止時 TTL 未耗盡仍未成交**） | `0` | TTL 最後一根、或資料最後一根的收盤日 |
 | `invalidated_by_gap` | `0` | 跳空當日 |
 | `prz_already_breached` | `0` | `as_of` 當日 |
 | `censored`（資料截止時仍在倉） | 以最後一根收盤 mark-to-market，出場腿 taker | 最後一根收盤日 |
@@ -468,7 +485,7 @@ cost_R   = 0.07165 / 2 = 0.035825
 R_net    = 1.464175
 ```
 
-**兩個指標都要報**：`E[R_net]`（無條件，四種 R=0 終局計入分母）與 `E[R_net | filled]`。**但 gate 只認 §6.1 的 `r_d`**——兩者不是同一個量，verdict 引用時不得混用。勝率只是附註。
+**兩個指標都要報**：`E[R_net]`（無條件，三種 R=0 終局計入分母）與 `E[R_net | filled]`。**但 gate 只認 §6.1 的 `r_d`**——兩者不是同一個量，verdict 引用時不得混用。勝率只是附註。
 
 ### 5.4 匹配隨機對照組
 
@@ -506,7 +523,11 @@ r_d = 0.01 × Σ{ R_net(e) : term_date(e) = d }
 序列範圍：該設定第一個 term_date 至最後一個 term_date（UTC 日曆日，連續填滿）
 ```
 
-四種 `R_net = 0` 的終局**照樣進入序列**（貢獻 0），故 `r_d` 與 `E[R_net]` 的分母一致。
+**三種** `R_net = 0` 的終局（`no_fill`、`invalidated_by_gap`、`prz_already_breached`）**照樣進入序列**（貢獻 0），故 `r_d` 與 `E[R_net]` 的分母一致。
+
+**對照臂的序列**用同一條式子，但每筆對照的貢獻乘 `1/K_actual(e)`（§5.4），使兩臂的每日總曝險可比。
+
+**隨機性**：stationary bootstrap 的 RNG 以 `SEED = 20260806`（§5.4 同一常數）初始化，每個 gate 各自以 `(SEED, gate_id)` 衍生子種子，確保可複現且各 gate 互不干擾。
 
 **`lower_95` 的定義（H1）**：
 
@@ -583,23 +604,46 @@ M-G0 任一項不過 → 公式逆向工程有誤，作廢重來。
 
 ```
 對任意截斷時刻 T：把 close_time > T 的所有 K 線刪除，重跑【偵測 + 回測】。
-斷言：兩次執行中【所有 as_of <= T 的事件】構成的集合【完全相同】，
-      且每一列逐欄位相同（含 trades 表的 fill / sl / exit_reason / R_net / term_date）。
-      不得有事件消失，【也不得有事件出現】。
+
+斷言 1（偵測層，在【去重前】的事件表上評估）：
+    兩次執行中【所有 as_of <= T 的事件】構成的集合完全相同，且每一列逐欄位相同。
+    不得有事件消失，【也不得有事件出現】。
+
+斷言 2（回測層）：對【term_date <= T】的交易，
+    fill / sl / exit_reason / R_net / term_date 逐欄位相同。
 ```
 
-T 取序列的 25% / 50% / 75% 分位各測一次。對照組平移（§5.4）套用同一斷言。
+**為什麼斷言 1 必須在去重前評估**：去重的連通分量會因截斷而裂開，使事件「憑空出現」——例如 `E_a=(x,a,b,c1)`、`E_b=(x,a,b,c2)`、`E_c=(x,a,b2,c2)` 三者由 `E_b` 串成一個分量，若 `as_of(E_c) <= T < as_of(E_b)`，截斷後 `E_b` 消失、分量裂成兩個，原本被合併掉的 `E_c` 就會出現。**那是去重的預期行為，不是 look-ahead。**
+
+**為什麼斷言 2 只涵蓋 `term_date <= T`**：曝險窗達 `TTL + MAX_HOLD = 130` 根，`term_date > T` 的交易在截斷跑裡必然變成 `censored` 或未成交——對它們斷言相同會讓**正確的實作必然失敗**，逼實作者去追不存在的 bug 或自行放寬斷言。
+
+T 取序列的 25% / 50% / 75% 分位各測一次。對照組平移（§5.4）套用同一組斷言。
 
 ### 6.3 判定 gate
 
-| ID | 判準（方程式） | 評估樣本 |
-|---|---|---|
-| **M-G2** 絕對期望 | `lower_95(mean(r_d)) > 0` | 見各 gate |
-| **M-G3** 優於隨機 | `lower_95(mean(r_d^pattern) − mean(r_d^control)) > 0`，配對 stationary bootstrap，日曆對齊見 §5.4 | OOS |
-| **M-G4** 試驗數校正 | `deflated_sharpe(sr_list, primary_returns, N_TRIALS_DECLARED)["psr"] >= 0.95`（[`scripts/k_gates_eval.py:238`](../../../scripts/k_gates_eval.py) 的實際 gate） | **`sr_list` 與 `primary_returns` 皆取 OOS**（M6，沿用 K 案先例） |
-| **M-G5** 時間樣本外 | OOS 上 M-G2 成立 | IS `2020-07-01T00:00:00Z ~ 2023-12-31T23:59:59Z`；OOS `2024-01-01T00:00:00Z ~ 2026-06-30T23:59:59Z`。**OOS 只跑一次** |
-| **M-G6** 幣種樣本外 | **`hash%2 == 1` 的那一半**（holdout）上 M-G2 成立 | OOS |
-| **M-G7** 成本壓力 | fee ×1.5、slip ×1.5 後 M-G2 成立 | OOS |
+**每個 gate 恰好對 M-G2 變動一個維度**（期間／幣種／成本／對照），評估樣本逐格寫明、無「見各 gate」這類循環定義：
+
+| ID | 判準（方程式） | 期間 | 幣種 | 成本 |
+|---|---|---|---|---|
+| **M-G2** 絕對期望 | `lower_95(mean(r_d)) > 0` | **全期** `2020-07-01 ~ 2026-06-30` | 全部 | 標準 |
+| **M-G3** 優於隨機 | `lower_95(mean(r_d^pattern) − mean(r_d^control)) > 0`，配對 stationary bootstrap，日曆對齊見 §5.4 | **全期** | 全部 | 標準 |
+| **M-G4** 試驗數校正 | `deflated_sharpe(sr_list, primary_returns, N_TRIALS_DECLARED)["psr"] >= 0.95`（[`scripts/k_gates_eval.py:238`](../../../scripts/k_gates_eval.py) 的實際 gate） | **OOS**（`sr_list` 與 `primary_returns` 皆取 OOS，沿用 K 案先例） | 全部 | 標準 |
+| **M-G5** 時間樣本外 | M-G2 的式子成立 | **OOS** `2024-01-01 ~ 2026-06-30`（IS 為 `2020-07-01 ~ 2023-12-31`）。**OOS 只跑一次** | 全部 | 標準 |
+| **M-G6** 幣種樣本外 | M-G2 的式子成立 | 全期 | **`hash%2 == 1` 的 holdout 半** | 標準 |
+| **M-G7** 成本壓力 | M-G2 的式子成立 | 全期 | 全部 | **fee ×1.5、slip ×1.5** |
+
+**M-G4 的 `sr_list` 組成（必須釘死）**：
+
+```
+sr_list = §6.4 主網格 480 個 cell 各自的【OOS 未年化日 Sharpe】
+N_OBSERVABLE_TRIALS = 480      # 產生可觀測 Sharpe 的 cell 數
+N_TRIALS_DECLARED   = 487      # 含 7 個不產生獨立 cell Sharpe 的重跑
+實作須 assert len(sr_list) == N_OBSERVABLE_TRIALS == 480
+```
+
+[`scripts/k_gates_eval.py:92-96`](../../../scripts/k_gates_eval.py) 的 docstring **明文允許** `len(sr_list) != n_trials`，K 案為此另立 `N_OBSERVABLE_TRIALS` 常數與 assert，本專案照辦。
+
+**為什麼這條不能留白**：`sr_star = 3.0446 × sd(sr_list)`（`n_trials = 487` 實算）。只放 48 個合併層 cell（`sd ≈ 0.008`）→ `sr_star ≈ 0.024`；放全部 480 個（`sd ≈ 0.040`）→ `sr_star ≈ 0.122`。**而日 Sharpe 本身就是 0.03–0.06 量級——`sr_list` 的組成直接把 M-G4 從必過變成必不過**，卻完全不涉及策略好壞。
 
 **primary 設定（H2，完整凍結，無留白）**：
 
@@ -622,7 +666,10 @@ TOL      = 0.05  (TOL_AD_XA = 0.03)
          └  3 = interval ∈ {15m, 1h, 4h}
          └  2 = 進場模式 A / B
          └  2 = 出場變體（TP1 全出 / 分批）
-消融：   + 2   （§3.1 的「只留容差 ≤3%」與「只留 D 超出 X」兩組切片）
+消融：   + 2   （在 primary 設定的事件表上做兩組切片，於此明確定義：
+                 (i)  只留實際 |ratio_ad_xa − 名目值| / 名目值 <= 0.03 的事件
+                 (ii) 只留 D 落在 X 之外的形態（AD/XA > 1：Alt Bat、Butterfly、Crab、Deep Crab）
+                      對照 D 落在 X 之內者（AD/XA < 1：Gartley、Bat、Cypher；Shark 跨界，歸「之外」）
 穩健性： + 2   （§6.7 端點 ±7 天）
          + 2   （M-G6 的兩個幣種半樣本）
          + 1   （M-G7 的 fee×1.5 重跑）
@@ -644,8 +691,8 @@ TOL      = 0.05  (TOL_AD_XA = 0.03)
 
 ```
 n_events_IS(p) := 該形態在 IS 上【去重後】的事件數，
-                  【包含四種 R_net = 0 的終局】（no_fill / invalidated_by_gap /
-                  prz_already_breached / 以及未成交的其他情形）
+                  【包含三種 R_net = 0 的終局】
+                  （no_fill / invalidated_by_gap / prz_already_breached）
 
 selected = { p : n_events_IS(p) >= 30  且  lower_95(mean(r_d^{p,IS})) > 0 }
 ```
@@ -669,7 +716,7 @@ OOS 上**同時**評估並**都寫進 verdict**：(a) 全 8 形態合併；(b) `
 ### 6.7 硬性規定
 
 - **回測窗口兩端都硬編**於 `scripts/m_config.py`（M14）：資料抓取終點固定 `2026-06-30T23:59:59Z`，**不得使用 `datetime.now()`**；事件過濾 `2020-07-01T00:00:00Z <= as_of <= 2026-06-30T23:59:59Z`。（2026-07-12 momentum 教訓：端點差 9 天使兩年 Sharpe 從 0.57 掉到 0.18。v2 只釘了左端點。）
-- **端點敏感度**：GO 級結論前跑 IS/OOS 分界點 ±7 天。**「翻盤」的定義**：`lower_95(mean(r_d))` 在 ±7 天的任一端點設定下**變號**。翻盤 → verdict 由 GO 降為 NO-GO。
+- **端點敏感度**：GO 級結論前把 IS/OOS 分界點移動 ±7 天各跑一次。**評估的是 M-G5 的 OOS 序列**（分界點移動只改變 OOS 的組成，M-G2 的全期序列不受影響）。**「翻盤」的定義**：`lower_95(mean(r_d^OOS))` 在 ±7 天的任一設定下**變號**。翻盤 → verdict 由 GO 降為 NO-GO（厚尾雜訊，非 edge）。
 - 所有凍結參數在**第一次跑回測之前**定案。任何事後修改必須在 verdict 揭露並重新計算 `N_TRIALS_DECLARED`。
 
 ---

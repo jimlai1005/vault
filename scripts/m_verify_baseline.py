@@ -130,12 +130,39 @@ def main():
     ok &= hit
     print(f"  R_net = {r_net:.6f}  預期 1.464175  {'OK' if hit else 'FAIL'}")
 
-    print("\n=== spec §6.4: N_TRIALS_DECLARED ===")
-    n = (8 + 1 + 1) * 4 * 3 * 2 * 2 + 2 + 2 + 2 + 1
-    hit = n == 487
+    print("\n=== spec §4.5.4: 分批出場 R_net 錨例（擋『每腿各扣成本再折半』的誤讀）===")
+    e2, sl2, x1, x2 = 100.0, 98.0, 101.0, 102.0
+    risk2 = abs(e2 - sl2)
+    gross = 0.5 * (x1 - e2) / risk2 + 0.5 * (x2 - e2) / risk2
+    cost2 = 0.00015 * e2 + 0.5 * (0.00045 + 0.0001) * x1 + 0.5 * (0.00045 + 0.0001) * x2
+    r_batch = gross - cost2 / risk2
+    # 誤讀版：進場費先折半，再把整條 R 折半 -> fee_in 被乘 0.5 兩次
+    bad = sum(0.5 * ((px - e2) - (0.5 * 0.00015 * e2 + (0.00045 + 0.0001) * px)) / risk2
+              for px in (x1, x2))
+    hit = abs(r_batch - 0.7145875) < 1e-9 and abs(bad - r_batch) > 1e-6
     ok &= hit
-    print(f"  (8 形態 + 合併層 + selected 層) x4x3x2x2 + 消融2 + 端點2 + 半樣本2 + 成本1 "
-          f"= {n}  預期 487  {'OK' if hit else 'FAIL'}")
+    print(f"  R_net = {r_batch:.7f}  預期 0.7145875 | 誤讀版 = {bad:.7f} "
+          f"(差 {abs(r_batch - bad):.7f} R)  {'OK' if hit else 'FAIL'}")
+
+    print("\n=== spec §6.3/§6.4: 試驗數 ===")
+    n_obs = (8 + 1 + 1) * 4 * 3 * 2 * 2
+    n = n_obs + 2 + 2 + 2 + 1
+    hit = n_obs == 480 and n == 487
+    ok &= hit
+    print(f"  N_OBSERVABLE_TRIALS = (8 形態 + 合併層 + selected 層) x4x3x2x2 = {n_obs}  預期 480")
+    print(f"  N_TRIALS_DECLARED   = {n_obs} + 消融2 + 端點2 + 半樣本2 + 成本1 = {n}  預期 487  "
+          f"{'OK' if hit else 'FAIL'}")
+
+    print("\n=== spec §6.3: sr_star 對 sr_list 組成的敏感度（B4 的量化依據）===")
+    g = 0.5772156649
+    from scipy import stats as _st
+    coef = (1 - g) * _st.norm.ppf(1 - 1 / n) + g * _st.norm.ppf(1 - 1 / (n * np.e))
+    hit = abs(coef - 3.0446) < 1e-3
+    ok &= hit
+    print(f"  sr_star = {coef:.4f} x sd(sr_list)  預期 ~3.0446  {'OK' if hit else 'FAIL'}")
+    print(f"    sd=0.008 (只放 48 個合併層 cell) -> sr_star={coef*0.008:.4f}")
+    print(f"    sd=0.040 (放全部 480 個 cell)    -> sr_star={coef*0.040:.4f}")
+    print("    日 Sharpe 約 0.03-0.06 -> 組成必須釘死，否則 M-G4 必過或必不過與策略無關")
 
     print("\n" + "=" * 46)
     print(f"M-G0 全部斷言: {'PASS' if ok else 'FAIL'}")
