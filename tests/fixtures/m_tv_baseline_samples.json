@@ -1,0 +1,170 @@
+{
+  "provenance": "TradingView script DSk4XN5m chart snapshot JSON, extracted 2026-08-06. Correction for accuracy: only 2 of the 6 samples come from DSk4XN5m (<Elite>, BINANCE:BTCUSDT 4H). The other 4 come from the two sibling scripts' embedded snapshots — wXe6JvAX (base 'Auto Harmonic Patterns', COINBASE:BTCUSD 1H) x3 and 3eidBGOL (<Ultimate>, BINANCE:BTCUSDT 1H) x1. Same code base (Pine warnings show identical function layout). All values traced to reports/m-baseline-tv-script-analysis.md sections 2.3, 3.4, 4.2, 4.3. Per-sample origin is in the `source_script` field.",
+  "formula_note": "Verbatim from report section 4.2 (marked 【推論 — 6 個樣本，數值吻合到小數 4 位】):\n\n令 X,A,B,C,D 為型態五點，`ext` = 型態在獲利方向上的極值（做多取 `max(X,A,B,C)`，做空取 `min(X,A,B,C)`），`leg = |D − ext|`。\n\n**Entry = D**（無緩衝、無確認條件；6/6 樣本 Entry 恰等於 D 點價）\n\n**TP（一般型態，5/6 樣本精確吻合）**\n```\nTP1 = D ± 0.382 × leg\nTP2 = D ± 0.618 × leg\n```\n**TP（Shark 例外，1/1 樣本）**\n```\nTP1 = D ± 0.500 × leg\nTP2 = D ± 0.886 × leg\n```\n（這解釋了作者為何說「鯊魚必須 TP1 全平」——Shark 用的是 0.5/0.886 而非 0.382/0.618。）\n\n**SL = XA 的固定 Fib 延伸位，且是「D 所在延伸位的下一檔」**（6/6 樣本），以 (SL−A)/XA 表示：\n| 型態 | D 的 AD/XA | SL 的 (SL−A)/XA |\n|---|---|---|\n| Cypher | 0.724 | **1.000**（= X 點本身） |\n| Bat | 0.898 | **1.130** |\n| Shark 113 | 0.977 | **1.272** |\n| Butterfly | 1.270 | **1.618** |\n| Deep Crab | 1.510 / 1.947 | **2.000** |\n\n即 SL 檔位序列 = {1.0, 1.13, 1.272, 1.618, 2.0}，教科書 harmonic 慣例。",
+  "field_conventions": {
+    "points.t": "Chart bar index as printed in the report, NOT a unix timestamp. Only two bar indices leaked (report section 3.4); every other t is null because the report never states one.",
+    "points.p": "Price as printed in the report, section 2.3. Null where the report gives only leg ratios and no absolute coordinates.",
+    "expected.entry": "Filled ONLY where the D price is known, using the report's asserted identity 'Entry = D (6/6 樣本 Entry 恰等於 D 點價)'. This is a leaked-data assertion, not a computation.",
+    "expected.sl/tp1/tp2": "Null for ALL 6 samples. The report states the formulas but never prints an absolute SL/TP1/TP2 value for any sample. Deriving them from the formula would be circular — the formula is exactly what this fixture is meant to test.",
+    "leaked_metrics": "Values printed verbatim on the scripts' own chart labels / measured off the leaked XABCD coordinates (report sections 2.3 and 4.3, marked 【洩漏標籤原文】). These are the real non-circular anchors: a faithful reimplementation must reproduce risk_pct / rr1 / rr2 from its own entry/sl/tp values.",
+    "null_policy": "Null means the report does not contain the value. No number in this file was estimated, interpolated, or derived from the TP/SL formula."
+  },
+  "samples": [
+    {
+      "id": "elite_cypher_bullish",
+      "source_script": "DSk4XN5m (<Elite>), BINANCE:BTCUSDT 4H",
+      "pattern": "Cypher",
+      "direction": "bullish",
+      "points": {
+        "X": {"t": null, "p": 108393.39},
+        "A": {"t": null, "p": 111782.21},
+        "B": {"t": null, "p": 110528.71},
+        "C": {"t": null, "p": 112575.27},
+        "D": {"t": 57, "p": 109329.12}
+      },
+      "expected": {"entry": 109329.12, "sl": null, "tp1": null, "tp2": null},
+      "leaked_metrics": {
+        "risk_pct": 0.86,
+        "rr1": 1.33,
+        "rr2": 2.14,
+        "ab_xa": 0.370,
+        "bc_ab": null,
+        "ad_xa": 0.724,
+        "xc_xa": 1.234,
+        "cd_xc": 0.7763,
+        "sl_level_over_xa": 1.000
+      },
+      "note": "Full XABCD coordinates available (report section 2.3, 精確到小數點後 5 位). D's t=57 is a chart BAR INDEX from section 3.4, not a timestamp; X/A/B/C bar indices were not reported. sl/tp1/tp2 null — never printed as absolute values. ad_xa 0.724 is the report's section 4.2 value; section 2.3 additionally measured XC/XA=1.234 and the defining leg CD/XC=0.7763 (textbook Cypher D = 0.786). SL level 1.000 means SL sits at the X price itself (108393.39) per the formula — deliberately NOT filled into expected.sl, since that is the assertion under test. Cross-check available: leaked risk 0.86% is consistent with entry 109329.12 vs X 108393.39."
+    },
+    {
+      "id": "elite_deep_crab_bearish",
+      "source_script": "DSk4XN5m (<Elite>), BINANCE:BTCUSDT 4H",
+      "pattern": "Deep Crab",
+      "direction": "bearish",
+      "points": {
+        "X": {"t": null, "p": 113485.9},
+        "A": {"t": 57, "p": 107255},
+        "B": {"t": null, "p": 113384.62},
+        "C": {"t": null, "p": 109977},
+        "D": {"t": null, "p": 116665.63}
+      },
+      "expected": {"entry": 116665.63, "sl": null, "tp1": null, "tp2": null},
+      "leaked_metrics": {
+        "risk_pct": 2.62,
+        "rr1": 1.18,
+        "rr2": 1.91,
+        "ab_xa": 0.984,
+        "bc_ab": 0.556,
+        "ad_xa": 1.510,
+        "xc_xa": null,
+        "cd_xc": null,
+        "sl_level_over_xa": 2.000
+      },
+      "note": "Full XABCD coordinates available (report section 2.3). A's t=57 is a chart BAR INDEX (section 3.4) — the same bar as the Cypher sample's D point, which the report flags as an anomaly: a bullish D at 109329.12 sits 2074 pts (1.9%) above the actual low 107255 on that same bar, i.e. D points are projected/optimised prices, not real bar extremes. Pattern-fit is loose: AB/XA 0.984 vs textbook Deep Crab 0.886 (超標 11%), AD/XA 1.510 vs textbook 1.618 (少 6.7%) — both outside the nominal Tolerance% = 10. sl/tp1/tp2 null — never printed as absolute values."
+    },
+    {
+      "id": "base_bat_bullish",
+      "source_script": "wXe6JvAX (base Auto Harmonic Patterns), COINBASE:BTCUSD 1H",
+      "pattern": "Bat",
+      "direction": "bullish",
+      "points": {
+        "X": {"t": null, "p": null},
+        "A": {"t": null, "p": null},
+        "B": {"t": null, "p": null},
+        "C": {"t": null, "p": null},
+        "D": {"t": null, "p": null}
+      },
+      "expected": {"entry": null, "sl": null, "tp1": null, "tp2": null},
+      "leaked_metrics": {
+        "risk_pct": null,
+        "rr1": 1.48,
+        "rr2": null,
+        "ab_xa": 0.542,
+        "bc_ab": 0.782,
+        "ad_xa": 0.898,
+        "xc_xa": null,
+        "cd_xc": null,
+        "sl_level_over_xa": 1.130
+      },
+      "note": "MISSING: all five XABCD absolute prices and all bar indices — the report only tabulates this sample's leg ratios (section 2.3 table) and its RR1 (section 4.3 table). entry therefore null (D price unknown), and sl/tp1/tp2 null. risk_pct and rr2 are printed as '—' in the report's section 4.3 table, i.e. not leaked. This sample is usable as a ratio/SL-ladder anchor only (AD/XA 0.898 -> SL rung 1.130), not as a price-level anchor."
+    },
+    {
+      "id": "base_deep_crab_bearish",
+      "source_script": "wXe6JvAX (base Auto Harmonic Patterns), COINBASE:BTCUSD 1H",
+      "pattern": "Deep Crab",
+      "direction": "bearish",
+      "points": {
+        "X": {"t": null, "p": null},
+        "A": {"t": null, "p": null},
+        "B": {"t": null, "p": null},
+        "C": {"t": null, "p": null},
+        "D": {"t": null, "p": null}
+      },
+      "expected": {"entry": null, "sl": null, "tp1": null, "tp2": null},
+      "leaked_metrics": {
+        "risk_pct": null,
+        "rr1": 14.04,
+        "rr2": null,
+        "ab_xa": 0.952,
+        "bc_ab": 0.561,
+        "ad_xa": 1.947,
+        "xc_xa": null,
+        "cd_xc": null,
+        "sl_level_over_xa": 2.000
+      },
+      "note": "MISSING: all five XABCD absolute prices and bar indices; risk_pct and rr2 printed as '—' in the report. This is the report's flagged structural-defect case (section 4.3): D at 1.947 XA against a fixed SL rung at 2.000 XA leaves only 0.053 XA of stop distance, so R:R explodes to 14.04. Any reimplementation reproducing the formula MUST also reproduce this degenerate RR1 — it is the sharpest single test of 'SL rung is fixed, not risk-normalised'. Note this sample and elite_deep_crab_bearish are both labelled 'Deep Crab' with AD/XA 1.947 vs 1.510 (spread of +-20% around textbook 1.618)."
+    },
+    {
+      "id": "base_shark113_bearish",
+      "source_script": "wXe6JvAX (base Auto Harmonic Patterns), COINBASE:BTCUSD 1H",
+      "pattern": "Shark 113",
+      "direction": "bearish",
+      "points": {
+        "X": {"t": null, "p": null},
+        "A": {"t": null, "p": null},
+        "B": {"t": null, "p": null},
+        "C": {"t": null, "p": null},
+        "D": {"t": null, "p": null}
+      },
+      "expected": {"entry": null, "sl": null, "tp1": null, "tp2": null},
+      "leaked_metrics": {
+        "risk_pct": null,
+        "rr1": 2.26,
+        "rr2": null,
+        "ab_xa": 0.491,
+        "bc_ab": 1.721,
+        "ad_xa": 0.977,
+        "xc_xa": null,
+        "cd_xc": null,
+        "sl_level_over_xa": 1.272
+      },
+      "note": "MISSING: all five XABCD absolute prices and bar indices; risk_pct and rr2 printed as '—' in the report. Label text leaked as '[Bearish] Shark 113' (section 2.1) — '113' denotes the D-at-1.13-XA Shark variant. This is the ONLY sample behind the Shark TP exception in formula_note (TP1/TP2 = 0.500/0.886 x leg instead of 0.382/0.618), i.e. that branch of the formula rests on n=1 and no absolute prices — treat it as the weakest-evidence part of the baseline."
+    },
+    {
+      "id": "ultimate_butterfly_bullish",
+      "source_script": "3eidBGOL (<Ultimate>), BINANCE:BTCUSDT 1H",
+      "pattern": "Butterfly",
+      "direction": "bullish",
+      "points": {
+        "X": {"t": null, "p": null},
+        "A": {"t": null, "p": null},
+        "B": {"t": null, "p": null},
+        "C": {"t": null, "p": null},
+        "D": {"t": null, "p": null}
+      },
+      "expected": {"entry": null, "sl": null, "tp1": null, "tp2": null},
+      "leaked_metrics": {
+        "risk_pct": 2.72,
+        "rr1": 1.39,
+        "rr2": 2.26,
+        "ab_xa": 0.812,
+        "bc_ab": 0.864,
+        "ad_xa": 1.270,
+        "xc_xa": null,
+        "cd_xc": null,
+        "sl_level_over_xa": 1.618
+      },
+      "note": "MISSING: all five XABCD absolute prices and bar indices — only leg ratios (section 2.3 table, row marked 'Butterfly (L, Ultimate)') and the label triple risk 2.72% / RR1 1.39 / RR2 2.26 (section 4.3) leaked. entry null (D price unknown). Best-fitting sample of the six: AD/XA 1.270 vs textbook Butterfly 1.27. Separately, the report records a DIFFERENT Ultimate label — '[Bullish Butterfly] SL: -7.09% | RR1: .12 | RR2: .19' — which is NOT included as a 7th sample here because no leg ratios or coordinates were leaked for it; it is only evidence that the script displays sub-1 R:R setups unfiltered."
+    }
+  ]
+}
