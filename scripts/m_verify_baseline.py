@@ -10,25 +10,25 @@
 import itertools
 import json
 import pathlib
+import sys
 
 import numpy as np
 
 FIXTURE = pathlib.Path(__file__).resolve().parents[1] / "tests/fixtures/m_tv_baseline_samples.json"
 
-# spec §4.5.2 凍結表。TODO(實作階段): 改為 from m_config import SL_LEVEL_OVER_XA
-SL_LEVEL_OVER_XA = {
-    "cypher": 1.0, "bat": 1.13, "shark": 1.272, "butterfly": 1.618, "deep_crab": 2.0,
-    "gartley": 1.0, "alt_bat": 1.272, "crab": 2.0,          # fallback 推導，無觀測值
-}
-OBSERVED = {"cypher", "bat", "shark", "butterfly", "deep_crab"}
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+import m_config as cfg
+
 # spec §6.2 fixture 標籤 -> 形態鍵
 LABEL_TO_KEY = {"Shark 113": "shark", "Deep Crab": "deep_crab", "Cypher": "cypher",
                 "Bat": "bat", "Butterfly": "butterfly"}
-STD_F, SHARK_F = (0.382, 0.618), (0.500, 0.886)
-LADDER = [1.0, 1.13, 1.272, 1.618, 2.0]
-# spec §4.2 各形態的名目 AD/XA 上界（Cypher 為推導值 0.728）
-NOMINAL_AD_UPPER = {"gartley": 0.786, "bat": 0.886, "alt_bat": 1.13, "butterfly": 1.27,
-                    "crab": 1.618, "deep_crab": 1.618, "shark": 1.13, "cypher": 0.728}
+
+SL_LEVEL_OVER_XA = cfg.SL_LEVEL_OVER_XA
+OBSERVED = cfg.OBSERVED_SL_PATTERNS
+STD_F, SHARK_F = cfg.TP_FACTORS, cfg.TP_FACTORS_SHARK
+LADDER = list(cfg.SL_LADDER)
+NOMINAL_AD_UPPER = cfg.NOMINAL_AD_UPPER
 
 
 def reconstruct_rr(ad, ab, bc, xc, sl_level, f):
