@@ -408,9 +408,15 @@ Expected: FAIL，`ModuleNotFoundError: No module named 'm_data'`
 ```python
 """Sub-project M — 資料層。spec §7。
 
-【右端點硬編】：不得使用 datetime.now()（spec §6.7；2026-07-12 momentum 教訓：
+【右端點硬編】：不得使用動態時間（spec §6.7；2026-07-12 momentum 教訓：
 端點差 9 天使兩年 Sharpe 從 0.57 掉到 0.18）。
 """
+```
+
+<!-- 2026-08-07 errata：docstring 原寫「datetime.now()」字面，會被本任務自己的
+test_pull_klines_never_calls_datetime_now（inspect.getsource 含 docstring）判死，
+照抄必然紅燈。實作時已改寫為「動態時間」，此處同步修正。 -->
+```python
 import pathlib
 import sys
 import time
@@ -681,21 +687,33 @@ def test_ties_resolve_to_earliest_bar():
     assert min(p.idx for p in piv) == 1
 
 
+# <!-- 2026-08-07 errata：本測試原版 fixture 有誤（兩個 pivot high 之間夾了未被
+# 注意的 pivot low，沒做出「連續同型段」情境，斷言期望值也與因果語意矛盾），
+# Task 5 執行時全紅。以下為重新設計並逐點驗算過的版本。 -->
 def test_closed_run_takes_extreme_open_run_takes_running_extreme():
-    """spec §4.1.1：X/A/B 用【已封閉段】的極值，C 用【as_of 當下】的 running extreme。"""
-    # 兩個連續 pivot high（索引 2 與 6，之間無 pivot low），再一個 pivot low（索引 9）
-    highs = [0, 1, 5, 1, 0, 1, 8, 1, 0, 0, 1, 0]
-    lows = [0, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0, 0]
-    df = _bars(highs, lows)
-    seq_open = m_detect.normalize_alternating(df, L=1, as_of_idx=7)
-    seq_closed = m_detect.normalize_alternating(df, L=1, as_of_idx=11)
+    """spec §4.1.1：連續同型段合併取極值；合併只用 as_of 前【已確認】的 pivot。
 
-    # as_of 在索引 7：該 high 段尚未封閉，running extreme 是 5（索引 2）
-    open_highs = [p for p in seq_open if p.kind == "high"]
-    assert open_highs[-1].idx == 2
-    # as_of 在索引 11：段已封閉（索引 9 出現 pivot low），極值改為 8（索引 6）
-    closed_highs = [p for p in seq_closed if p.kind == "high" and p.idx <= 6]
-    assert closed_highs[-1].idx == 6
+    fixture 結構（L=1，已逐點驗算）：
+      pivot high@1 (5, confirm 2)、pivot high@3 (8, confirm 4)——兩者之間的
+      lows 嚴格遞增故【無 pivot low】，構成連續同型段；
+      pivot low@5 (-5, confirm 6) 封段；pivot high@6 (4, confirm 7)。
+    """
+    highs = [1, 5, 2, 8, 3, 3, 4, 3]
+    lows = [0.0, 0.5, 0.8, 1.0, 1.5, -5.0, 0.0, 0.5]
+    df = _bars(highs, lows)
+
+    # as_of=2：只有 high@1 已確認 → running extreme 就是它
+    seq = m_detect.normalize_alternating(df, L=1, as_of_idx=2)
+    assert [(p.kind, p.idx) for p in seq] == [("high", 1)]
+
+    # as_of=4：high@1 與 high@3 皆確認、之間無已確認 pivot low
+    #          → 同段合併取極值（idx 3, price 8）
+    seq = m_detect.normalize_alternating(df, L=1, as_of_idx=4)
+    assert [(p.kind, p.idx) for p in seq] == [("high", 3)]
+
+    # as_of=7：low@5 與 high@6 亦確認 → 完整交替序列
+    seq = m_detect.normalize_alternating(df, L=1, as_of_idx=7)
+    assert [(p.kind, p.idx) for p in seq] == [("high", 3), ("low", 5), ("high", 6)]
 
 
 def test_sequence_strictly_alternates():
@@ -742,7 +760,11 @@ class Pivot:
 
 def find_pivots(df, L):
     """spec §4.1：high[i] == max(high[i-L..i+L])，平手取最早；頭尾 L 根不判定。"""
-    highs, lows, ts = df["h"].values, df["l"].values, df["t"].values
+    # 強制 float：int64 輸入會讓 .max(initial=-inf) 拋 OverflowError
+    # <!-- 2026-08-07 errata：原計畫少了 astype(float)，整數 fixture 全紅，Task 5 BLOCKED 後修正 -->
+    highs = df["h"].values.astype(float)
+    lows = df["l"].values.astype(float)
+    ts = df["t"].values
     n = len(df)
     out = []
     for i in range(L, n - L):
@@ -862,11 +884,13 @@ def test_cypher_uses_xc_not_bc_ab():
     assert lo <= expected_d <= hi
 
 
+# <!-- 2026-08-07 errata：原 fixture BC=0.4×AB 時 CD/BC 的 D 區 [-81.4,-32.6] 反而
+# 包住 AD/XA 的 D 區，交集不空，Task 6 執行時 BLOCKED。修正為 0.1×AB（已手算驗證分離）。 -->
 def test_empty_intersection_returns_none():
     """AD/XA 與 CD/BC 的區間不相交 → 候選作廢（spec §4.3）。"""
     x, a = 0.0, 100.0
     b = a - 0.886 * 100.0                    # deep_crab 的 AB/XA
-    c = b + 0.4 * (a - b)                    # BC 很短 → CD/BC 推出的 D 區遠離 AD/XA 的 D 區
+    c = b + 0.1 * (a - b)                    # BC 極短 → CD/BC 推出的 D 區遠離 AD/XA 的 D 區
     assert m_detect.compute_prz("deep_crab", _xabc(x, a, b, c), cfg.TOL, cfg.TOL_AD_XA) is None
 
 
@@ -1120,37 +1144,34 @@ git commit -m "feat(harmonic): 事件表連通分量去重與三段 tie-break"
 在 `tests/test_m_patterns.py` 附加：
 
 ```python
+# <!-- 2026-08-07 errata：原 fixture 把 X 種在索引 0，pivot 邊界規則（頭尾 L 根
+# 不判定）使其永遠不成為 pivot → 零事件 → schema 斷言必紅。改用 piecewise-linear
+# zigzag（錨點即 pivot、段內嚴格單調無雜訊 pivot），並已在主對話驗算：L=2 恰產生
+# X@4/A@10/B@16/C@22 四個 pivot，8 形態中僅 gartley 通過 prefilter 且 PRZ 非空。
+# 原版的 pytest.skip 逃生門一併移除——fixture 保證有事件，斷言直接寫死。 -->
+import numpy as np
 import pandas as pd
 
 
-def _synthetic_gartley_bars():
-    """構造一段一定會產生 bullish Gartley 候選的合成 K 線。"""
-    xa = 100.0
-    x, a = 100.0, 200.0
-    b = a - 0.618 * xa
-    c = b + 0.5 * (a - b)
-    pivots = [(0, x, "low"), (12, a, "high"), (24, b, "low"), (36, c, "high")]
-    n = 60
-    highs = [150.0] * n
-    lows = [150.0] * n
-    for idx, price, kind in pivots:
-        for k in range(max(0, idx - 4), min(n, idx + 5)):
-            if kind == "high":
-                highs[k] = min(highs[k], price - 5)
-                lows[k] = min(lows[k], price - 20)
-            else:
-                lows[k] = max(lows[k], price + 5)
-                highs[k] = max(highs[k], price + 20)
-        highs[idx] = price if kind == "high" else highs[idx]
-        lows[idx] = price if kind == "low" else lows[idx]
+def _zigzag_bars(anchors, n):
+    """piecewise-linear 路徑：錨點即 pivot，段內嚴格單調故無多餘 pivot。"""
+    path = np.interp(np.arange(n), [i for i, _ in anchors], [v for _, v in anchors])
     return pd.DataFrame({"t": [i * 3_600_000 for i in range(n)],
-                         "o": lows, "h": highs, "l": lows, "c": highs,
-                         "v": [1.0] * n, "qv": [1.0] * n})
+                         "o": path, "h": path, "l": path, "c": path,
+                         "v": 1.0, "qv": 1.0})
+
+
+def _gartley_bars():
+    # X@4=100, A@10=200, B@16=138.2, C@22=169.1（AB/XA=0.618、BC/AB=0.5 精確）
+    return _zigzag_bars([(0, 150.0), (4, 100.0), (10, 200.0),
+                         (16, 138.2), (22, 169.1), (39, 120.0)], 40)
 
 
 def test_build_events_emits_required_schema():
-    df = _synthetic_gartley_bars()
-    ev = m_detect.build_events(df, symbol="BTCUSDT", interval="1h")
+    ev = m_detect.build_events(_gartley_bars(), symbol="BTCUSDT", interval="1h",
+                               lengths=(2,))
+    assert len(ev) >= 1, "合成 Gartley 必須至少產生一個事件"
+    assert set(ev["pattern"]) == {"gartley"}
     required = {"event_id", "xabc_group_id", "symbol", "interval", "pattern",
                 "direction", "pivot_length", "t_X", "t_A", "t_B", "t_C",
                 "p_X", "p_A", "p_B", "p_C", "as_of", "ratio_ab_xa",
@@ -1160,11 +1181,8 @@ def test_build_events_emits_required_schema():
 
 
 def test_every_event_as_of_is_after_its_C_confirm():
-    df = _synthetic_gartley_bars()
-    ev = m_detect.build_events(df, symbol="BTCUSDT", interval="1h")
-    if ev.empty:
-        import pytest
-        pytest.skip("合成資料未產生事件——調整 fixture 而非放寬斷言")
+    ev = m_detect.build_events(_gartley_bars(), "BTCUSDT", "1h", lengths=(2,))
+    assert len(ev) >= 1
     assert (ev["as_of"] > ev["t_C"]).all()
 ```
 
