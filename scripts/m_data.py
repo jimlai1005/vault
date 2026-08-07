@@ -128,3 +128,16 @@ def build_pit_universe_m(symbols, quarters=None):
         rows.sort(key=lambda r: -r[1])
         universe[(y, q)] = [s for s, _ in rows[:cfg.UNIVERSE_TOP_N]]
     return universe
+
+
+def binance_universe_symbols():
+    """Binance USDT 永續的全部 symbol（PIT 篩選的候選池）。
+
+    注意：exchangeInfo 只回傳【目前仍上市】的 symbol——已下市幣不在其中，
+    這是候選池層級的殘餘倖存者偏誤（spec §10 限制 3），普查報告須註明。
+    """
+    r = requests.get(f"{BINANCE_FAPI}/exchangeInfo", timeout=30)
+    r.raise_for_status()
+    return sorted(s["symbol"] for s in r.json()["symbols"]
+                  if s.get("quoteAsset") == "USDT"
+                  and s.get("contractType") == "PERPETUAL")
