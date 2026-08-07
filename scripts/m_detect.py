@@ -24,22 +24,31 @@ class Pivot:
 
 
 def find_pivots(df, L):
-    """spec §4.1：high[i] == max(high[i-L..i+L])，平手取最早；頭尾 L 根不判定。"""
+    """spec §4.1：high[i] == max(high[i-L..i+L])，平手取最早；頭尾 L 根不判定。
+
+    confirm_t = close_time(i+L)（spec §4.1 原文）。df 只有開盤時間 t，
+    收盤時間以 t + bar_ms − 1 推得（Binance close_time 慣例）——
+    final review F3：原實作誤用開盤時間，Stage 2 若把 as_of 當收盤時間用
+    會整整提早一根 bar（一根 bar 的 look-ahead）。
+    """
     # 強制 float：int64 輸入會讓 .max(initial=-inf) 拋 OverflowError
     highs = df["h"].values.astype(float)
     lows = df["l"].values.astype(float)
     ts = df["t"].values
     n = len(df)
+    if n < 2:
+        return []
+    bar_ms = int(pd.Series(ts).diff().dropna().min())
     out = []
     for i in range(L, n - L):
         win_h = highs[i - L:i + L + 1]
         if highs[i] == win_h.max() and highs[i] > highs[i - L:i].max(initial=float("-inf")):
             out.append(Pivot(i, "high", float(highs[i]), int(ts[i]),
-                             i + L, int(ts[i + L])))
+                             i + L, int(ts[i + L]) + bar_ms - 1))
         win_l = lows[i - L:i + L + 1]
         if lows[i] == win_l.min() and lows[i] < lows[i - L:i].min(initial=float("inf")):
             out.append(Pivot(i, "low", float(lows[i]), int(ts[i]),
-                             i + L, int(ts[i + L])))
+                             i + L, int(ts[i + L]) + bar_ms - 1))
     return sorted(out, key=lambda p: (p.idx, p.kind))
 
 
@@ -55,6 +64,12 @@ def normalize_alternating(df, L, as_of_idx):
     piv = [p for p in find_pivots(df, L) if p.confirm_idx <= as_of_idx]
     seq = []
     for p in piv:
+        if seq and seq[-1].idx == p.idx:
+            # final review F2：同一根 K 線同時是 pivot high 與 low（外包/插針棒）。
+            # 棒內高低先後順序在 OHLC 粒度不可知，且零時距的腿在幾何上無意義
+            # （實測退化 BC 腿中位 0.51 XA）——一根 bar 至多貢獻一個 pivot，
+            # 後到的異型 pivot（排序上為 "low"）直接丟棄。
+            continue
         if seq and seq[-1].kind == p.kind:
             prev = seq[-1]
             better = (p.price > prev.price) if p.kind == "high" else (p.price < prev.price)
@@ -198,9 +213,12 @@ def build_events(df, symbol, interval, tol=None, tol_ad=None, lengths=None,
         i, n_piv = 0, len(piv_all)
         while i < n_piv:
             j = i                                   # 同一 idx（同一 confirm）的群組一起入列
-            while j < n_piv and piv_all[j].idx == piv_all[i].idx:
+            group_idx = piv_all[i].idx
+            while j < n_piv and piv_all[j].idx == group_idx:
                 p = piv_all[j]
-                if seq and seq[-1].kind == p.kind:
+                if seq and seq[-1].idx == p.idx:
+                    pass                            # F2：一根 bar 至多一個 pivot（見 normalize）
+                elif seq and seq[-1].kind == p.kind:
                     prev = seq[-1]
                     better = (p.price > prev.price) if p.kind == "high" \
                         else (p.price < prev.price)
@@ -209,9 +227,11 @@ def build_events(df, symbol, interval, tol=None, tol_ad=None, lengths=None,
                 else:
                     seq.append(p)
                 j += 1
-            group, i = piv_all[i:j], j
-            for p_c in group:
-                if len(seq) < 4 or seq[-1].idx != p_c.idx:
+            i = j
+            # F2：每個 bar 至多發射一次（原本 for p_c in group 會對雙 pivot 棒
+            # 發射兩列逐欄位相同的重複事件）
+            for p_c in ([seq[-1]] if seq and seq[-1].idx == group_idx else []):
+                if len(seq) < 4:
                     continue
                 x, a, b, c = seq[-4:]
                 direction = 1 if x.kind == "low" else -1

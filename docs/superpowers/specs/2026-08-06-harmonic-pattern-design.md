@@ -19,6 +19,7 @@
 | v1 | 初稿。fresh-context 審查提出 24 個 finding，全數成立 |
 | v2 | 修訂 24 項。三項核心更正：SL 檔位改為形態常數（原階梯規則被 fixture 反證，6 筆只中 2）、Shark TP 例外恢復（原判定「不吻合」是幾何重建錯誤）、M-G2/G3/G4 統一序列與年化基準 |
 | **v3** | 第二輪審查提出 4 HIGH + 15 MEDIUM + 6 LOW，全數修訂。四項核心更正見下 |
+| **v3.3** | Stage 1 final review（opus，含事件表抽樣對帳）提出 2 HIGH + 1 MEDIUM，全數修訂：**(F1)** 事件須套 PIT 季度成員資格——聯集跑全歷史會讓 60.5% 的 1h 事件來自「該幣當季不在宇宙」的期間（含 20.6% 早於首次入選），重新引入 PIT 要消滅的選擇偏誤；預註冊為「事件只在其 symbol 於 as_of 所屬季度在宇宙內時計入統計與 gate」，事件表加 `in_universe` 欄、宇宙 schedule 落檔 `data/cache/harmonic_m/universe_schedule.json`，Stage 2 不得重打 exchangeInfo。**(F2)** 外包/插針棒同時成為 pivot high 與 low 時產生零時距腿（t_B==t_C，退化 BC 中位 0.51 XA）與重複列；規則釘死為「一根 bar 至多貢獻一個 pivot 至交替序列，後到的異型 pivot 丟棄」（棒內高低先後在 OHLC 粒度不可知）。**(F3)** `t_confirm` 實作誤用開盤時間；已修為 §4.1 原文的 `close_time(i+L)`（= 開盤 + bar_ms − 1，Binance 慣例），消除 Stage 2 把 as_of 當收盤時間用時的一根 bar look-ahead |
 
 **v3 的四項核心更正**：
 
@@ -738,6 +739,8 @@ OOS 上**同時**評估並**都寫進 verdict**：(a) 全 8 形態合併；(b) `
 （K 案用 $100M / top 8；本專案放寬是為了樣本數——諧波形態在單幣單週期上稀少。此為預註冊選擇。放寬會納入滑價較差的中小幣，故 M-G7 對本專案格外關鍵。）
 
 流動性以 **quote volume（USDT 名目）** 計，非幣本位 volume——見 [`scripts/k_data_layer.py:53`](../../../scripts/k_data_layer.py) `binance_rows_to_df_qv()` 的踩坑註記。
+
+**事件成員資格（v3.3 預註冊，final review F1）**：事件只在「其 symbol 於 `as_of` 所屬季度在宇宙內」時計入普查統計與所有 gate。聯集跑全歷史會讓約六成事件來自幣種不在宇宙的期間（含早於首次入選者）——那些歷史因幣種後來入選而被觀察到，帶有選擇偏誤。事件表全量保留並附 `in_universe` 欄供診斷；宇宙 schedule 落檔 `data/cache/harmonic_m/universe_schedule.json`，Stage 2 由此重建成員資格，**不得重打 exchangeInfo**（現存 symbol 清單隨時間漂移，重打會引入新的時點污染）。普查報告須同時揭露全量與宇宙內兩組數字。
 
 ### 7.2 K 線資料
 

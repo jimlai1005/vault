@@ -17,15 +17,32 @@ import m_data               # noqa: E402
 import m_detect             # noqa: E402
 
 OUT = pathlib.Path("reports/m-pattern-census.md")
+UNIVERSE_JSON = pathlib.Path("data/cache/harmonic_m/universe_schedule.json")
+
+
+def quarter_of_ms(ms):
+    from datetime import datetime, timezone
+    d = datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+    return (d.year, (d.month - 1) // 3 + 1)
 
 
 def census():
+    import json
+
     candidates = m_data.binance_universe_symbols()
     print(f"候選池（現存 USDT 永續）: {len(candidates)} 個 symbol")
     universe = m_data.build_pit_universe_m(candidates)
     symbols = sorted({s for syms in universe.values() for s in syms})
     n_q = sum(1 for v in universe.values() if v)
     print(f"PIT 宇宙: {n_q} 個季度有幣單，聯集 {len(symbols)} 個 symbol")
+
+    # final review F1：宇宙 dict 必須落檔，Stage 2 才能重建成員資格，
+    # 且不得重打 exchangeInfo（會再引入一次時點污染）
+    UNIVERSE_JSON.parent.mkdir(parents=True, exist_ok=True)
+    UNIVERSE_JSON.write_text(json.dumps(
+        {f"{y}-Q{q}": v for (y, q), v in sorted(universe.items())},
+        ensure_ascii=False, indent=1), encoding="utf-8")
+    q_sets = {qk: frozenset(v) for qk, v in universe.items()}
 
     lines = ["# Sub-project M — 形態普查（Stage 1）", "",
              f"> 產出：2026-08-07｜spec v3.2｜偵測參數全凍結於 scripts/m_config.py",
@@ -63,19 +80,29 @@ def census():
         raw = raw[(raw["as_of"] >= cfg.EVENT_START_MS)
                   & (raw["as_of"] <= cfg.EVENT_END_MS)]
         ded = m_detect.dedup(raw)
-        multi = (ded.groupby("xabc_group_id")["pattern"].nunique() > 1)
+        # final review F1：PIT 成員資格——事件只在「其 symbol 於 as_of 所屬季度
+        # 在宇宙內」時計入統計與 Stage 2 gate（spec §7.1 v3.3 預註冊）。
+        # 全部事件仍留在 parquet（含 in_universe 欄）供診斷。
+        ded["in_universe"] = [
+            r.symbol in q_sets.get(quarter_of_ms(r.as_of), frozenset())
+            for r in ded.itertuples()]
+        inu = ded[ded["in_universe"]]
+        multi = (inu.groupby("xabc_group_id")["pattern"].nunique() > 1)
         lines += [f"## {interval}", "",
                   f"去重前 {len(raw)}｜去重後 {len(ded)}｜"
-                  f"多形態 XABC 佔比 {multi.mean():.1%}", "",
-                  "| 形態 | 去重前 | 去重後 | IS | OOS |", "|---|---|---|---|---|"]
+                  f"**宇宙內 {len(inu)}（{len(inu)/len(ded):.1%}）**｜"
+                  f"多形態 XABC 佔比（宇宙內）{multi.mean():.1%}", "",
+                  f"> 宇宙外事件 {len(ded)-len(inu)} 筆（幣種當季不在 PIT top30，"
+                  f"或早於首次入選）**不計入統計與 gate**——它們的歷史因幣種後來"
+                  f"入選而被觀察到，帶有選擇偏誤。", "",
+                  "| 形態 | 宇宙內 | IS | OOS |", "|---|---|---|---|"]
         for p in cfg.PATTERNS:
-            sub = ded[ded["pattern"] == p]
+            sub = inu[inu["pattern"] == p]
             n_is = int((sub["as_of"] <= cfg.IS_END_MS).sum())
-            lines.append(f"| {p} | {int((raw['pattern'] == p).sum())} | "
-                         f"{len(sub)} | {n_is} | {len(sub) - n_is} |")
+            lines.append(f"| {p} | {len(sub)} | {n_is} | {len(sub) - n_is} |")
         lines.append("")
         ded.to_parquet(f"data/cache/harmonic_m/events_{interval}.parquet", index=False)
-        print(f"  {interval}: 去重後 {len(ded)} 事件 → events_{interval}.parquet")
+        print(f"  {interval}: 去重後 {len(ded)}，宇宙內 {len(inu)} → events_{interval}.parquet")
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text("\n".join(lines), encoding="utf-8")

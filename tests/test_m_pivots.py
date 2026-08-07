@@ -26,7 +26,24 @@ def test_pivot_confirm_time_is_L_bars_later():
     df = _bars(highs, [-h for h in highs])
     p = [x for x in m_detect.find_pivots(df, L=2) if x.idx == 2][0]
     assert p.confirm_idx == 4
-    assert p.confirm_t == int(df["t"].iloc[4])
+    # spec §4.1：confirm_t = close_time(i+L) = 開盤時間 + bar_ms − 1
+    # （final review F3：原斷言誤用開盤時間，as_of 會早一根 bar）
+    assert p.confirm_t == int(df["t"].iloc[4]) + 3_600_000 - 1
+
+
+def test_dual_pivot_bar_contributes_at_most_one_pivot():
+    """final review F2：外包棒同時是 pivot high 與 low 時，序列只收一個，
+    且不得產生 t_B == t_C 的零時距腿。"""
+    highs = [1.0, 1.0, 5.0, 1.0, 1.0, 2.0, 1.0]
+    lows = [0.0, 0.0, -5.0, 0.0, 0.0, -1.0, 0.0]
+    df = _bars(highs, lows)
+    piv = m_detect.find_pivots(df, L=1)
+    dual = [p for p in piv if p.idx == 2]
+    assert len(dual) == 2, "fixture 應使索引 2 同時成為 pivot high 與 low"
+    seq = m_detect.normalize_alternating(df, L=1, as_of_idx=6)
+    assert len([p for p in seq if p.idx == 2]) == 1, "一根 bar 至多貢獻一個 pivot"
+    idxs = [p.idx for p in seq]
+    assert len(idxs) == len(set(idxs)), "序列中不得有重複索引（零時距腿）"
 
 
 def test_ties_resolve_to_earliest_bar():
