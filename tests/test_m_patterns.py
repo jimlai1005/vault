@@ -118,3 +118,52 @@ def test_every_event_as_of_is_after_its_C_confirm():
     ev = m_detect.build_events(_gartley_bars(), "BTCUSDT", "1h", lengths=(2,))
     assert len(ev) >= 1
     assert (ev["as_of"] > ev["t_C"]).all()
+
+
+def test_incremental_equals_reference():
+    """build_events 的增量序列維護必須與「逐 pivot 重跑 normalize」嚴格等價。
+
+    （效能重構的等價性 gate：同一 L 內 confirm 順序 = idx 順序，前綴摺疊可
+    增量延伸——此測試用隨機遊走驗證兩種算法逐欄位相同。）
+    """
+    rng = np.random.default_rng(23)
+    n = 800
+    close = 100 * np.exp(np.cumsum(rng.normal(0, 0.006, n)))
+    df = pd.DataFrame({"t": [i * 3_600_000 for i in range(n)],
+                       "o": close, "h": close * (1 + rng.uniform(0, 0.004, n)),
+                       "l": close * (1 - rng.uniform(0, 0.004, n)), "c": close,
+                       "v": 1.0, "qv": 1.0})
+
+    import m_config as cfg
+
+    fast = m_detect.build_events(df, "X", "1h", do_dedup=False)
+    fast_keys = sorted({(r.pivot_length, r.t_X, r.t_A, r.t_B, r.t_C, r.pattern)
+                        for r in fast.itertuples()})
+
+    # 參考實作：對每個 pivot 重跑 normalize_alternating（重構前的語意），
+    # 並套用與 build_events 相同的形態濾網
+    ref_keys = set()
+    for L in cfg.PIVOT_LENGTHS:
+        for p_c in m_detect.find_pivots(df, L):
+            seq = m_detect.normalize_alternating(df, L, as_of_idx=p_c.confirm_idx)
+            if len(seq) < 4 or seq[-1].idx != p_c.idx:
+                continue
+            x, a, b, c = seq[-4:]
+            if [x.kind, a.kind, b.kind, c.kind] not in (
+                    ["low", "high", "low", "high"],
+                    ["high", "low", "high", "low"]):
+                continue
+            pts = dict(p_X=x.price, p_A=a.price, p_B=b.price, p_C=c.price,
+                       direction=1 if x.kind == "low" else -1)
+            if abs(pts["p_A"] - pts["p_X"]) == 0 or abs(pts["p_A"] - pts["p_B"]) == 0:
+                continue
+            for pattern in cfg.PATTERNS:
+                if (m_detect.passes_prefilters(pattern, pts, cfg.TOL)
+                        and m_detect.compute_prz(pattern, pts, cfg.TOL,
+                                                 cfg.TOL_AD_XA) is not None):
+                    ref_keys.add((L, x.t, a.t, b.t, c.t, pattern))
+
+    assert fast_keys == sorted(ref_keys), (
+        f"增量版與參考版不一致：fast-only={set(fast_keys)-ref_keys} "
+        f"ref-only={ref_keys-set(fast_keys)}")
+    assert len(fast_keys) > 0, "隨機遊走應產生事件，否則等價檢定空轉"

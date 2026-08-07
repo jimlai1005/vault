@@ -189,48 +189,71 @@ def build_events(df, symbol, interval, tol=None, tol_ad=None, lengths=None,
     rows = []
     for L in lengths:
         piv_all = find_pivots(df, L)
-        for p_c in piv_all:
-            seq = normalize_alternating(df, L, as_of_idx=p_c.confirm_idx)
-            if len(seq) < 4 or seq[-1].idx != p_c.idx:
-                continue
-            x, a, b, c = seq[-4:]
-            direction = 1 if x.kind == "low" else -1
-            if [x.kind, a.kind, b.kind, c.kind] not in (
-                    ["low", "high", "low", "high"], ["high", "low", "high", "low"]):
-                continue
-            pts = dict(p_X=x.price, p_A=a.price, p_B=b.price, p_C=c.price,
-                       direction=direction)
-            xa = abs(pts["p_A"] - pts["p_X"])
-            ab = abs(pts["p_A"] - pts["p_B"])
-            if xa == 0 or ab == 0:
-                continue
-            for pattern in cfg.PATTERNS:
-                if not passes_prefilters(pattern, pts, tol):
+        # 效能：同一 L 內 confirm_idx = idx + L，故 piv_all 的 (idx, kind) 排序
+        # 即 confirm 排序；normalize 的摺疊只動 seq[-1]（取極值）或 append，
+        # 因此「as_of = p_c.confirm_idx 的序列」可由前綴增量延伸——每個 L 只需
+        # 一次 find_pivots 與一趟線性掃描，語意與逐 pivot 重算完全等價
+        # （等價性由 tests/test_m_patterns.py::test_incremental_equals_reference 檢定）。
+        seq = []
+        i, n_piv = 0, len(piv_all)
+        while i < n_piv:
+            j = i                                   # 同一 idx（同一 confirm）的群組一起入列
+            while j < n_piv and piv_all[j].idx == piv_all[i].idx:
+                p = piv_all[j]
+                if seq and seq[-1].kind == p.kind:
+                    prev = seq[-1]
+                    better = (p.price > prev.price) if p.kind == "high" \
+                        else (p.price < prev.price)
+                    if better:
+                        seq[-1] = p
+                else:
+                    seq.append(p)
+                j += 1
+            group, i = piv_all[i:j], j
+            for p_c in group:
+                if len(seq) < 4 or seq[-1].idx != p_c.idx:
                     continue
-                prz = compute_prz(pattern, pts, tol, tol_ad)
-                if prz is None:
+                x, a, b, c = seq[-4:]
+                direction = 1 if x.kind == "low" else -1
+                if [x.kind, a.kind, b.kind, c.kind] not in (
+                        ["low", "high", "low", "high"],
+                        ["high", "low", "high", "low"]):
                     continue
-                prz_lo, prz_hi = prz
-                sl = compute_sl(pattern, pts)
-                d_trigger = prz_hi if direction == 1 else prz_lo
-                leg = abs(_extreme(pts) - d_trigger)
-                f1, f2 = (cfg.TP_FACTORS_SHARK if pattern == "shark"
-                          else cfg.TP_FACTORS)
-                gid = (f"{symbol}_{interval}_{direction}_{L}_"
-                       f"{x.t}_{a.t}_{b.t}_{c.t}")
-                rows.append(dict(
-                    event_id=f"{symbol}_{interval}_{direction}_{L}_{c.t}_{pattern}",
-                    xabc_group_id=gid, symbol=symbol, interval=interval,
-                    pattern=pattern, direction=direction, pivot_length=L,
-                    t_X=x.t, t_A=a.t, t_B=b.t, t_C=c.t,
-                    p_X=x.price, p_A=a.price, p_B=b.price, p_C=c.price,
-                    as_of=c.confirm_t,
-                    ratio_ab_xa=ab / xa, ratio_bc_ab=abs(c.price - b.price) / ab,
-                    ratio_xc_xa=abs(c.price - x.price) / xa,
-                    prz_low=prz_lo, prz_high=prz_hi, sl=sl,
-                    tp1_planned=d_trigger + direction * f1 * leg,
-                    tp2_planned=d_trigger + direction * f2 * leg,
-                    dedup_merged=0, tol_used=tol))
+                pts = dict(p_X=x.price, p_A=a.price, p_B=b.price, p_C=c.price,
+                           direction=direction)
+                xa = abs(pts["p_A"] - pts["p_X"])
+                ab = abs(pts["p_A"] - pts["p_B"])
+                if xa == 0 or ab == 0:
+                    continue
+                for pattern in cfg.PATTERNS:
+                    if not passes_prefilters(pattern, pts, tol):
+                        continue
+                    prz = compute_prz(pattern, pts, tol, tol_ad)
+                    if prz is None:
+                        continue
+                    prz_lo, prz_hi = prz
+                    sl = compute_sl(pattern, pts)
+                    d_trigger = prz_hi if direction == 1 else prz_lo
+                    leg = abs(_extreme(pts) - d_trigger)
+                    f1, f2 = (cfg.TP_FACTORS_SHARK if pattern == "shark"
+                              else cfg.TP_FACTORS)
+                    gid = (f"{symbol}_{interval}_{direction}_{L}_"
+                           f"{x.t}_{a.t}_{b.t}_{c.t}")
+                    rows.append(dict(
+                        event_id=(f"{symbol}_{interval}_{direction}_{L}_"
+                                  f"{c.t}_{pattern}"),
+                        xabc_group_id=gid, symbol=symbol, interval=interval,
+                        pattern=pattern, direction=direction, pivot_length=L,
+                        t_X=x.t, t_A=a.t, t_B=b.t, t_C=c.t,
+                        p_X=x.price, p_A=a.price, p_B=b.price, p_C=c.price,
+                        as_of=c.confirm_t,
+                        ratio_ab_xa=ab / xa,
+                        ratio_bc_ab=abs(c.price - b.price) / ab,
+                        ratio_xc_xa=abs(c.price - x.price) / xa,
+                        prz_low=prz_lo, prz_high=prz_hi, sl=sl,
+                        tp1_planned=d_trigger + direction * f1 * leg,
+                        tp2_planned=d_trigger + direction * f2 * leg,
+                        dedup_merged=0, tol_used=tol))
     ev = pd.DataFrame(rows)
     if ev.empty or not do_dedup:
         return ev
