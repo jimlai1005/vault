@@ -140,4 +140,6 @@ def binance_universe_symbols():
     r.raise_for_status()
     return sorted(s["symbol"] for s in r.json()["symbols"]
                   if s.get("quoteAsset") == "USDT"
-                  and s.get("contractType") == "PERPETUAL")
+                  and s.get("contractType") == "PERPETUAL"
+                  and s.get("status") == "TRADING")   # 非 TRADING（結算/停牌）
+                  # 的 symbol 打 klines 會回 400 -1122 "Invalid symbol status"
