@@ -1,0 +1,259 @@
+//@version=6
+// ═══════════════════════════════════════════════════════════════════════════
+// Harmonic XABCD — sub-project M 忠實移植（零 repaint）
+//
+// ⚠️ 研究判定：NO-GO（reports/harmonic-m-verdict.md，2026-08-08）
+//    在 97 幣 × 1h × 2020-2026、35,833 個宇宙內事件上，諧波 PRZ 進場的
+//    期望值【劣於】同結構隨機進場（對照臂 2.26 倍）。本腳本的用途是
+//    視覺檢視與 TV 內建回測對照，不是交易建議。
+//
+// 與 Python 研究框架（權威版）的已知差異——TV 引擎限制，勿當 bug 回報：
+//  1. 單一 pivot 尺度（input L；研究版 {5,10,20,40} 多尺度＋連通分量去重）。
+//  2. 一次一倉：pending 或持倉期間出現的新形態一律跳過（研究版每事件獨立記帳）。
+//  3. 同一組 XABC 命中多形態時取固定順序的第一個（研究版各自成事件，佔比 7.1%）。
+//  4. 跳空作廢改為「每棒先撤、通過 open 檢查才重掛」——限價單在 open<=SL 的棒
+//     上會先於腳本邏輯成交，事後 cancel 碰不到。24/7 永續實測此分支近乎死碼
+//     （相鄰棒開盤跳幅中位 0.0002%），保留是為語意正確而非實際影響。
+//  5. 成本：TV 單一費率（下方設 taker 0.045%）；研究版 maker/taker 分腿＋滑價。
+//  6. ta.pivothigh 的平手判定與研究版「左嚴格、平手取最早」略異（TV 全嚴格）。
+//  7. 只實作 PRIMARY 的 tp1_full 出場；分批變體（spec §4.5.4，佔研究網格
+//     240/480 格）未移植——它在研究中的 OOS 日 SR 是 -0.070，更差。
+//
+// TV strategy tester 的數字【不等於】verdict 的數字，且會偏樂觀——一次一倉
+// 自動避開大量重疊的爛單。權威判定見 reports/harmonic-m-verdict.md（有對照組）。
+//
+// 凍結參數一律照 scripts/m_config.py（spec v3.3），不提供調參 input——
+// 容差是自欺旋鈕（勝率隨容差 Spearman=1.000，E[R] 不動，見 verdict）。
+// ═══════════════════════════════════════════════════════════════════════════
+strategy("Harmonic M (non-repaint, NO-GO research port)",
+     overlay = true,
+     initial_capital = 10000,
+     default_qty_type = strategy.percent_of_equity,
+     default_qty_value = 10,
+     commission_type = strategy.commission.percent,
+     commission_value = 0.045,
+     calc_on_every_tick = false,
+     process_orders_on_close = false,
+     max_boxes_count = 200,
+     max_labels_count = 200)
+
+// ── 輸入（僅結構選項，無判準旋鈕）─────────────────────────────────────────
+L          = input.int(10, "Pivot 尺度 L", options = [5, 10, 20, 40])
+showBoxes  = input.bool(true, "畫 PRZ 區與形態標籤")
+useLong    = input.bool(true, "做多（bullish 形態）")
+useShort   = input.bool(true, "做空（bearish 形態）")
+
+// ── 凍結常數（= m_config.py，勿改）────────────────────────────────────────
+TOL        = 0.05          // AB/XA、BC/AB、CD/BC 單點目標容差
+TOL_AD     = 0.03          // AD/XA 與 Cypher CD/XC（判別鍵，收緊）
+TTL_BARS   = 30
+MAX_HOLD   = 100
+TP1_STD    = 0.382
+TP1_SHARK  = 0.500
+
+// 8 形態固定評估順序（= cfg.PATTERNS；多形態命中取第一個，差異 3）
+var string[] PATTERNS = array.from("gartley", "bat", "alt_bat", "butterfly",
+                                   "crab", "deep_crab", "shark", "cypher")
+
+// 四欄比例表：[abLo, abHi, bcLo, bcHi, cdLo, cdHi, adLo, adHi]；na = 無此約束
+getRatios(string p) =>
+    switch p
+        "gartley"   => [0.618, 0.618, 0.382, 0.886, 1.130, 1.618, 0.786, 0.786]
+        "bat"       => [0.382, 0.500, 0.382, 0.886, 1.618, 2.618, 0.886, 0.886]
+        "alt_bat"   => [0.382, 0.382, 0.382, 0.886, 2.000, 3.618, 1.130, 1.130]
+        "butterfly" => [0.786, 0.786, 0.382, 0.886, 1.618, 2.618, 1.270, 1.270]
+        "crab"      => [0.382, 0.618, 0.382, 0.886, 2.240, 3.618, 1.618, 1.618]
+        "deep_crab" => [0.886, 0.886, 0.382, 0.886, 2.240, 3.618, 1.618, 1.618]
+        "shark"     => [float(na), float(na), 1.130, 1.618, 1.618, 2.240, 0.886, 1.130]
+        => [float(na), float(na), float(na), float(na), float(na), float(na), float(na), float(na)]
+
+// Cypher 專用（基準是 XC，塞四欄表必錯——spec §4.2）
+CY_AB_LO = 0.382
+CY_AB_HI = 0.618
+CY_XC_LO = 1.272
+CY_XC_HI = 1.414
+CY_CDXC  = 0.786
+
+// SL 檔位 = 形態常數（spec §4.5.2；5 觀測 + 3 推導）
+slLevel(string p) =>
+    switch p
+        "cypher"    => 1.000
+        "bat"       => 1.130
+        "shark"     => 1.272
+        "butterfly" => 1.618
+        "deep_crab" => 2.000
+        "gartley"   => 1.000
+        "alt_bat"   => 1.272
+        "crab"      => 2.000
+        => float(na)
+
+// ── 容差工具（單點展開 ±τ；區間原樣）──────────────────────────────────────
+// tuple 回傳只支援 if/switch 區塊，不可用三元運算子
+band(float lo, float hi, float tol) =>
+    if lo == hi
+        [lo * (1 - tol), hi * (1 + tol)]
+    else
+        [lo, hi]
+
+inBand(float v, float lo, float hi, float tol) =>
+    [bl, bh] = band(lo, hi, tol)
+    v >= bl and v <= bh
+
+// ── 因果式交替序列（spec §4.1.1；F2 同棒雙 pivot 丟棄）────────────────────
+// kind: +1 = pivot high, -1 = pivot low
+var int[]   seqKind = array.new_int()
+var float[] seqPx   = array.new_float()
+var int[]   seqIdx  = array.new_int()
+
+pushPivot(int kind, float px, int idx) =>
+    n = array.size(seqKind)
+    if n > 0 and array.get(seqIdx, n - 1) == idx
+        false                                    // F2：一棒至多一個 pivot
+    else if n > 0 and array.get(seqKind, n - 1) == kind
+        prev = array.get(seqPx, n - 1)
+        better = kind == 1 ? px > prev : px < prev
+        if better                                // 同段取極端；平手保留較早
+            array.set(seqPx, n - 1, px)
+            array.set(seqIdx, n - 1, idx)
+        better
+    else
+        array.push(seqKind, kind)
+        array.push(seqPx, px)
+        array.push(seqIdx, idx)
+        true
+
+// 全域 scope 呼叫（原版把它放非全域 scope 是 repaint 元兇之一）
+ph = ta.pivothigh(L, L)
+pl = ta.pivotlow(L, L)
+
+// 本棒確認的 pivot 落在 bar_index - L；high 先於 low（(idx, kind) 排序）
+newC = false
+if not na(ph)
+    newC := pushPivot(1, ph, bar_index - L) or newC
+if not na(pl)
+    newC := pushPivot(-1, pl, bar_index - L) or newC
+
+// ── 事件狀態（一次一倉）────────────────────────────────────────────────────
+var bool   pendActive = false
+var int    pendBar    = na
+var int    pendDir    = 0
+var float  pendTrig   = na      // bullish: przHigh；bearish: przLow
+var float  pendSL     = na
+var float  pendExtreme= na
+var float  pendF1     = na
+var string pendName   = na
+var int    entryBar   = na
+
+// ── C 確認時評估 8 形態（spec §4.3）────────────────────────────────────────
+if newC and array.size(seqKind) >= 4 and not pendActive and strategy.position_size == 0
+    n = array.size(seqKind)
+    kX = array.get(seqKind, n - 4)
+    pX = array.get(seqPx,  n - 4)
+    pA = array.get(seqPx,  n - 3)
+    pB = array.get(seqPx,  n - 2)
+    pC = array.get(seqPx,  n - 1)
+    dir = kX == -1 ? 1 : -1                       // X 是 low → bullish
+    XA = math.abs(pA - pX)
+    AB = math.abs(pA - pB)
+    BC = math.abs(pC - pB)
+    XC = math.abs(pC - pX)
+    if XA > 0 and AB > 0 and ((dir == 1 and useLong) or (dir == -1 and useShort))
+        for i = 0 to array.size(PATTERNS) - 1
+            if not pendActive
+                p = array.get(PATTERNS, i)
+                // ── 前置過濾（只涉及 X/A/B/C）
+                pass = false
+                float przLo = na
+                float przHi = na
+                if p == "cypher"
+                    pass := inBand(AB / XA, CY_AB_LO, CY_AB_HI, TOL) and
+                             inBand(XC / XA, CY_XC_LO, CY_XC_HI, TOL)
+                    if pass
+                        [dl, dh] = band(CY_CDXC, CY_CDXC, TOL_AD)
+                        d1 = pC - dir * dh * XC
+                        d2 = pC - dir * dl * XC
+                        przLo := math.min(d1, d2)
+                        przHi := math.max(d1, d2)
+                else
+                    [abLo, abHi, bcLo, bcHi, cdLo, cdHi, adLo, adHi] = getRatios(p)
+                    okAB = na(abLo) ? true : inBand(AB / XA, abLo, abHi, TOL)
+                    okBC = inBand(BC / AB, bcLo, bcHi, TOL)
+                    pass := okAB and okBC
+                    if pass
+                        // PRZ = AD/XA 區 ∩ CD/BC 區（皆非 na 才取交集）
+                        [aLo, aHi] = band(adLo, adHi, TOL_AD)
+                        a1 = pA - dir * aHi * XA
+                        a2 = pA - dir * aLo * XA
+                        [cLo, cHi] = band(cdLo, cdHi, TOL)
+                        c1 = pC - dir * cHi * BC
+                        c2 = pC - dir * cLo * BC
+                        przLo := math.max(math.min(a1, a2), math.min(c1, c2))
+                        przHi := math.min(math.max(a1, a2), math.max(c1, c2))
+                        pass := przLo <= przHi
+                if pass and not na(przLo) and przLo <= przHi
+                    trig = dir == 1 ? przHi : przLo
+                    slPx = pA - dir * slLevel(p) * XA
+                    // 前置守門（spec §4.5.1）：as_of 收盤仍在 PRZ 外側
+                    gateOK = dir == 1 ? close > przHi : close < przLo
+                    if gateOK
+                        pendActive := true
+                        pendBar    := bar_index
+                        pendDir    := dir
+                        pendTrig   := trig
+                        pendSL     := slPx
+                        pendExtreme:= dir == 1 ? math.max(math.max(pX, pA), math.max(pB, pC))
+                                              : math.min(math.min(pX, pA), math.min(pB, pC))
+                        pendF1     := p == "shark" ? TP1_SHARK : TP1_STD
+                        pendName   := p
+                        if dir == 1
+                            strategy.entry("H", strategy.long, limit = trig,
+                                 comment = p)
+                        else
+                            strategy.entry("H", strategy.short, limit = trig,
+                                 comment = p)
+                        if showBoxes
+                            box.new(bar_index, math.max(przLo, przHi),
+                                 bar_index + TTL_BARS, math.min(przLo, przHi),
+                                 border_color = dir == 1 ? color.new(color.teal, 40)
+                                                         : color.new(color.maroon, 40),
+                                 bgcolor = dir == 1 ? color.new(color.teal, 88)
+                                                    : color.new(color.maroon, 88))
+                            label.new(bar_index, trig,
+                                 text = p + (dir == 1 ? " ▲" : " ▼"),
+                                 style = dir == 1 ? label.style_label_up
+                                                  : label.style_label_down,
+                                 color = color.new(color.gray, 60),
+                                 textcolor = color.white, size = size.small)
+
+// ── 掛單管理（spec §4.5.1）────────────────────────────────────────────────
+// 跳空作廢必須在【下單前】判定：限價單在 open <= SL 的棒上，引擎會先於腳本
+// 邏輯以 open 成交，事後 cancel 結構上碰不到（final review MEDIUM）。
+// 故此處每棒先撤、通過檢查才重掛，讓「跳空穿越 PRZ 與 SL」真的不進場。
+if pendActive and strategy.position_size == 0
+    expired = bar_index - pendBar >= TTL_BARS
+    gapInvalid = pendDir == 1 ? open <= pendSL : open >= pendSL
+    if expired or gapInvalid
+        strategy.cancel("H")
+        pendActive := false
+    else
+        // 重掛（同價位）——確保下一棒開盤前已通過跳空檢查
+        if pendDir == 1
+            strategy.entry("H", strategy.long, limit = pendTrig, comment = pendName)
+        else
+            strategy.entry("H", strategy.short, limit = pendTrig, comment = pendName)
+
+// ── 成交 → 以實際 fill 定 TP（D = fill，spec §4.5.3）─────────────────────
+justFilled = strategy.position_size != 0 and strategy.position_size[1] == 0
+if justFilled
+    entryBar := bar_index
+    d = strategy.position_avg_price
+    leg = math.abs(pendExtreme - d)
+    tp1 = d + pendDir * pendF1 * leg
+    strategy.exit("X", from_entry = "H", stop = pendSL, limit = tp1,
+         comment_profit = pendName + " tp1", comment_loss = pendName + " sl")
+    pendActive := false
+
+// ── time-stop（spec §4.5.4：MAX_HOLD 根未觸 SL/TP 以收盤出場）────────────
+if strategy.position_size != 0 and not na(entryBar) and bar_index - entryBar >= MAX_HOLD - 1
+    strategy.close("H", comment = "time_stop")
+    entryBar := na
