@@ -22,23 +22,23 @@ CACHE_N = pathlib.Path(cfg.CACHE_DIR_N)
 
 
 def build_bars(df, bar_ms):
-    """aggTrades DataFrame → 逐棒聚合表（t, delta, notional, n_trades, cvd）。
+    """trades DataFrame → 逐棒聚合表（t, delta, notional, n_trades, cvd）。
 
-    delta / notional 一律 USDT notional（P1）；bar = transact_time // bar_ms（P3）；
-    n_trades 由 last_trade_id - first_trade_id + 1 還原（aggTrades 行數 != 筆數）。
+    delta / notional 一律 USDT notional（P1），用 Binance 直供的 quote_qty
+    （與 qty×price 的相對差為 float64 epsilon，見 n_data 檔頭事實 3）；
+    bar = time // bar_ms（P3）；n_trades = 列數（trades 是逐筆原始，不聚合）；
     cvd 自本表第一根棒起累加（P8）。
     """
     if len(df) == 0:
         return pd.DataFrame(columns=["t", "delta", "notional", "n_trades", "cvd"])
-    px = df["price"].to_numpy(dtype=float)
-    q = df["quantity"].to_numpy(dtype=float)
+    qn = df["quote_qty"].to_numpy(dtype=float)
     sgn = 1.0 - 2.0 * df["is_buyer_maker"].to_numpy()      # True -> -1（P2）
-    t = df["transact_time"].to_numpy(dtype=np.int64)
+    t = df["time"].to_numpy(dtype=np.int64)
     g = pd.DataFrame({
         "t": (t // int(bar_ms)) * int(bar_ms),
-        "delta": q * px * sgn,
-        "notional": q * px,
-        "n_trades": nd.trade_count(df),
+        "delta": qn * sgn,
+        "notional": qn,
+        "n_trades": np.ones(len(df), dtype=np.int64),
     }).groupby("t", sort=True).sum().reset_index()
     g["cvd"] = g["delta"].cumsum()
     return g
@@ -47,12 +47,12 @@ def build_bars(df, bar_ms):
 def build_index(df, bar_ms):
     """棒邊界索引，供 sweep_delta 做 O(log n) range query。
 
-    回傳 dict(bar_t -> (start, end))；要求 transact_time 已排序（實測 Binance
+    回傳 dict(bar_t -> (start, end))；要求 time 已排序（實測 Binance
     的 dump 已排序，但不假設——不符即拋錯，不靜默排序）。
     """
-    t = df["transact_time"].to_numpy(dtype=np.int64)
+    t = df["time"].to_numpy(dtype=np.int64)
     if len(t) > 1 and not bool((np.diff(t) >= 0).all()):
-        raise ValueError("transact_time 未排序；searchsorted 前提不成立")
+        raise ValueError("time 未排序；searchsorted 前提不成立")
     if len(t) == 0:
         return {}
     b0 = int(t[0]) // int(bar_ms)
@@ -75,13 +75,12 @@ def sweep_delta(df, index, bar_t, pool, direction):
         return float("nan"), float("nan")
     a, b = rng
     px = df["price"].to_numpy(dtype=float)[a:b]
-    q = df["quantity"].to_numpy(dtype=float)[a:b]
+    qn = df["quote_qty"].to_numpy(dtype=float)[a:b]
     sgn = 1.0 - 2.0 * df["is_buyer_maker"].to_numpy()[a:b]
     m = (px >= float(pool)) if direction == -1 else (px <= float(pool))
     if not m.any():
         return 0.0, 0.0
-    notional = q[m] * px[m]
-    return float((notional * sgn[m]).sum()), float(notional.sum())
+    return float((qn[m] * sgn[m]).sum()), float(qn[m].sum())
 
 
 def bars_path(symbol, interval):

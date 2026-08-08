@@ -12,14 +12,11 @@ BAR = 3_600_000
 
 
 def trades(rows):
-    """rows: (transact_time, price, quantity, is_buyer_maker)"""
-    a = pd.DataFrame(rows, columns=["transact_time", "price", "quantity",
-                                    "is_buyer_maker"])
-    a["agg_trade_id"] = np.arange(len(a))
-    a["first_trade_id"] = np.arange(len(a))
-    a["last_trade_id"] = np.arange(len(a))
-    return a[["agg_trade_id", "price", "quantity", "first_trade_id",
-              "last_trade_id", "transact_time", "is_buyer_maker"]]
+    """rows: (time, price, qty, is_buyer_maker)。schema = Binance futures trades。"""
+    a = pd.DataFrame(rows, columns=["time", "price", "qty", "is_buyer_maker"])
+    a["id"] = np.arange(len(a))
+    a["quote_qty"] = a["price"] * a["qty"]
+    return a[["id", "price", "qty", "quote_qty", "time", "is_buyer_maker"]]
 
 
 def test_bar_aggregation_delta_sign():
@@ -45,12 +42,15 @@ def test_bar_assignment_is_left_closed():
     assert list(b["t"]) == [0, BAR]
 
 
-def test_trade_count_uses_id_range_not_row_count():
-    """P：aggTrades 的行數不是成交筆數。"""
-    df = trades([(0, 10.0, 1.0, False)])
-    df.loc[0, "first_trade_id"] = 100
-    df.loc[0, "last_trade_id"] = 109
-    assert of.build_bars(df, BAR)["n_trades"].iloc[0] == 10
+def test_trade_count_is_row_count():
+    """trades 是逐筆原始成交（不聚合），故筆數 = 列數。
+
+    對比：aggTrades 的列數不是筆數，且其單一時戳會讓跨棒邊界的聚合被錯歸
+    （spec §3.2.1 修訂 A1 的成因）——這正是本案改用 trades 的理由。
+    """
+    df = trades([(0, 10.0, 1.0, False), (1, 10.0, 2.0, True),
+                 (2, 10.0, 3.0, False)])
+    assert of.build_bars(df, BAR)["n_trades"].iloc[0] == 3
 
 
 def test_cvd_is_cumulative_and_starts_at_first_bar():
