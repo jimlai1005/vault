@@ -68,8 +68,10 @@ def stage_primary():
     p = cfg.PRIMARY
     ev = _load_events(p["interval"], p["tol"])
     tr = _run(ev, p["entry_mode"], p["exit_variant"])
-    # 併入 gate/消融所需欄位（同源：同一張事件表）
-    tr = tr.merge(ev[["event_id", "direction", "sl", "ratio_ad_xa"]],
+    # 併入 gate/消融所需欄位（同源：同一張事件表）。
+    # 注意：事件表【沒有】ratio_ad_xa——AD 比例在 as_of 時不可知（D=成交價），
+    # 消融的實際 AD 由 trades 的 fill 回算（_ablations）。
+    tr = tr.merge(ev[["event_id", "direction", "sl", "p_X", "p_A"]],
                   on="event_id", how="left", validate="1:1")
     tr.to_parquet(CACHE / "primary_trades.parquet", index=False)
     print(f"primary: {len(tr)} trades，終局分布：")
@@ -180,10 +182,15 @@ def _stress_rnet(tr):
 
 
 def _ablations(tr):
-    """spec §6.4 的兩組消融切片（揭露用，各計一次試驗）。"""
-    nominal = cfg.NOMINAL_AD_UPPER
-    tol_ok = tr.apply(lambda r: abs(r["ratio_ad_xa"] - nominal[r["pattern"]])
-                      / nominal[r["pattern"]] <= 0.03, axis=1)
+    """spec §6.4 的兩組消融切片（揭露用，各計一次試驗）。
+
+    (i) tight_tol：實際 AD/XA（由成交價回算，僅成交事件有定義——揭露此限制）
+        與名目值差 <= 3%。
+    (ii) D 在 X 之外 vs 之內（依形態分類）。
+    """
+    ad_real = (tr["p_A"] - tr["fill"]).abs() / (tr["p_A"] - tr["p_X"]).abs()
+    nominal = tr["pattern"].map(cfg.NOMINAL_AD_UPPER)
+    tol_ok = tr["fill"].notna() & ((ad_real - nominal).abs() / nominal <= 0.03)
     d_out = tr["pattern"].isin(("alt_bat", "butterfly", "crab", "deep_crab",
                                 "shark"))
     out = {}
