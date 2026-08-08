@@ -44,3 +44,29 @@ def test_events_exist_in_fixture():
     """避免上面的斷言在零事件時空轉。"""
     ev = m_detect.build_events(_random_walk_bars(), "BTCUSDT", "1h", do_dedup=False)
     assert len(ev) > 0, "隨機遊走未產生任何事件——先檢查偵測器而非放寬測試"
+
+
+def test_backtest_truncation_only_settled_trades():  # spec §6.2 斷言 2
+    """對 term_date <= T（完整跑的值）的交易，截斷重跑後逐欄相同。"""
+    import m_backtest as bt
+
+    df = _random_walk_bars(n=900, seed=13)
+    ev_tbl = m_detect.build_events(df, "BTCUSDT", "1h", do_dedup=True)
+    assert len(ev_tbl) > 0
+    full = bt.run_events_on_bars(ev_tbl.assign(in_universe=True), df)
+    cut = int(len(df) * 0.6)
+    T = int(df["t"].iloc[cut]) + 3_600_000 - 1
+
+    df_tr = df.iloc[:cut + 1].reset_index(drop=True)
+    ev_tr = m_detect.build_events(df_tr, "BTCUSDT", "1h", do_dedup=True)
+    # 只比 as_of <= T 的事件（偵測層已由斷言 1 保證一致）
+    trunc = bt.run_events_on_bars(ev_tr[ev_tr["as_of"] <= T], df_tr)
+
+    full_settled = full[(full["as_of"] <= T) & (full["term_t"] <= T)] \
+        .sort_values("event_id").reset_index(drop=True)
+    tr_sub = trunc[trunc["event_id"].isin(full_settled["event_id"])] \
+        .sort_values("event_id").reset_index(drop=True)
+    assert len(tr_sub) == len(full_settled)
+    for col in ("exit_reason", "R_net", "fill", "exit_px", "term_t"):
+        pd.testing.assert_series_equal(full_settled[col], tr_sub[col],
+                                       check_exact=False, rtol=1e-12)

@@ -196,19 +196,34 @@ def simulate_event(bars_df, ev, exit_variant="tp1_full", mode="A",
                 term_t=close_t(jx2))
 
 
+def run_events_on_bars(events, bars_df, mode="A", exit_variant="tp1_full",
+                       stress=1.0, pivots_by_key=None):
+    """事件表 + bars DataFrame → trades DataFrame。
+
+    bars_df: DataFrame with columns (t, o, h, l, c) 或 numpy dict
+    events: 須已過 in_universe 過濾、groupby 時單一 (symbol, interval) 集合
+    """
+    out = []
+    for ev in events.to_dict("records"):
+        piv = None
+        if mode == "B":
+            sym, iv = ev["symbol"], ev["interval"]
+            piv = pivots_by_key[(sym, iv, int(ev["pivot_length"]))]
+        r = simulate_event(bars_df, ev, exit_variant=exit_variant, mode=mode,
+                           stress=stress, pivots=piv)
+        r.update(event_id=ev["event_id"], symbol=ev["symbol"], interval=ev["interval"],
+                 pattern=ev["pattern"], as_of=int(ev["as_of"]))
+        out.append(r)
+    return pd.DataFrame(out)
+
+
 def run_events(events, mode="A", exit_variant="tp1_full", stress=1.0,
                pivots_by_key=None):
     """事件表 → trades DataFrame。events 必須已過 in_universe 過濾。"""
     out = []
     for (sym, iv), grp in events.groupby(["symbol", "interval"], sort=False):
         b = load_bars(sym, iv)
-        for ev in grp.to_dict("records"):
-            piv = None
-            if mode == "B":
-                piv = pivots_by_key[(sym, iv, int(ev["pivot_length"]))]
-            r = simulate_event(b, ev, exit_variant=exit_variant, mode=mode,
-                               stress=stress, pivots=piv)
-            r.update(event_id=ev["event_id"], symbol=sym, interval=iv,
-                     pattern=ev["pattern"], as_of=int(ev["as_of"]))
-            out.append(r)
-    return pd.DataFrame(out)
+        trades = run_events_on_bars(grp, b, mode=mode, exit_variant=exit_variant,
+                                    stress=stress, pivots_by_key=pivots_by_key)
+        out.append(trades)
+    return pd.concat(out, ignore_index=True) if out else pd.DataFrame()
