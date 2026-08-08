@@ -112,7 +112,7 @@ def test_maker_fill_then_tp1():
     cost = cfg.MAKER * 100.0 + (cfg.TAKER + cfg.SLIP) * tp1
     expect = (tp1 - 100.0) / 10.0 - cost / 10.0      # risk = |100-90| = 10
     assert abs(r["R_net"] - expect) < 1e-12
-    assert r["term_t"] == bars["t"].iloc[2]
+    assert r["term_t"] == bars["t"].iloc[2] + H - 1   # 終止 = 出場棒【收盤】時間
 
 
 def test_gap_fill_is_taker_and_bar_participates_in_exit():
@@ -135,7 +135,7 @@ def test_invalidated_by_gap():
     r = bt.simulate_event(bars, _ev())
     assert r["exit_reason"] == "invalidated_by_gap"
     assert r["R_net"] == 0.0
-    assert r["term_t"] == bars["t"].iloc[1]
+    assert r["term_t"] == bars["t"].iloc[1] + H - 1   # 終止 = 跳空棒【收盤】時間
 
 
 def test_no_fill_after_ttl():
@@ -422,7 +422,8 @@ def run_events(events, mode="A", exit_variant="tp1_full", stress=1.0,
 ```
 
 - [ ] **Step 4: 跑 `.venv/bin/pytest tests/test_m_backtest.py -q`**
-Expected: `11 passed`
+Expected: `10 passed`
+<!-- 2026-08-08 errata：兩個 term_t 斷言原誤寫開盤時間（與其他四個測試及 F3 的收盤語意矛盾），Task 1 BLOCKED 後修正；「11 passed」為計數錯誤，實為 10 個測試。 -->
 
 - [ ] **Step 5: Commit**
 
@@ -506,7 +507,7 @@ def test_mode_b_no_qualifying_pivot_is_no_fill():
 ```
 
 - [ ] **Step 2: 跑 `.venv/bin/pytest tests/test_m_backtest.py -q`**
-Expected: `16 passed`。**若模式 B 測試失敗，先手算 fixture 的 pivot 結構再判斷是 fixture 還是引擎的問題，BLOCKED 回報，不要改引擎邏輯。**
+Expected: `15 passed`。<!-- errata：Task 1 實為 10 測試，+5 = 15 -->**若模式 B 測試失敗，先手算 fixture 的 pivot 結構再判斷是 fixture 還是引擎的問題，BLOCKED 回報，不要改引擎邏輯。**
 
 - [ ] **Step 3: Commit**
 
