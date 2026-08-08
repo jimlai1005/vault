@@ -141,3 +141,67 @@ def test_stress_multiplier():
                         entry_leg="maker", stress=cfg.STRESS_MULT)
     cost = 1.5 * (cfg.MAKER * 100.0 + (cfg.TAKER + cfg.SLIP) * 103.0)
     assert abs(r - ((103.0 - 100.0) / 2.0 - cost / 2.0)) < 1e-12
+
+
+def test_anchor_batch():
+    """spec §4.5.4 錨例：100/98/101/102 → 0.7145875；誤讀版 0.7183375 必須被拒。"""
+    r = bt.r_net_batch(entry=100.0, sl=98.0, exit1=101.0, exit2=102.0,
+                       direction=1, entry_leg="maker")
+    assert abs(r - 0.7145875) < 1e-9
+    assert abs(r - 0.7183375) > 1e-4
+
+
+def test_batch_full_path_tp1_then_tp2():
+    ev = _ev()
+    d, extreme = 100.0, 120.0
+    tp1 = d + 0.382 * 20                              # 107.64
+    tp2 = d + 0.618 * 20                              # 112.36
+    bars = _bars([(104, 106, 103, 105),
+                  (103, 104, 99.5, 101),              # fill@100 maker
+                  (102, 108, 101, 106),               # tp1 觸及（leg1 出）
+                  (106, 113, 105, 112)])              # tp2 觸及（leg2 出）
+    r = bt.simulate_event(bars, ev, exit_variant="batch")
+    assert r["exit_reason"] == "tp1+tp2"
+    expect = bt.r_net_batch(100.0, 90.0, tp1, tp2, 1, "maker")
+    assert abs(r["R_net"] - expect) < 1e-12
+
+
+def test_batch_breakeven_after_tp1():
+    ev = _ev()
+    tp1 = 107.64
+    fee_in, fee_out = cfg.MAKER, cfg.TAKER + cfg.SLIP
+    be = 100.0 * (1 + fee_in + fee_out)               # 100.07
+    bars = _bars([(104, 106, 103, 105),
+                  (103, 104, 99.5, 101),              # fill@100
+                  (102, 108, 101, 106),               # tp1 → SL 移 be
+                  (105, 106, 100.0, 104)])            # low 100.0 <= be → leg2 出 be
+    r = bt.simulate_event(bars, ev, exit_variant="batch")
+    assert r["exit_reason"] == "tp1+sl"
+    expect = bt.r_net_batch(100.0, 90.0, tp1, be, 1, "maker")
+    assert abs(r["R_net"] - expect) < 1e-9
+
+
+def test_mode_b_enters_after_d_confirmation():
+    """模式 B：C 之後第一個方向正確且落在 PRZ 內的 pivot，確認後下一根開盤進場。"""
+    import m_detect
+    # zigzag：C 之後價格跌入 PRZ 形成 pivot low@6（95–100 內），L=1 → 確認@7，bar8 開盤進場
+    path = [105.0, 110.0, 104.0, 108.0, 103.0, 101.0, 97.0, 102.0, 104.0, 106.0,
+            108.0, 110.0]
+    bars = _bars([(p, p + 0.5, p - 0.5, p) for p in path])
+    piv = m_detect.find_pivots(bars, 1)
+    ev = _ev(as_of=bars["t"].iloc[4] + H - 1, t_C=bars["t"].iloc[3],
+             pivot_length=1, prz_low=95.0, prz_high=100.0)
+    r = bt.simulate_event(bars, ev, mode="B", pivots=piv)
+    assert r["entry_leg"] == "taker"
+    assert r["fill"] == bars["o"].iloc[8]             # pivot@6 確認@7 → bar8 開盤
+
+
+def test_mode_b_no_qualifying_pivot_is_no_fill():
+    import m_detect
+    path = [105.0, 110.0, 104.0, 108.0, 107.0, 108.5, 107.5, 109.0, 108.0, 110.0]
+    bars = _bars([(p, p + 0.5, p - 0.5, p) for p in path])   # 從未進 PRZ
+    piv = m_detect.find_pivots(bars, 1)
+    ev = _ev(as_of=bars["t"].iloc[4] + H - 1, t_C=bars["t"].iloc[3],
+             pivot_length=1, prz_low=95.0, prz_high=100.0)
+    r = bt.simulate_event(bars, ev, mode="B", pivots=piv)
+    assert r["exit_reason"] == "no_fill"
