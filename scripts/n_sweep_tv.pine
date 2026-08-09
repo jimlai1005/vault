@@ -1,0 +1,266 @@
+//@version=6
+// ═══════════════════════════════════════════════════════════════════════════
+// Liquidity Sweep + Order Flow — sub-project N 移植（零 repaint）
+//
+// ⚠️⚠️ 這支腳本【不能用來驗證研究結論】。原因見下方「無法忠實移植的部分」。
+//
+// ── 研究現況（reports 尚未定稿；spec: docs/superpowers/specs/2026-08-09-…）──
+// pilot（4 幣 × 2023H1、461 事件、僅 4 個 symbol 叢集）的數字：
+//   sweep_only          E[R] = −0.037   勝率 20.5%   R:R 中位 4.72
+//   sweep+ABSs（強化吸收）E[R] = +0.410   勝率 38.3%   R:R 中位 3.39
+//   勝率差 Fisher exact p = 0.0090（OR 2.40），去掉 SOL 後仍 37.5%
+// 但：E[R] 的 60% 來自單獨一筆 11.95R；截尾均值僅 +0.239；
+//     【所有臂的「優於隨機對照」下界皆為負】，含 ABSs（−0.126）；
+//     全部落在 2023H1，零樣本外。**尚未通過任何 gate。**
+//
+// 本腳本【預設為 sweep_only】（研究說它虧錢），因為唯一有正期望的那個臂
+// 依賴 TV 拿不到的資料。不要把預設配置的權益曲線當成策略績效。
+//
+// ── 無法忠實移植的部分（最重要）─────────────────────────────────────────
+// 研究的訂單流特徵來自 Binance 逐筆成交（trades dataset，含 is_buyer_maker）：
+//   D_sweep = Σ_{成交價 ≥ 池}  sign × quote_qty      （sign: 主動買 +1 / 主動賣 −1）
+//   D_bar   = Σ_{整根棒}       sign × quote_qty
+//   ABSs 成立 ⟺ D_sweep > 0 且 D_bar < 0（空方掃單）
+//
+// TV 的標準 K 線【沒有主動方旗標】。本腳本的 useFlow 開關用的是
+// 「1 分鐘子週期、以該分鐘漲跌分類其成交量」的代理——那是【形狀推論】，
+// 不是成交流。研究已量到原版 ABS 因定義退化而覆蓋率 96.5%（幾乎恆真），
+// 這種代理的偏差方向與幅度【未經量測】。故 useFlow 預設關閉。
+//
+// ── 與 Python 權威版的已知差異（TV 引擎限制）────────────────────────────
+//  1. 一次一倉：pending 或持倉期間出現的新掃單一律跳過（研究版每事件獨立記帳）。
+//  2. 進場棒無保護單：Python 從成交棒當根就掃 SL/TP，TV 的 strategy.exit
+//     要下一根才生效 → 進場棒即觸 SL 的交易，Python 出場而 TV 續抱（偏樂觀）。
+//  3. 同棒同時涵蓋 SL 與 TP：Python 硬性 SL 優先（悲觀），TV 依 K 棒方向
+//     推測路徑（偏樂觀）。無法在 Pine 修正。
+//  4. risk_too_small 守門：Python 在看到次棒開盤後可 retroactively 拒單，
+//     TV 不能 un-fill，故改為【確認棒收盤預篩】＋【成交後仍過小則立即平倉】。
+//  5. ta.pivothigh 的平手判定與研究版「左嚴格、平手取最早」略異。
+//  6. 池表上限：研究取「最近 20 個【已確認】池再濾未掃」，本腳本同義實作
+//     （保留 swept 旗標而非直接丟棄），但 TV 陣列上限使極早期的池可能被擠出。
+//
+// 凍結參數一律照 scripts/n_config.py，不提供判準旋鈕。
+// ═══════════════════════════════════════════════════════════════════════════
+strategy("Liquidity Sweep N (non-repaint, research port — NOT validated)",
+     overlay = true,
+     initial_capital = 10000,
+     default_qty_type = strategy.percent_of_equity,
+     default_qty_value = 10,
+     commission_type = strategy.commission.percent,
+     commission_value = 0.055,     // taker 0.045% + 滑價 0.01%，兩腿皆付
+     calc_on_every_tick = false,
+     process_orders_on_close = false,
+     max_boxes_count = 200,
+     max_labels_count = 200,
+     max_lines_count = 200)
+
+// ── 結構開關（無判準旋鈕）────────────────────────────────────────────────
+useLong  = input.bool(true,  "做多（掃前低）", group = "結構")
+useShort = input.bool(true,  "做空（掃前高）", group = "結構")
+showViz  = input.bool(true,  "畫池與掃單標記",  group = "結構")
+
+useFlow  = input.bool(false, "訂單流過濾（⚠ 代理，非研究等價）", group = "訂單流",
+     tooltip = "研究的 ABSs 需要逐筆成交的主動方旗標，TV 沒有。此開關使用" +
+               "『1 分鐘子週期以漲跌分類量』的代理，偏差未經量測。" +
+               "打開後的結果【不能】與研究的 +0.410R 相提並論。預設關閉。")
+flowTF   = input.string("1", "代理用的子週期", options = ["1", "5"],
+     group = "訂單流")
+
+// ── 凍結常數（= scripts/n_config.py，勿改）───────────────────────────────
+PIVOT_L       = 10
+N_POOLS       = 20
+SL_BUFFER     = 0.0011      // 1 × round-trip taker = 2×(0.00045+0.0001)
+MIN_RISK_FRAC = 0.0022      // 2 × round-trip taker
+MAX_HOLD      = 100
+
+// ── 池表：價格 ＋ 已掃旗標，保留最近 N_POOLS 個【已確認】池 ─────────────
+// 研究語意：selectable = 已確認 且 swept_at > j。此處以 swept 旗標同義實作。
+var float[] hiPx = array.new_float()
+var bool[]  hiSw = array.new_bool()
+var float[] loPx = array.new_float()
+var bool[]  loSw = array.new_bool()
+
+pushPool(float[] px, bool[] sw, float v) =>
+    array.push(px, v)
+    array.push(sw, false)
+    if array.size(px) > N_POOLS
+        array.shift(px)
+        array.shift(sw)
+
+// 全域 scope 呼叫（非全域 scope 是 repaint 元兇）
+ph = ta.pivothigh(PIVOT_L, PIVOT_L)
+pl = ta.pivotlow(PIVOT_L, PIVOT_L)
+if not na(ph)
+    pushPool(hiPx, hiSw, ph)
+if not na(pl)
+    pushPool(loPx, loSw, pl)
+
+// ── 掃單偵測：本棒把哪個【未掃】池刺穿了，且收盤又回到池內 ───────────────
+// 嚴格不等號（研究 P5）：high > P 且 close < P；多方鏡像。
+// 一棒多池取【價格上離 close 最近】者（研究 P6）。
+sweptHiPrice = float(na)      // 本棒構成空方掃單的池價（取最近者）
+sweptLoPrice = float(na)
+if array.size(hiPx) > 0
+    for i = 0 to array.size(hiPx) - 1
+        p = array.get(hiPx, i)
+        if not array.get(hiSw, i) and high > p
+            array.set(hiSw, i, true)                 // 標記已掃（不論是否收回）
+            if close < p
+                if na(sweptHiPrice) or math.abs(p - close) < math.abs(sweptHiPrice - close)
+                    sweptHiPrice := p
+if array.size(loPx) > 0
+    for i = 0 to array.size(loPx) - 1
+        p = array.get(loPx, i)
+        if not array.get(loSw, i) and low < p
+            array.set(loSw, i, true)
+            if close > p
+                if na(sweptLoPrice) or math.abs(p - close) < math.abs(sweptLoPrice - close)
+                    sweptLoPrice := p
+
+// ── TP：對側【未掃】池中，在進場價之外且最接近者 ─────────────────────────
+nearestUnswept(float[] px, bool[] sw, float ref, int dir) =>
+    // dir = −1（做空）：取【低於 ref 的最高者】；dir = +1：取【高於 ref 的最低者】
+    best = float(na)
+    if array.size(px) > 0
+        for i = 0 to array.size(px) - 1
+            if not array.get(sw, i)
+                p = array.get(px, i)
+                ok = dir == -1 ? p < ref : p > ref
+                if ok
+                    if na(best)
+                        best := p
+                    else
+                        best := dir == -1 ? math.max(best, p) : math.min(best, p)
+    best
+
+// ── 訂單流代理（⚠ 非研究等價，見檔頭）───────────────────────────────────
+// 研究：逐筆成交的主動方旗標。此處：1 分鐘子棒以漲跌分類其成交量。
+mH = request.security_lower_tf(syminfo.tickerid, flowTF, high)
+mL = request.security_lower_tf(syminfo.tickerid, flowTF, low)
+mO = request.security_lower_tf(syminfo.tickerid, flowTF, open)
+mC = request.security_lower_tf(syminfo.tickerid, flowTF, close)
+mV = request.security_lower_tf(syminfo.tickerid, flowTF, volume)
+
+// 回 [D_sweep_proxy, D_bar_proxy]；子棒不可得時回 [na, na]
+flowProxy(float pool, int dir) =>
+    n = array.size(mC)
+    float dSweep = na
+    float dBar = na
+    if n > 0 and array.size(mV) == n
+        ds = 0.0
+        db = 0.0
+        for i = 0 to n - 1
+            o = array.get(mO, i)
+            c = array.get(mC, i)
+            v = array.get(mV, i)
+            hh = array.get(mH, i)
+            ll = array.get(mL, i)
+            sgn = c > o ? 1.0 : c < o ? -1.0 : 0.0
+            notional = v * c
+            db += sgn * notional
+            // 「該子棒觸及池外側」近似研究的「成交價在池之外」
+            inLeg = dir == -1 ? hh >= pool : ll <= pool
+            if inLeg
+                ds += sgn * notional
+        dSweep := ds
+        dBar := db
+    [dSweep, dBar]
+
+// ABSs（研究 §5.2.1）：池外側是主動買推上去，但整棒淨流是賣 → 被吸收
+absStrict(float pool, int dir) =>
+    [ds, db] = flowProxy(pool, dir)
+    na(ds) or na(db) ? false : (dir == -1 ? (ds > 0 and db < 0) : (ds < 0 and db > 0))
+
+// ── 事件狀態（一次一倉）──────────────────────────────────────────────────
+var int   pendDir  = 0
+var float pendTip  = na       // 針尖：做空取 high，做多取 low
+var float pendPool = na
+var bool  armed    = false    // 本棒收盤已決定進場，等次棒開盤成交
+var int   entryBar = na
+var float posSL    = na
+var float posTP    = na
+
+// 前一根棒決定的進場，於本棒開盤成交 → 在此設定 SL/TP
+if armed and strategy.position_size == 0
+    armed := false
+
+canFire = strategy.position_size == 0 and not armed
+
+// 空方掃單（做空）
+if canFire and useShort and not na(sweptHiPrice)
+    okFlow = not useFlow or absStrict(sweptHiPrice, -1)
+    sl = high * (1 + SL_BUFFER)
+    tp = nearestUnswept(loPx, loSw, close, -1)
+    // 差異 4：TV 不能 un-fill，故用確認棒收盤預篩風險距離
+    okRisk = math.abs(close - sl) / close >= MIN_RISK_FRAC
+    if okFlow and not na(tp) and okRisk and tp < close
+        pendDir  := -1
+        pendTip  := high
+        pendPool := sweptHiPrice
+        armed    := true
+        strategy.entry("S", strategy.short, comment = "sweep-hi")
+
+// 多方掃單（做多）
+if canFire and useLong and not na(sweptLoPrice)
+    okFlow = not useFlow or absStrict(sweptLoPrice, 1)
+    sl = low * (1 - SL_BUFFER)
+    tp = nearestUnswept(hiPx, hiSw, close, 1)
+    okRisk = math.abs(close - sl) / close >= MIN_RISK_FRAC
+    if okFlow and not na(tp) and okRisk and tp > close
+        pendDir  := 1
+        pendTip  := low
+        pendPool := sweptLoPrice
+        armed    := true
+        strategy.entry("L", strategy.long, comment = "sweep-lo")
+
+// ── 成交 → 以實際 fill 定 SL/TP ─────────────────────────────────────────
+justFilled = strategy.position_size != 0 and strategy.position_size[1] == 0
+if justFilled
+    entryBar := bar_index
+    d = strategy.position_avg_price
+    sl = pendDir == -1 ? pendTip * (1 + SL_BUFFER) : pendTip * (1 - SL_BUFFER)
+    // 差異 4 後段：預篩用 close 代理，真實 fill 仍可能過近或已穿 SL
+    bad = (pendDir == -1 ? d >= sl : d <= sl) or math.abs(d - sl) / d < MIN_RISK_FRAC
+    if bad
+        strategy.close_all(comment = "risk_too_small")
+        entryBar := na
+    else
+        tp = nearestUnswept(pendDir == -1 ? loPx : hiPx,
+                            pendDir == -1 ? loSw : hiSw, d, pendDir)
+        if na(tp)
+            strategy.close_all(comment = "no_target")
+            entryBar := na
+        else
+            posSL := sl
+            posTP := tp
+            strategy.exit("X", stop = sl, limit = tp,
+                 comment_profit = "tp", comment_loss = "sl")
+
+// ── time-stop（MAX_HOLD 根未觸 SL/TP 以收盤出場）────────────────────────
+if strategy.position_size != 0 and not na(entryBar) and bar_index - entryBar >= MAX_HOLD - 1
+    strategy.close_all(comment = "time_stop")
+    entryBar := na
+
+// ── 視覺化 ──────────────────────────────────────────────────────────────
+if showViz and not na(sweptHiPrice)
+    label.new(bar_index, high, text = "掃前高",
+         style = label.style_label_down, color = color.new(color.maroon, 40),
+         textcolor = color.white, size = size.tiny)
+if showViz and not na(sweptLoPrice)
+    label.new(bar_index, low, text = "掃前低",
+         style = label.style_label_up, color = color.new(color.teal, 40),
+         textcolor = color.white, size = size.tiny)
+plot(strategy.position_size != 0 ? posSL : na, "SL", color.red, style = plot.style_linebr)
+plot(strategy.position_size != 0 ? posTP : na, "TP", color.teal, style = plot.style_linebr)
+
+// ── 把研究現況釘在圖上，避免只看權益曲線就下結論 ─────────────────────────
+var table warn = table.new(position.bottom_right, 1, 1, border_width = 1)
+if barstate.islast
+    txt = useFlow
+         ? "⚠ 訂單流為【代理】，非研究等價——結果不可與 +0.410R 相提並論"
+         : "預設 = sweep_only：研究 pilot 的 E[R] = −0.037（會虧錢）"
+    table.cell(warn, 0, 0,
+         "sub-project N｜尚未通過任何 gate\n" + txt +
+         "\n所有臂的『優於隨機對照』下界皆為負；pilot 僅 4 幣 × 2023H1",
+         text_color = color.white, bgcolor = color.new(color.red, 25),
+         text_size = size.small)
