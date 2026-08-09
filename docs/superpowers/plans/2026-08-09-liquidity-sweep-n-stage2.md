@@ -569,8 +569,29 @@ def test_nodata_when_orderflow_missing():
 
 
 def test_r_net_anchor_matches_m():
-    """沿用 m_backtest.r_net_single，錨例不得變（spec §6.6）。"""
-    assert abs(bt.r_net(100, 98, 103, 1) - 0.9925) < 1e-3
+    """沿用 m_backtest.r_net_single，錨例不得變（spec §6.6）。
+
+    推導（entry=100, sl=98, exit=103, dir=+1, 兩腿皆 taker）：
+      risk  = |100 - 98| = 2
+      fee   = TAKER + SLIP = 0.00045 + 0.0001 = 0.00055（進出各一次）
+      gross = (103 - 100) / 2 = 1.5
+      cost  = (0.00055x100 + 0.00055x103) / 2 = 0.055825
+      r_net = 1.5 - 0.055825 = 1.444175
+    （初版計畫誤寫 0.9925——未實算的錨例等同沒有錨例。）
+    """
+    assert bt.r_net(100, 98, 103, 1) == pytest.approx(1.444175, abs=1e-9)
+
+
+def test_r_net_cross_checks_against_m_maker_anchor():
+    """交叉檢查：同一組價位改用 maker 進場，應得 M spec §5.3 的 1.464175。
+
+    兩者差值恰為 maker/taker 的 fee_in 差：(0.00055 - 0.00015) x 100 / 2 = 0.02。
+    確保 N 的成本記帳與 M 同源，沒有各算各的。
+    """
+    from m_backtest import r_net_single
+    maker = r_net_single(100, 98, 103, 1, "maker")
+    assert maker == pytest.approx(1.464175, abs=1e-9)
+    assert maker - bt.r_net(100, 98, 103, 1) == pytest.approx(0.02, abs=1e-9)
 
 
 def test_bullish_mirror_end_to_end():
