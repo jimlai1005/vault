@@ -36,10 +36,13 @@ def test_derived_constants_have_documented_derivation():
 
 
 def test_trial_count_selfconsistent():
-    """spec §9：4 臂 x 2 interval x 2 L x 2 TP 規則 = 32；宣告 40。"""
-    assert cfg.N_OBSERVABLE_TRIALS == 32
-    assert cfg.N_TRIALS_DECLARED == 40
-    assert len(cfg.ARMS) == 4
+    """spec §9 + 修訂 A3：6 臂 x 2 interval x 2 L x 2 TP 規則 = 48；宣告 56。"""
+    assert cfg.N_OBSERVABLE_TRIALS == 48
+    assert cfg.N_TRIALS_DECLARED == 56
+    assert len(cfg.ARMS) == 6
+    # A3 只【追加】強化臂，原臂與 primary 一律不動
+    assert "sweep+ABS" in cfg.ARMS and "sweep+ABSs" in cfg.ARMS
+    assert cfg.PRIMARY["arm"] == "sweep+ABS"
 
 
 def test_exposure_band_is_preregistered():

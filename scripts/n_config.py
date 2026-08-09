@@ -39,7 +39,11 @@ N_POOLS        = 20          # TP 搜尋窗：最近 N 個已確認的對側池
 MAX_HOLD_BARS  = 100
 
 # ── 進場臂（spec §5、§9）──────────────────────────────────────────────────
-ARMS = ("sweep_only", "sweep+ABS", "sweep+DIV", "sweep+ABS+DIV")
+# 修訂 A3（2026-08-09）：原 ABS 幾乎恆真（pilot 覆蓋率 96.5%），追加無自由
+# 參數的強化臂 ABSs（池上方主動買 + 整棒淨流為賣 = 真有大單吸收）。
+# 原臂保留不動，primary 維持 sweep+ABS。詳見 spec §5.2.1。
+ARMS = ("sweep_only", "sweep+ABS", "sweep+ABSs",
+        "sweep+DIV", "sweep+ABS+DIV", "sweep+ABSs+DIV")
 TP_RULES = ("nearest_unswept", "nearest_unswept_rr1")
 
 # ── 統計（spec §7）────────────────────────────────────────────────────────
@@ -52,7 +56,7 @@ EXPOSURE_BAND  = (0.95, 1.05)     # spec §7.3：出帶即機械宣告該格作�
 
 # ── 試驗數（spec §9）──────────────────────────────────────────────────────
 N_OBSERVABLE_TRIALS = len(ARMS) * len(INTERVALS) * len(PIVOT_L_GRID) * len(TP_RULES)
-N_TRIALS_DECLARED   = N_OBSERVABLE_TRIALS + 8
+N_TRIALS_DECLARED   = N_OBSERVABLE_TRIALS + 8   # A3 後：48 + 8 = 56
 
 # ── primary cell（完整凍結，無留白；spec §9）──────────────────────────────
 PRIMARY = {
@@ -67,7 +71,7 @@ CACHE_DIR_N      = "data/cache/sweep_n"        # 事件表、特徵、gate 輸�
 CACHE_DIR_TRADES = "data/cache/orderflow_n"    # aggTrades 原始（n_data.py 寫入）
 CACHE_DIR_KLINE  = mcfg.CACHE_DIR              # 沿用 M 的 K 線快取（唯讀）
 
-assert N_OBSERVABLE_TRIALS == 32
-assert N_TRIALS_DECLARED == 40
+assert N_OBSERVABLE_TRIALS == 48
+assert N_TRIALS_DECLARED == 56
 assert abs(SL_BUFFER - 0.0011) < 1e-12
 assert abs(MIN_RISK_FRAC - 0.0022) < 1e-12

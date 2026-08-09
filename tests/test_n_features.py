@@ -64,3 +64,35 @@ def test_cvd_at_returns_nan_outside_range():
     assert nf.cvd_at(bars, 0) == 1.0
     assert nf.cvd_at(bars, 3600000) == 2.0
     assert np.isnan(nf.cvd_at(bars, 7200000))
+
+
+# ── 修訂 A3：強化吸收（ABSs）─────────────────────────────────────────────
+def test_abs_strict_requires_bar_delta_opposite_to_sweep():
+    """池上方主動買推上去，但整棒淨流是賣 -> 真有大單吸收（空方）。"""
+    assert nf.abs_strict_ok(d_sweep=100.0, bar_delta=-50.0, direction=-1) is True
+    assert nf.abs_strict_ok(d_sweep=100.0, bar_delta=50.0, direction=-1) is False
+
+
+def test_abs_strict_is_subset_of_abs():
+    """ABSs 必須蘊含 ABS——原 ABS 不成立時 ABSs 一律不成立。"""
+    assert nf.abs_ok(-100.0, -1) is False
+    assert nf.abs_strict_ok(d_sweep=-100.0, bar_delta=-50.0, direction=-1) is False
+
+
+def test_abs_strict_bullish_mirror():
+    assert nf.abs_strict_ok(d_sweep=-100.0, bar_delta=50.0, direction=+1) is True
+    assert nf.abs_strict_ok(d_sweep=-100.0, bar_delta=-50.0, direction=+1) is False
+
+
+def test_abs_strict_nan_rejects():
+    assert nf.abs_strict_ok(d_sweep=100.0, bar_delta=float("nan"),
+                            direction=-1) is False
+
+
+def test_new_arms_compose_strict_flag():
+    f = dict(abs_ok=True, abs_strict_ok=False, div_ok=True)
+    assert nf.arm_pass("sweep+ABS", f) is True
+    assert nf.arm_pass("sweep+ABSs", f) is False
+    assert nf.arm_pass("sweep+ABSs+DIV", f) is False
+    f2 = dict(abs_ok=True, abs_strict_ok=True, div_ok=True)
+    assert nf.arm_pass("sweep+ABSs+DIV", f2) is True

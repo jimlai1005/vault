@@ -11,8 +11,10 @@ def verdict(g):
     v = {k: bool(g[k]) for k in GATE_KEYS}
     if not (v["G0"] and v["G1"]):
         return "作廢"
-    if not v["G1b"]:
-        return "作廢"
+    # 修訂 A4：G1b（曝險對齊）降級為揭露項，不再作廢。
+    # 理由：主要統計量已改為事件層 E[R]（對曝險不變），且觀測到的出帶主要
+    # 來自 K=5 的「至少一個通過」膨脹而非真實不對稱。詳見 spec §7.3.1。
+    # v["G1b"] 仍必須提供並落檔揭露，只是不參與判定。
     if not v["G2"]:
         return "NO-GO"
     if not v["G3"]:

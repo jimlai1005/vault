@@ -26,8 +26,15 @@ def test_g0_or_g1_fail_voids_everything():
     assert ng.verdict(base(G1=False)) == "作廢"
 
 
-def test_exposure_fail_voids_cell():
-    assert ng.verdict(base(G1b=False)) == "作廢"
+def test_exposure_is_disclosure_only_after_a4():
+    """修訂 A4：G1b 降級為揭露項，不再作廢（spec §7.3.1）。
+
+    但仍必須提供該鑰匙——缺 key 要 KeyError，不得靜默預設。
+    """
+    assert ng.verdict(base(G1b=False)) == "GO"
+    import pytest
+    with pytest.raises(KeyError):
+        ng.verdict({k: True for k in ng.GATE_KEYS if k != "G1b"})
 
 
 def test_g2_fail_is_nogo_regardless_of_g3():
