@@ -36,8 +36,26 @@
 //  4. risk_too_small 守門：Python 在看到次棒開盤後可 retroactively 拒單，
 //     TV 不能 un-fill，故改為【確認棒收盤預篩】＋【成交後仍過小則立即平倉】。
 //  5. ta.pivothigh 的平手判定與研究版「左嚴格、平手取最早」略異。
-//  6. 池表上限：研究取「最近 20 個【已確認】池再濾未掃」，本腳本同義實作
-//     （保留 swept 旗標而非直接丟棄），但 TV 陣列上限使極早期的池可能被擠出。
+//  6. 池表：研究是「先濾未掃、再取最近 20 個」。本腳本以 POOL_CAP=500 保留
+//     歷史、在 nearestUnswept 內由新到舊只計入前 20 個【未掃】池，語意已對齊。
+//     （初版誤在 push 時就砍到 20 個【已確認】池——趨勢盤中那 20 個多半已被
+//     掃光，會找不到 TP 而 Python 會往更早回溯。該版本的揭露宣稱不成立。）
+//  7. 【偏樂觀】gap 與 no_target 的記帳：Python 在成交【前】判定
+//     invalidated_by_gap / no_target / risk_too_small，記 R_net=0 且不進場；
+//     TV 不能 un-fill，只能成交後立即平倉，實付兩腿 0.055%。跳空穿過 SL 的
+//     事件因此在 TV 上是一筆實虧，在研究裡是 0。
+//  8. 【偏悲觀】本腳本在確認棒用 close 預篩 TP（需存在對側未掃池且在 close
+//     之外），Python 只在成交後用 fill 篩（pick_tp）。次棒開盤跳離收盤時，
+//     部分 Python 會接受的事件在此被提前丟棄。此預篩的作用是減少差異 7 的
+//     幽靈交易，是兩害相權的取捨，非疏漏。
+//  9. time_stop：Python 在第 jf+99 根【收盤】出場，TV 的 close_all 在
+//     第 jf+100 根【開盤】成交。持有根數對齊正確，差一個開/收盤。
+// 10. 部位大小用 percent_of_equity 10%（固定名目），不是 R 正規化——
+//     權益曲線的尺度與研究的 E[R] 不可直接比較。
+//
+// ⚠ useFlow 開啟時的額外陷阱：request.security_lower_tf 的 intrabar 額度有限
+//    （約 10 萬根子棒），較早的歷史棒會回空陣列 → 代理值為 na → 一律不進場。
+//    這會表現為「訊號稀少」而非報錯，容易被誤讀成訊號本身罕見。
 //
 // 凍結參數一律照 scripts/n_config.py，不提供判準旋鈕。
 // ═══════════════════════════════════════════════════════════════════════════
@@ -80,10 +98,16 @@ var bool[]  hiSw = array.new_bool()
 var float[] loPx = array.new_float()
 var bool[]  loSw = array.new_bool()
 
-pushPool(float[] px, bool[] sw, float v) =>
+// POOL_CAP 是【純技術上限】（Pine 陣列不能無限長），不是研究參數。
+// 研究的 N_POOLS=20 語意是「最近 20 個【未掃】池」，在 nearestUnswept 內
+// 由新到舊計數實現——若在此就砍到 20 個【已確認】池，趨勢盤中最近 20 個
+// pivot 多半已被掃光，會找不到 TP，而 Python 會往更早回溯湊滿 20 個未掃池。
+POOL_CAP = 500
+
+pushPool(array<float> px, array<bool> sw, float v) =>
     array.push(px, v)
     array.push(sw, false)
-    if array.size(px) > N_POOLS
+    if array.size(px) > POOL_CAP
         array.shift(px)
         array.shift(sw)
 
@@ -118,19 +142,23 @@ if array.size(loPx) > 0
                     sweptLoPrice := p
 
 // ── TP：對側【未掃】池中，在進場價之外且最接近者 ─────────────────────────
-nearestUnswept(float[] px, bool[] sw, float ref, int dir) =>
-    // dir = −1（做空）：取【低於 ref 的最高者】；dir = +1：取【高於 ref 的最低者】
-    best = float(na)
+// dir = −1（做空）：取【低於 ref 的最高者】；dir = +1：取【高於 ref 的最低者】。
+// 由新到舊掃描，只計入前 N_POOLS 個【未掃】池 —— 對齊 n_sweep.selectable_pools
+// 的「先濾未掃、再 tail(20)」順序。
+nearestUnswept(array<float> px, array<bool> sw, float ref, int dir) =>
+    float best = na
+    int seen = 0
     if array.size(px) > 0
-        for i = 0 to array.size(px) - 1
+        for k = 0 to array.size(px) - 1
+            i = array.size(px) - 1 - k
             if not array.get(sw, i)
+                seen += 1
+                if seen > N_POOLS
+                    break
                 p = array.get(px, i)
                 ok = dir == -1 ? p < ref : p > ref
                 if ok
-                    if na(best)
-                        best := p
-                    else
-                        best := dir == -1 ? math.max(best, p) : math.min(best, p)
+                    best := na(best) ? p : (dir == -1 ? math.max(best, p) : math.min(best, p))
     best
 
 // ── 訂單流代理（⚠ 非研究等價，見檔頭）───────────────────────────────────
@@ -143,10 +171,10 @@ mV = request.security_lower_tf(syminfo.tickerid, flowTF, volume)
 
 // 回 [D_sweep_proxy, D_bar_proxy]；子棒不可得時回 [na, na]
 flowProxy(float pool, int dir) =>
-    n = array.size(mC)
+    n = na(mC) ? 0 : array.size(mC)
     float dSweep = na
     float dBar = na
-    if n > 0 and array.size(mV) == n
+    if not na(mC) and n > 0 and array.size(mV) == n
         ds = 0.0
         db = 0.0
         for i = 0 to n - 1
@@ -201,7 +229,10 @@ if canFire and useShort and not na(sweptHiPrice)
         strategy.entry("S", strategy.short, comment = "sweep-hi")
 
 // 多方掃單（做多）
-if canFire and useLong and not na(sweptLoPrice)
+// `not armed` 不可省：canFire 只在上方算一次，空方區塊若已 armed，
+// 這裡仍會讀到舊值 -> 同棒送出反向單（寬幅棒同時掃穿上下兩池時發生，
+// 實測佔事件 0.18~0.44%）。
+if canFire and not armed and useLong and not na(sweptLoPrice)
     okFlow = not useFlow or absStrict(sweptLoPrice, 1)
     sl = low * (1 - SL_BUFFER)
     tp = nearestUnswept(hiPx, hiSw, close, 1)
@@ -225,8 +256,11 @@ if justFilled
         strategy.close_all(comment = "risk_too_small")
         entryBar := na
     else
-        tp = nearestUnswept(pendDir == -1 ? loPx : hiPx,
-                            pendDir == -1 ? loSw : hiSw, d, pendDir)
+        float tp = na
+        if pendDir == -1
+            tp := nearestUnswept(loPx, loSw, d, -1)
+        else
+            tp := nearestUnswept(hiPx, hiSw, d, 1)
         if na(tp)
             strategy.close_all(comment = "no_target")
             entryBar := na
