@@ -92,3 +92,50 @@ def build_events(bars_df, symbol, interval, L):
             "pool", "pool_idx", "pool_t", "sweep_high", "sweep_low",
             "close_j", "penetration"]
     return pd.DataFrame(rows, columns=cols)
+
+
+# ═══ Stage 2 追加（spec §6.3 的 TP 池選擇）═══════════════════════════════
+# 既有函式（is_unswept / is_sweep / pick_pool / build_events）已通過 N-G1，
+# 一律不改動。以下為新增。
+
+def pool_table(bars_df, L):
+    """每 symbol 的池表：所有 pivot ＋ 其【第一次被掃穿的棒】。
+
+    swept_at 讓「未被掃過」成為 O(1) 查詢（否則每事件每池都要掃一次區間）。
+    掃穿判定用嚴格不等號，與 is_sweep 一致（P5）：
+      pivot high 被掃穿 ⟺ ∃k > idx，high[k] > price
+      pivot low  被掃穿 ⟺ ∃k > idx，low[k]  < price
+    從未被掃穿 → swept_at = len(bars)（哨兵值，永遠大於任何 j）。
+
+    回傳依 confirm_t 排序的 DataFrame(idx, kind, price, t, confirm_t, swept_at)。
+    """
+    df = bars_df.reset_index(drop=True)
+    hi = df["h"].to_numpy(dtype=float)
+    lo = df["l"].to_numpy(dtype=float)
+    n = len(df)
+    rows = []
+    for p in det.find_pivots(df, L):
+        price = float(p.price)
+        if p.kind == "high":
+            m = hi[p.idx + 1:] > price
+        else:
+            m = lo[p.idx + 1:] < price
+        swept = p.idx + 1 + int(np.argmax(m)) if m.any() else n
+        rows.append(dict(idx=int(p.idx), kind=p.kind, price=price,
+                         t=int(p.t), confirm_t=int(p.confirm_t),
+                         swept_at=int(swept)))
+    cols = ["idx", "kind", "price", "t", "confirm_t", "swept_at"]
+    out = pd.DataFrame(rows, columns=cols)
+    return out.sort_values("confirm_t", kind="stable").reset_index(drop=True)
+
+
+def selectable_pools(pool_tbl, kind, as_of, j, n_last):
+    """P9：as_of 時【已確認】且【尚未被掃過】的同側池，取最近 n_last 個。
+
+    swept_at > j 才算未被掃過——掃單棒 j 本身算在內。
+    """
+    m = ((pool_tbl["kind"] == kind)
+         & (pool_tbl["confirm_t"] <= int(as_of))
+         & (pool_tbl["swept_at"] > int(j)))
+    out = pool_tbl[m]
+    return out.tail(int(n_last)).reset_index(drop=True)

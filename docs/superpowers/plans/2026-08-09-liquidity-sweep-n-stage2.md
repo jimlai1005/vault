@@ -100,12 +100,30 @@ def test_swept_at_is_n_when_never_swept():
 
 
 def test_swept_at_uses_strict_inequality():
-    """等於池價不算掃穿（與 is_sweep 的嚴格不等號一致，P5）。"""
-    rows = [(9, 9.5, 8.5, 9)] * 2 + [(9, 12.0, 8.5, 9)] \
-        + [(9, 12.0, 8.5, 9)] + [(9, 12.5, 8.5, 9)] + [(9, 9.5, 8.5, 9)] * 5
+    """等於池價不算掃穿（與 is_sweep 的嚴格不等號一致，P5）。
+
+    highs = [9.5, 9.5, 12.0, 10.0, 11.0, 12.0, 12.5, ...]
+    idx=2 是真 pivot high；idx=5 的 12.0【等於】池價 -> 不算；
+    idx=6 的 12.5 才算 -> swept_at = 6。
+    （初版 fixture 誤用 [9.5,9.5,12.0,12.0,12.5,...]，idx=2 根本不是 pivot。）
+    """
+    rows = [(9, 9.5, 8.5, 9), (9, 9.5, 8.5, 9), (9, 12.0, 8.5, 9),
+            (9, 10.0, 8.5, 9), (9, 11.0, 8.5, 9), (9, 12.0, 8.5, 9),
+            (9, 12.5, 8.5, 9)] + [(9, 9.5, 8.5, 9)] * 4
     pt = sw.pool_table(bars(rows), L=2)
     hi = pt[(pt["kind"] == "high") & (pt["idx"] == 2)]
-    assert int(hi.iloc[0]["swept_at"]) == 4          # idx=3 的 12.0 不算
+    assert len(hi) == 1, "fixture 必須真的產生 idx=2 的 pivot high"
+    assert int(hi.iloc[0]["swept_at"]) == 6
+
+
+def test_swept_at_triggers_on_strict_exceed():
+    """對照組：把等於池價的那根改成【稍微超過】，swept_at 必須提前。"""
+    rows = [(9, 9.5, 8.5, 9), (9, 9.5, 8.5, 9), (9, 12.0, 8.5, 9),
+            (9, 10.0, 8.5, 9), (9, 11.0, 8.5, 9), (9, 12.01, 8.5, 9),
+            (9, 12.5, 8.5, 9)] + [(9, 9.5, 8.5, 9)] * 4
+    pt = sw.pool_table(bars(rows), L=2)
+    hi = pt[(pt["kind"] == "high") & (pt["idx"] == 2)]
+    assert int(hi.iloc[0]["swept_at"]) == 5
 
 
 def test_low_pool_mirrors():
