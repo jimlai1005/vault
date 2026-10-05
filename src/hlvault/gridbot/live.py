@@ -20,7 +20,7 @@ from hyperliquid.info import Info
 from . import config as cfg
 from .allocator import allocate_capital
 from .exchange_utils import (
-    MAX_LEVERAGE_FALLBACK, get_full_account_equity, get_max_leverage, get_mid_price,
+    MAX_LEVERAGE_FALLBACK, equity_breakdown, get_full_account_equity, get_max_leverage, get_mid_price,
     get_sz_decimals, round_price, round_size,
 )
 from .resilience import ResilientExchange
@@ -449,11 +449,13 @@ def main():
     engine = GridBotEngine(live_trading=False if args.dry_run else None)
     if args.status:
         engine.bootstrap_if_needed()
-        equity = get_full_account_equity(engine.info, cfg.WALLET_ADDRESS)
-        print(f"equity: ${equity:,.2f}  halted={engine.state.get('halted')}")
-        for coin, c in engine.state["coins"].items():
-            print(f"  {coin}: anchor={c['anchor']:.6g} step={c['step_pct']*100:.3f}% "
-                 f"armed={len(c['armed'])} open_lots={len(c['open_lots'])}")
+        buckets = equity_breakdown(engine.info, cfg.WALLET_ADDRESS)
+        equity = sum(buckets.values())
+        print(f"equity: ${equity:,.2f}  halted={engine.state.get('halted')}  "
+              f"peak=${engine.state.get('peak_equity', 0.0):,.2f}  "
+              f"spot_basis={cfg.EQUITY_SPOT_BASIS}")
+        for name, val in buckets.items():
+            print(f"  {name:<20} ${val:,.2f}")
         return
     if args.once or args.dry_run:
         engine.run_once()
