@@ -178,3 +178,35 @@ def test_flatten_everything_drops_lot_only_when_both_cancel_and_flatten_confirme
     monkeypatch.setattr(engine, "_market_flatten", lambda coin, size: False)
     assert engine._flatten_everything() is False
     assert "122" in engine.state["coins"]["ETH"]["open_lots"]
+
+
+def test_market_flatten_returns_false_on_partial_fill(engine):
+    # IOC with 5% slippage can fill only part of the size in a thin book; the rest is
+    # cancelled by the exchange. That is NOT flat — the lot must stay tracked.
+    engine.live_trading = True
+    engine.exchange = _FakeExchange({"status": "ok", "response": {"type": "order", "data": {
+        "statuses": [{"filled": {"totalSz": "0.0100", "avgPx": "2722.9", "oid": 1}}]}}})
+    assert engine._market_flatten("ETH", 0.0238) is False
+
+
+def test_market_flatten_accepts_fill_within_size_rounding(engine):
+    engine.live_trading = True
+    engine.exchange = _FakeExchange({"status": "ok", "response": {"type": "order", "data": {
+        "statuses": [{"filled": {"totalSz": "0.02379", "avgPx": "2722.9", "oid": 1}}]}}})
+    assert engine._market_flatten("ETH", 0.0238) is True
+
+
+def test_trip_persists_halt_to_disk_before_flatten_and_alerts_after(engine, monkeypatch):
+    import json as _json
+    order = []
+    monkeypatch.setattr(live_mod, "get_full_account_equity", lambda info, addr: 700.0)
+
+    def fake_flatten():
+        on_disk = _json.loads(cfg.STATE_FILE.read_text())
+        order.append(("flatten", on_disk.get("halted"), len(engine.sent)))
+        return True
+    monkeypatch.setattr(engine, "_flatten_everything", fake_flatten)
+    engine.check_drawdown()
+    # flatten ran with halted already persisted and before any Telegram round-trip
+    assert order == [("flatten", True, 0)]
+    assert len(engine.sent) == 1 and "TRIPPED" in engine.sent[0]
