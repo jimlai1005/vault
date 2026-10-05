@@ -456,6 +456,9 @@ def main():
               f"spot_basis={cfg.EQUITY_SPOT_BASIS}")
         for name, val in buckets.items():
             print(f"  {name:<20} ${val:,.2f}")
+        for coin, c in engine.state["coins"].items():
+            print(f"  {coin}: anchor={c['anchor']:.6g} step={c['step_pct']*100:.3f}% "
+                  f"armed={len(c['armed'])} open_lots={len(c['open_lots'])}")
         return
     if args.once or args.dry_run:
         engine.run_once()
