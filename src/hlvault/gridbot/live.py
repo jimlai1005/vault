@@ -446,13 +446,30 @@ class GridBotEngine:
             return False
 
     def _market_flatten(self, coin: str, size: float) -> bool:
+        """True only when the exchange confirmed the close (or reports no position
+        left to close — SDK market_close returns None then). Pre-2026-10 this never
+        returned True: 2026-09-22 the ETH lot WAS closed on the exchange but state
+        logged 'FLATTEN FAILED (flatten=None)' and kept the lot forever."""
         if not self.live_trading:
             logger.info(f"[DRY RUN] flatten {coin} size={size}")
-            return
+            return True
         try:
-            self.exchange.market_close(coin, size)
+            result = self.exchange.market_close(coin, size)
         except Exception as e:
             logger.error(f"{coin}: SAFETY-CRITICAL flatten failed, manual intervention needed: {e}")
+            return False
+        if result is None:
+            logger.warning(f"{coin}: market_close found no position to close — treating as flat")
+            return True
+        if result.get("status") != "ok":
+            logger.error(f"{coin}: SAFETY-CRITICAL flatten rejected: {result}")
+            return False
+        statuses = (result.get("response", {}).get("data", {}) or {}).get("statuses", [])
+        errors = [s["error"] for s in statuses if isinstance(s, dict) and "error" in s]
+        if errors:
+            logger.error(f"{coin}: SAFETY-CRITICAL flatten rejected: {errors}")
+            return False
+        return True
 
     # ---- main loop -------------------------------------------------
     def run_once(self) -> None:
