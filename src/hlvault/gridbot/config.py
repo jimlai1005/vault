@@ -36,6 +36,15 @@ ALLOCATED_CAPITAL = _env_float("ALLOCATED_CAPITAL", "1000")
 MAX_DRAWDOWN_PCT = _env_float("MAX_DRAWDOWN_PCT", "0.20")
 MAX_BAD_EQUITY_READS = int(_env_float("MAX_BAD_EQUITY_READS", "10"))  # consecutive failed equity reads before halting (no flatten)
 DRAWDOWN_CONFIRM_CYCLES = int(_env_float("DRAWDOWN_CONFIRM_CYCLES", "3"))  # consecutive breaching readings before flatten+halt
+# Which spot holdings the circuit-breaker equity basis counts.
+#   "all"  (default): USDC + every other spot coin at its coin/USDC mid — the
+#          owner trades spot in this wallet (2026-09-22: a $699 USDC->UBTC buy
+#          read as a -45% drawdown and tripped a phantom flatten+halt).
+#   "usdc": USDC only (the pre-2026-10 behaviour; use when a spot coin has no
+#          USDC pair and you accept that buying it reads as a drawdown).
+EQUITY_SPOT_BASIS = _env_str("EQUITY_SPOT_BASIS", "all").lower()
+if EQUITY_SPOT_BASIS not in ("all", "usdc"):
+    raise ValueError(f"EQUITY_SPOT_BASIS must be 'all' or 'usdc', got {EQUITY_SPOT_BASIS!r}")
 LIVE_TRADING = _env_bool("LIVE_TRADING", "false")
 NETWORK = _env_str("NETWORK", "mainnet")
 HL_API_URL = "https://api.hyperliquid.xyz" if NETWORK == "mainnet" else "https://api.hyperliquid-testnet.xyz"
