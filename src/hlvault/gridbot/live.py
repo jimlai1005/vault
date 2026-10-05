@@ -449,13 +449,18 @@ def main():
     engine = GridBotEngine(live_trading=False if args.dry_run else None)
     if args.status:
         engine.bootstrap_if_needed()
-        buckets = equity_breakdown(engine.info, cfg.WALLET_ADDRESS)
-        equity = sum(buckets.values())
-        print(f"equity: ${equity:,.2f}  halted={engine.state.get('halted')}  "
-              f"peak=${engine.state.get('peak_equity', 0.0):,.2f}  "
-              f"spot_basis={cfg.EQUITY_SPOT_BASIS}")
-        for name, val in buckets.items():
-            print(f"  {name:<20} ${val:,.2f}")
+        bd = equity_breakdown(engine.info, cfg.WALLET_ADDRESS)
+        try:
+            equity = get_full_account_equity(engine.info, cfg.WALLET_ADDRESS)
+            eq_str = f"${equity:,.2f}"
+        except Exception as e:
+            eq_str = f"UNREADABLE ({e})"
+        print(f"equity: {eq_str}  basis={cfg.EQUITY_SPOT_BASIS}  halted={engine.state.get('halted')}  "
+              f"peak=${engine.state.get('peak_equity', 0.0):,.2f}")
+        print(f"  portfolio_value      ${bd['portfolio_value']:,.2f}  (HL UI number, abstraction={bd['abstraction']})")
+        print(f"  spot_usdc_total      ${bd['spot_usdc_total']:,.2f}  (hold ${bd['spot_usdc_hold']:,.2f})")
+        print(f"  spot_coins           ${bd['spot_coins']:,.2f}" + (f"  unpriced={bd['unpriced_coins']}" if bd['unpriced_coins'] else ""))
+        print(f"  perp_account_value   ${bd['perp_account_value']:,.2f}")
         for coin, c in engine.state["coins"].items():
             print(f"  {coin}: anchor={c['anchor']:.6g} step={c['step_pct']*100:.3f}% "
                   f"armed={len(c['armed'])} open_lots={len(c['open_lots'])}")

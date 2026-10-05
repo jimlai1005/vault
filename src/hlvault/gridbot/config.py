@@ -45,6 +45,11 @@ DRAWDOWN_CONFIRM_CYCLES = int(_env_float("DRAWDOWN_CONFIRM_CYCLES", "3"))  # con
 EQUITY_SPOT_BASIS = _env_str("EQUITY_SPOT_BASIS", "all").lower()
 if EQUITY_SPOT_BASIS not in ("all", "usdc"):
     raise ValueError(f"EQUITY_SPOT_BASIS must be 'all' or 'usdc', got {EQUITY_SPOT_BASIS!r}")
+# EQUITY_SPOT_BASIS=all reads HL's own whole-wallet account value from the
+# `portfolio` endpoint (the number the web UI shows; last point is computed at
+# query time, measured age 0.2s on 2026-10-05). A point older than this is a
+# failed read (skip cycle, never flatten), not a drawdown.
+PORTFOLIO_MAX_AGE_SECONDS = _env_float("PORTFOLIO_MAX_AGE_SECONDS", "300")
 LIVE_TRADING = _env_bool("LIVE_TRADING", "false")
 NETWORK = _env_str("NETWORK", "mainnet")
 HL_API_URL = "https://api.hyperliquid.xyz" if NETWORK == "mainnet" else "https://api.hyperliquid-testnet.xyz"
