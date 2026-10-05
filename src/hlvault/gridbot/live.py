@@ -16,6 +16,7 @@ import pandas as pd
 from eth_account import Account
 from hyperliquid.exchange import Exchange
 from hyperliquid.info import Info
+from hlvault.notify.telegram import send_alert
 
 from . import config as cfg
 from .allocator import allocate_capital
@@ -103,12 +104,39 @@ class GridBotEngine:
             stop_buffer_pct=cfg.STOP_BUFFER_PCT, cooldown_candles=0,
         )
 
+    # ---- alerting ---------------------------------------------------
+    def _alert(self, msg: str) -> None:
+        """Telegram, never raises (notify.telegram contract); prefix identifies the engine."""
+        send_alert(cfg.TELEGRAM_BOT_TOKEN, cfg.TELEGRAM_CHAT_ID, f"[hl-gridbot] {msg}")
+
+    def _halted_reminder(self) -> None:
+        """While halted, re-send the reminder every HALT_ALERT_INTERVAL_MINUTES so a
+        halt cannot go unnoticed (2026-09-22: 13 days). Includes a fresh equity
+        read when possible so the owner can judge whether a restart will re-arm."""
+        now_ms = int(time.time() * 1000)
+        last = int(self.state.get("last_halt_alert_ms", 0))
+        if now_ms - last < cfg.HALT_ALERT_INTERVAL_MINUTES * 60_000:
+            return
+        peak = self.state.get("peak_equity", 0.0)
+        try:
+            current = get_full_account_equity(self.info, cfg.WALLET_ADDRESS)
+            dd = (peak - current) / peak if peak > 0 else 0.0
+            reading = f"now ${current:,.2f}, drawdown {dd:.1%} vs peak ${peak:,.2f}"
+        except Exception as e:
+            reading = f"equity unreadable ({e!r}), peak ${peak:,.2f}"
+        self._alert(f"HALTED — not trading. {reading}. "
+                    f"To re-arm: sudo systemctl restart hl-gridbot "
+                    f"(resumes only if drawdown < {cfg.MAX_DRAWDOWN_PCT:.0%}; otherwise edit the state file).")
+        self.state["last_halt_alert_ms"] = now_ms
+        save_state(cfg.STATE_FILE, self.state)
+
     # ---- portfolio circuit breaker ----------------------------------
     def check_drawdown(self) -> bool:
         """Returns True if halted (caller must stop trading this cycle)."""
         if self.state.get("halted"):
             logger.error("HALTED — restart the service to re-arm (resumes only if drawdown "
                          "has recovered); or clear 'halted' in the state file after review")
+            self._halted_reminder()
             return True
         try:
             current = get_full_account_equity(self.info, cfg.WALLET_ADDRESS)
@@ -135,8 +163,13 @@ class GridBotEngine:
                          f"breach cycle {breach}/{cfg.DRAWDOWN_CONFIRM_CYCLES}, "
                          "not trading this cycle")
             if breach >= cfg.DRAWDOWN_CONFIRM_CYCLES:
-                self._flatten_everything()
+                self._alert(f"DRAWDOWN CIRCUIT BREAKER TRIPPED: {drawdown:.1%} "
+                            f"(peak ${peak:,.2f} -> now ${current:,.2f}) — flattening and halting.")
                 self.state["halted"] = True
+                self.state["last_halt_alert_ms"] = int(time.time() * 1000)
+                save_state(cfg.STATE_FILE, self.state)   # persist the halt BEFORE flattening (crash mid-flatten must not lose it)
+                if not self._flatten_everything():
+                    self._alert("FLATTEN INCOMPLETE — some grid positions/orders may remain open, manual check required.")
             save_state(cfg.STATE_FILE, self.state)
             return True
         self.state["drawdown_breach_cycles"] = 0
@@ -158,19 +191,32 @@ class GridBotEngine:
             current = get_full_account_equity(self.info, cfg.WALLET_ADDRESS)
         except Exception as e:
             logger.error(f"HALTED and equity re-check failed ({e!r}) — staying halted")
+            self._alert(f"Restart requested but equity re-check failed ({e!r}) — still halted.")
+            self.state["last_halt_alert_ms"] = int(time.time() * 1000)
+            save_state(cfg.STATE_FILE, self.state)
             return
         peak = self.state.get("peak_equity", 0.0)
         if current <= 0.0 or peak <= 0.0:
             logger.error(f"HALTED and equity re-check implausible (${current:,.2f}) — staying halted")
+            self._alert(f"Restart requested but equity re-check implausible (${current:,.2f}) — still halted.")
+            self.state["last_halt_alert_ms"] = int(time.time() * 1000)
+            save_state(cfg.STATE_FILE, self.state)
             return
         drawdown = (peak - current) / peak
         if drawdown >= cfg.MAX_DRAWDOWN_PCT:
             logger.error(f"HALTED and still breaching: drawdown {drawdown:.1%} >= "
                          f"{cfg.MAX_DRAWDOWN_PCT:.0%} (peak ${peak:,.2f} -> ${current:,.2f}) "
                          "— staying halted")
+            self._alert(f"Restart requested but still breaching: drawdown {drawdown:.1%} >= {cfg.MAX_DRAWDOWN_PCT:.0%} "
+                        f"(peak ${peak:,.2f} -> ${current:,.2f}) — still halted. "
+                        "Recover equity or reset peak in the state file.")
+            self.state["last_halt_alert_ms"] = int(time.time() * 1000)
+            save_state(cfg.STATE_FILE, self.state)
             return
         logger.warning(f"RE-ARMED on restart: drawdown {drawdown:.1%} < {cfg.MAX_DRAWDOWN_PCT:.0%} "
                        f"(peak ${peak:,.2f} -> ${current:,.2f}) — resuming trading")
+        self._alert(f"RE-ARMED on restart: drawdown {drawdown:.1%} < {cfg.MAX_DRAWDOWN_PCT:.0%} "
+                    f"(peak ${peak:,.2f} -> ${current:,.2f}) — resuming trading.")
         self.state["halted"] = False
         self.state["bad_equity_reads"] = 0
         self.state["drawdown_breach_cycles"] = 0
@@ -196,10 +242,13 @@ class GridBotEngine:
                          "manual re-arm required (clear 'halted' in state file after review)",
                          bad_reads)
             self.state["halted"] = True
+            self._alert(f"EQUITY UNREADABLE for {bad_reads} consecutive cycles — halted WITHOUT flatten. "
+                        f"Last error: {reason}. Check the API/wallet, then: sudo systemctl restart hl-gridbot")
+            self.state["last_halt_alert_ms"] = int(time.time() * 1000)
         save_state(cfg.STATE_FILE, self.state)
         return True
 
-    def _flatten_everything(self) -> None:
+    def _flatten_everything(self) -> bool:
         """CLAUDE.md #3: only forget a level/lot once its cancel/flatten is
         CONFIRMED — a failed flatten must stay tracked (and loud) so a real
         open position is never silently dropped from state."""
@@ -222,6 +271,7 @@ class GridBotEngine:
                                 f"flatten={flattened}) — position/order still open, will retry")
         if any_failed:
             logger.error("SAFETY-CRITICAL: not everything could be flattened — manual check required")
+        return not any_failed
 
     # ---- per-coin sync ----------------------------------------------
     def _target_leverage(self, coin: str) -> int:

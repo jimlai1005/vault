@@ -74,4 +74,12 @@ SYNC_INTERVAL_SECONDS = _env_float("SYNC_INTERVAL_SECONDS", "60")
 # it does not increase position risk — see live.py's _ensure_leverage.
 LEVERAGE = _env_str("LEVERAGE", "max").lower()
 
+# Telegram alerts (same bot/chat convention as carry/momentum/cta). Empty = alerts
+# dropped with a warning log; send_alert never raises.
+TELEGRAM_BOT_TOKEN = _env_str("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = _env_str("TELEGRAM_CHAT_ID", "")
+# While halted, repeat the reminder this often until the owner re-arms
+# (2026-09-22: a halt went unnoticed for 13 days with log-only alerting).
+HALT_ALERT_INTERVAL_MINUTES = _env_float("HALT_ALERT_INTERVAL_MINUTES", "60")
+
 STATE_FILE = Path(__file__).resolve().parents[3] / "data" / "cache" / "gridbot_state.json"
