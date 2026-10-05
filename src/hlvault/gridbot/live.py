@@ -163,12 +163,14 @@ class GridBotEngine:
                          f"breach cycle {breach}/{cfg.DRAWDOWN_CONFIRM_CYCLES}, "
                          "not trading this cycle")
             if breach >= cfg.DRAWDOWN_CONFIRM_CYCLES:
-                self._alert(f"DRAWDOWN CIRCUIT BREAKER TRIPPED: {drawdown:.1%} "
-                            f"(peak ${peak:,.2f} -> now ${current:,.2f}) — flattening and halting.")
                 self.state["halted"] = True
                 self.state["last_halt_alert_ms"] = int(time.time() * 1000)
                 save_state(cfg.STATE_FILE, self.state)   # persist the halt BEFORE flattening (crash mid-flatten must not lose it)
-                if not self._flatten_everything():
+                flattened = self._flatten_everything()
+                # alert only AFTER flatten: a slow Telegram (up to ~33s) must never delay the close
+                self._alert(f"DRAWDOWN CIRCUIT BREAKER TRIPPED: {drawdown:.1%} "
+                            f"(peak ${peak:,.2f} -> now ${current:,.2f}) — flattened and halted.")
+                if not flattened:
                     self._alert("FLATTEN INCOMPLETE — some grid positions/orders may remain open, manual check required.")
             save_state(cfg.STATE_FILE, self.state)
             return True
@@ -468,6 +470,11 @@ class GridBotEngine:
         errors = [s["error"] for s in statuses if isinstance(s, dict) and "error" in s]
         if errors:
             logger.error(f"{coin}: SAFETY-CRITICAL flatten rejected: {errors}")
+            return False
+        filled = sum(float(s["filled"].get("totalSz", 0.0)) for s in statuses
+                     if isinstance(s, dict) and "filled" in s)
+        if filled + 1e-9 < size * 0.995:   # IOC partial fill: remainder was cancelled by the exchange
+            logger.error(f"{coin}: SAFETY-CRITICAL flatten PARTIAL: filled {filled} of {size} — position still open")
             return False
         return True
 
