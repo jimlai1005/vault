@@ -111,3 +111,70 @@ def test_alert_failure_never_blocks_halt(engine, monkeypatch):
     monkeypatch.setattr(engine, "_flatten_everything", lambda: True)
     assert engine.check_drawdown() is True
     assert engine.state["halted"] is True
+
+
+class _FakeExchange:
+    def __init__(self, result):
+        self.result = result
+        self.calls = []
+
+    def market_close(self, coin, sz):
+        self.calls.append((coin, sz))
+        if isinstance(self.result, Exception):
+            raise self.result
+        return self.result
+
+
+def test_market_flatten_returns_true_on_filled(engine):
+    engine.live_trading = True
+    engine.exchange = _FakeExchange({"status": "ok", "response": {"type": "order", "data": {
+        "statuses": [{"filled": {"totalSz": "0.0238", "avgPx": "2722.9", "oid": 1}}]}}})
+    assert engine._market_flatten("ETH", 0.0238) is True
+    assert engine.exchange.calls == [("ETH", 0.0238)]
+
+
+def test_market_flatten_returns_true_when_no_position_left(engine):
+    # SDK returns None when the coin has no position: nothing to close == flat
+    engine.live_trading = True
+    engine.exchange = _FakeExchange(None)
+    assert engine._market_flatten("ETH", 0.0238) is True
+
+
+def test_market_flatten_returns_false_on_rejected_status(engine):
+    engine.live_trading = True
+    engine.exchange = _FakeExchange({"status": "ok", "response": {"type": "order", "data": {
+        "statuses": [{"error": "Insufficient margin"}]}}})
+    assert engine._market_flatten("ETH", 0.0238) is False
+
+
+def test_market_flatten_returns_false_on_err_status(engine):
+    engine.live_trading = True
+    engine.exchange = _FakeExchange({"status": "err", "response": "rate limited"})
+    assert engine._market_flatten("ETH", 0.0238) is False
+
+
+def test_market_flatten_returns_false_on_exception(engine):
+    engine.live_trading = True
+    engine.exchange = _FakeExchange(RuntimeError("connection reset"))
+    assert engine._market_flatten("ETH", 0.0238) is False
+
+
+def test_market_flatten_dry_run_returns_true_without_calling_exchange(engine):
+    engine.live_trading = False
+    engine.exchange = _FakeExchange(RuntimeError("must not be called"))
+    assert engine._market_flatten("ETH", 0.0238) is True
+    assert engine.exchange.calls == []
+
+
+def test_flatten_everything_drops_lot_only_when_both_cancel_and_flatten_confirmed(engine, monkeypatch):
+    engine.state["coins"] = {"ETH": {"armed": {}, "open_lots": {
+        "122": {"entry_price": 2749.6, "size": 0.0238, "tp_price": 2761.7, "tp_oid": 1}},
+        "stopped_until_ms": None}}
+    monkeypatch.setattr(engine, "_cancel", lambda coin, oid: True)
+    monkeypatch.setattr(engine, "_market_flatten", lambda coin, size: True)
+    assert engine._flatten_everything() is True
+    assert engine.state["coins"]["ETH"]["open_lots"] == {}
+    engine.state["coins"]["ETH"]["open_lots"]["122"] = {"entry_price": 2749.6, "size": 0.0238, "tp_price": 2761.7, "tp_oid": 1}
+    monkeypatch.setattr(engine, "_market_flatten", lambda coin, size: False)
+    assert engine._flatten_everything() is False
+    assert "122" in engine.state["coins"]["ETH"]["open_lots"]
