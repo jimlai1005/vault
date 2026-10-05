@@ -71,32 +71,87 @@ def get_account_equity(info, address: str) -> float:
     return spot_usdc + positions_equity
 
 
-def get_full_account_equity(info, address: str) -> float:
-    """Spot USDC + perp marginSummary.accountValue — the whole wallet, every
-    bucket counted exactly once.
+def _usdc_pair_names(spot_meta: dict) -> dict[int, str]:
+    """base token index -> spot pair name quoted in USDC (token 0), e.g. 197 -> "@142"."""
+    out: dict[int, str] = {}
+    for pair in spot_meta.get("universe", []):
+        toks = pair.get("tokens") or []
+        if len(toks) == 2 and int(toks[1]) == 0 and int(toks[0]) not in out:
+            out[int(toks[0])] = pair["name"]
+    return out
 
-    2026-07-21 incident: get_account_equity above (spot USDC + position
-    economics) is blind to cash parked as perp free margin — a flat book with
-    all funds on the perp side read as $0.00 and tripped a phantom 100%
-    drawdown halt. accountValue closes that hole: measured live 2026-07-25
-    (8 samples over 32s, 18 resting orders) it held accountValue ==
-    totalMarginUsed + withdrawable + resting-order reserved margin with zero
-    jitter — i.e. it is invariant to order place/cancel/fill, value only moves
-    between buckets inside it. The 2026-07-04-era observation of accountValue
-    swinging with resting orders did not reproduce; as extra insurance the
-    drawdown breaker debounces (DRAWDOWN_CONFIRM_CYCLES) so one glitchy
-    reading can never flatten the book.
 
-    Known limit: spot holdings other than USDC are not counted (gridbot holds
-    none by design). Kept separate from get_account_equity above because the
-    momentum engine reuses that basis for ITS wallet shape — changing it there
-    would silently change momentum's live risk math."""
+def equity_breakdown(info, address: str, spot_basis: str | None = None) -> dict[str, float]:
+    """The whole wallet, every bucket counted exactly once, as separate buckets
+    so --status can be checked against the exchange UI bucket by bucket:
+
+      spot_usdc          spot USDC balance `total`
+      spot_hold_adjust   minus USDC `hold` on a unified account (that hold IS the
+                         perp margin already inside accountValue - counting both
+                         double-counts it; 2026-10-05 measured: hold 176.38 vs
+                         accountValue 173.03 with manual positions open). 0 on a
+                         non-unified account, where hold is resting spot orders.
+      spot_coins         every other spot coin with total > 0 at its coin/USDC mid
+                         (EQUITY_SPOT_BASIS=all) or 0 (EQUITY_SPOT_BASIS=usdc).
+                         2026-09-22 incident: a $699 USDC->UBTC spot buy read as a
+                         -45% drawdown through the old USDC-only basis and tripped
+                         a phantom flatten+halt. A coin with no USDC pair raises -
+                         undercounting is the dangerous direction (phantom halt),
+                         a raised read is handled as a failed read upstream
+                         (skip cycle, never flatten).
+      perp_account_value perp marginSummary.accountValue (2026-07-21 incident:
+                         cash parked as perp free margin must count).
+
+    get_account_equity above is momentum's basis for ITS wallet shape - untouched."""
+    if spot_basis is None:
+        from hlvault.gridbot import config as cfg
+        spot_basis = cfg.EQUITY_SPOT_BASIS
+    if spot_basis not in ("all", "usdc"):
+        raise ValueError(f"spot_basis must be 'all' or 'usdc', got {spot_basis!r}")
+
     perp = info.user_state(address)
     account_value = float(perp.get("marginSummary", {}).get("accountValue", 0.0))
+
     spot = info.spot_user_state(address)
+    balances = spot.get("balances", [])
     spot_usdc = 0.0
-    for bal in spot.get("balances", []):
+    usdc_hold = 0.0
+    for bal in balances:
         if bal.get("coin") == "USDC":
             spot_usdc = float(bal.get("total", 0.0))
+            usdc_hold = float(bal.get("hold", 0.0))
             break
-    return spot_usdc + account_value
+
+    hold_adjust = 0.0
+    abstraction = info.post("/info", {"type": "userAbstraction", "user": address})
+    if abstraction == "unifiedAccount":
+        hold_adjust = -usdc_hold
+
+    spot_coins = 0.0
+    if spot_basis == "all":
+        held = [(b.get("coin"), int(b.get("token", -1)), float(b.get("total", 0.0)))
+                for b in balances if b.get("coin") != "USDC" and float(b.get("total", 0.0)) > 0.0]
+        if held:
+            pairs = _usdc_pair_names(info.spot_meta())
+            mids = info.all_mids()
+            for coin, token, total in held:
+                pair = pairs.get(token)
+                mid = mids.get(pair) if pair is not None else None
+                if mid is None:
+                    raise ValueError(
+                        f"spot coin {coin} (token {token}) has no USDC pair/mid - cannot value equity"
+                    )
+                spot_coins += total * float(mid)
+
+    return {
+        "spot_usdc": spot_usdc,
+        "spot_hold_adjust": hold_adjust,
+        "spot_coins": spot_coins,
+        "perp_account_value": account_value,
+    }
+
+
+def get_full_account_equity(info, address: str, spot_basis: str | None = None) -> float:
+    """Sum of equity_breakdown() - the gridbot circuit breaker's one equity basis
+    (CLAUDE.md #1: current and peak always from this same function)."""
+    return sum(equity_breakdown(info, address, spot_basis).values())
