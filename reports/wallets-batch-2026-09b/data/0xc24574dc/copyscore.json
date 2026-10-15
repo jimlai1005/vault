@@ -1,0 +1,290 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": -9483.66481441201,
+    "net_stress": {
+      "i": -9498.519245485577,
+      "ii": -9843.275857804858,
+      "iii": -9858.112453861524
+    },
+    "r_miss": {
+      "open": -0.31100411803241934,
+      "reduce": -0.3107405009544666,
+      "worst": -0.31100411803241934
+    },
+    "r_normal": -0.31039810559048103,
+    "r_stress": {
+      "i": -0.3108842876050386,
+      "ii": -0.32216808995864715,
+      "iii": -0.3226536882373212,
+      "worst": -0.3226536882373212
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 262,
+    "lev_peak": null,
+    "mdd": 2.5367403363644776,
+    "score": 0.0,
+    "sub_scores": {
+      "dd_days": 0.0,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -2.5367403363644776,
+    "worst_week_frac": -2.9002402407419505
+  },
+  "D3": {
+    "S_conc": 0.755472310301463,
+    "S_mhit": 0.0,
+    "S_rob": 0.0,
+    "conc": 0.4333957672739027,
+    "dominant_coin": "ETH",
+    "m_hit": 0.0,
+    "n_open_w_episodes": 6,
+    "n_w_episodes": 517,
+    "regime_score": 0.0,
+    "rob": 0.0,
+    "score": 3.777361551507315
+  },
+  "D4": {
+    "R_b": 1.519342283838874,
+    "R_b_star": 0.6227523962599477,
+    "R_c": -2.9002402407419505,
+    "excess": -3.5229926370018982,
+    "score": 0.0,
+    "sigma_b": 0.37980111212536605,
+    "sigma_c": 0.15567397497860194
+  },
+  "D5": {
+    "S_cov": 0.9986569157036347,
+    "S_hist": 0.6498563113215489,
+    "S_price": 0.7939739413680782,
+    "coverage": 0.9993284578518173,
+    "fwd_score": 0.0,
+    "hist_days": 268.71048561342593,
+    "price_level_frac": 0.8175895765472313,
+    "retain_back": 0.0,
+    "retain_front": -2.1393336861383268,
+    "score": 3.0531089604915773
+  },
+  "E0": 3269.958357651731,
+  "E_min": 1000.0,
+  "L_peak": 38880.605586149344,
+  "addr": "0xc24574dcff0ad0a205042f91d2bd3ec04fa6583c",
+  "addr10": "0xc24574dc",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 19/43 coins (95% cum-notional rule was larger); remaining 24 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "12 coin(s) not in HL's current perp/spot universe (delisted/renamed identifier \u2014 candleSnapshot returns HTTP 500 for these, verified, not a transient issue): ['#1880', '#2120', '#8551', 'flx:XMR', 'xyz:AAPL', 'xyz:CL', 'xyz:COPPER', 'xyz:HOOD', 'xyz:META', 'xyz:MU'].... Skipped entirely (T1/T2/HL-1h/HL-1d); no MTM price / always T3_missing for these coins.",
+    "CASHCAT: in T2 scope but no Binance USDT-perp symbol found; falls back to T1/T3",
+    "TON: in T2 scope but no Binance USDT-perp symbol found; falls back to T1/T3",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 3/269 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2025-12-29 (first fill) to 2026-01-01 (first day L_t >= E_min, $1,000.00); 56 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "EIGEN: no T1/T2/T3 price data at t=1767290709545; M forced to 1.0 (T3_missing)",
+    "EIGEN: no T1/T2/T3 price data at t=1767573360991; M forced to 1.0 (T3_missing)",
+    "EIGEN: no T1/T2/T3 price data at t=1767575399962; M forced to 1.0 (T3_missing)",
+    "EIGEN: no T1/T2/T3 price data at t=1767576307244; M forced to 1.0 (T3_missing)",
+    "STOP-OUT on 2026-01-05: C_t=<=0, leverage=undefined (C_t<=0) (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $0.00, no further events followed (plan v0.5 \u00a71.4b).",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.",
+    "D2/gate denominators (peak/day-equity C_t) floored at 1% of E0 on at least one day to avoid divide-by-zero"
+  ],
+  "coins": [
+    "#1880",
+    "#2120",
+    "#8551",
+    "ARB",
+    "ASTER",
+    "BTC",
+    "CASHCAT",
+    "CRV",
+    "DOGE",
+    "EIGEN",
+    "ENA",
+    "ETH",
+    "ETHFI",
+    "FARTCOIN",
+    "HYPE",
+    "LINK",
+    "LIT",
+    "LTC",
+    "MON",
+    "NEAR",
+    "PONS",
+    "PUMP",
+    "RENDER",
+    "RUNE",
+    "SOL",
+    "TAO",
+    "TON",
+    "VVV",
+    "WLD",
+    "XLM",
+    "XMR",
+    "XPL",
+    "XRP",
+    "ZEC",
+    "flx:XMR",
+    "xyz:AAPL",
+    "xyz:CL",
+    "xyz:COPPER",
+    "xyz:HOOD",
+    "xyz:META",
+    "xyz:MU",
+    "xyz:SILVER",
+    "xyz:SKHY"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": -9858.112453861524,
+      "pass": false,
+      "worst_stress_scenario": "iii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": null,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -2.5367403363644776
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -10210.609685041862,
+      "net_before": -9483.66481441201,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": 30553.230330999948
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 251,
+      "T3_missing": 56
+    },
+    "b_i": {
+      "T2": 251,
+      "T3_missing": 56
+    },
+    "b_ii": {
+      "T2": 251,
+      "T3_missing": 56
+    },
+    "b_iii": {
+      "T2": 251,
+      "T3_missing": 56
+    }
+  },
+  "monthly": {
+    "2026-01": {
+      "copier_net_normal": -9483.66481441201,
+      "leader_net": 1374.7012709998808
+    },
+    "2026-02": {
+      "copier_net_normal": 0.0,
+      "leader_net": 382.68568000000005
+    },
+    "2026-03": {
+      "copier_net_normal": 0.0,
+      "leader_net": 586.0907449999969
+    },
+    "2026-04": {
+      "copier_net_normal": 0.0,
+      "leader_net": 6593.786665999969
+    },
+    "2026-05": {
+      "copier_net_normal": 0.0,
+      "leader_net": -4975.142772000028
+    },
+    "2026-06": {
+      "copier_net_normal": 0.0,
+      "leader_net": -3104.52666099996
+    },
+    "2026-07": {
+      "copier_net_normal": 0.0,
+      "leader_net": 2155.4596910000027
+    },
+    "2026-08": {
+      "copier_net_normal": 0.0,
+      "leader_net": 9088.057368306216
+    },
+    "2026-09": {
+      "copier_net_normal": 0.0,
+      "leader_net": 18452.118342693873
+    }
+  },
+  "n_events_W": 12941,
+  "n_twap_merged": 0,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "sample": {
+    "E0": 3269.958357651731,
+    "leader_net": 30553.230330999948,
+    "perp_events": 12941,
+    "sufficient": true
+  },
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": "2026-01-05",
+  "stopout_leverage": null,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": "2026-01-05",
+    "ii": "2026-01-05",
+    "iii": "2026-01-05"
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "ARB",
+    "BTC",
+    "CASHCAT",
+    "DOGE",
+    "ETH",
+    "FARTCOIN",
+    "HYPE",
+    "LIT",
+    "LTC",
+    "NEAR",
+    "PUMP",
+    "TAO",
+    "TON",
+    "XMR",
+    "XPL",
+    "ZEC",
+    "xyz:COPPER",
+    "xyz:META",
+    "xyz:SILVER"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 7,
+  "unscorable": false,
+  "window": {
+    "days": 266,
+    "end": "2026-09-23",
+    "end_ms": 1790208000000,
+    "start": "2026-01-01",
+    "start_ms": 1767225600000
+  },
+  "window_raw": {
+    "end": "2026-09-23",
+    "start": "2025-12-29"
+  }
+}

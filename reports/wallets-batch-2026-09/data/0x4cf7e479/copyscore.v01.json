@@ -1,0 +1,205 @@
+{
+  "D1": {
+    "S_c": 1.0,
+    "S_rn": 0.9980768710755652,
+    "S_rs": 0.9973912775720705,
+    "c": -4.5836594166690864e-05,
+    "copier_net_normal": 406585.54810664826,
+    "copier_net_stress": 406306.25858649705,
+    "miss_loss_normal": -18.672406207071617,
+    "miss_loss_stress": -373.58943109284155,
+    "r_n": 0.9980768710755652,
+    "r_s": 0.9973912775720705,
+    "score": 34.93438839408026
+  },
+  "D2": {
+    "dd_days": 330,
+    "lev_peak": 3.6720144062353466,
+    "mdd": 1.5944031046331812,
+    "score": 1.9919783906469801,
+    "sub_scores": {
+      "dd_days": 0.0,
+      "lev_peak": 0.33199639844116335,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -1.4363828312136064,
+    "worst_week_frac": -1.4732577124707449
+  },
+  "D3": {
+    "S_conc": 1.0,
+    "S_mhit": 0.0,
+    "S_rob": 0.5902736480530982,
+    "conc": 0.0010762654596732913,
+    "dominant_coin": "ZEC",
+    "m_hit": 0.15384615384615385,
+    "n_w_episodes": 8,
+    "regime_score": 0.0,
+    "rob": 0.2951368240265491,
+    "score": 7.951368240265491
+  },
+  "D4": {
+    "R_b": 20.523643517643972,
+    "R_b_star": 18.45527760041438,
+    "R_c": 7.05738809547399,
+    "excess": -11.397889504940391,
+    "score": 0.0,
+    "sigma_b": 0.24450875828792556,
+    "sigma_c": 0.21986724755070686
+  },
+  "D5": {
+    "S_cov": 0.9916886321012339,
+    "S_hist": 1.0,
+    "S_price": 1.0,
+    "coverage": 0.995844316050617,
+    "fwd_score": 0.0,
+    "hist_days": 566.2133737037037,
+    "price_level_frac": 1.0,
+    "retain_back": 0.9986778635848849,
+    "retain_front": 0.0,
+    "score": 3.7396107901265423
+  },
+  "E0": 57611.334761,
+  "addr": "0x4cf7e47900fcd74f1066e98a37ddcea87616552e",
+  "addr10": "0x4cf7e479",
+  "assumptions": [
+    "leader position at W0 verified flat (<1e-6 dust on all coins); simulation starts both books at 0",
+    "D1's 'c' (miss+catch-up cost) uses the normal-scenario miss-vs-no-miss diff, per \u00a76 \u672a\u6c7a2 (plan does not pin which scenario); stress-scenario diff is also computed and reported for transparency",
+    "'regime' dominant coin = ZEC (largest W notional traded by leader); monthly return computed over the W-visible portion of each calendar month (partial edge months included as-is)",
+    "D3 'conc' uses episodes_rows.json (CLOSED episodes only, overlapping W by t0<W1 and t1>=W0) as max-single-episode numerator; if the wallet's largest realized gain sits inside a still-open episode not yet present in episodes_rows.json, conc UNDERSTATES true concentration \u2014 see data limits. 'rob' (same section, computed directly on the daily fills-based net series) does capture such gains and is the primary check for concentration in this pilot.",
+    "D4 benchmark uses same-day (not lagged) exposure x same-day coin return for both the R_b level and the sigma_b series \u2014 a simplification; no look-ahead adjustment was applied since this is a risk-scaling proxy, not a tradable strategy",
+    "D5 'price level' and copyscore.txt's T1/T2/T3 \u5360\u6bd4 both report the normal+miss run only (the primary copier scenario); the other 3 runs' level breakdowns are stored in JSON but not separately scored",
+    "D5 forward-split cut at 75% of W by time (not by event count); 'sign(copier_back)!=sign(copier_front)' checked on copier net, 'retention' computed as copier_net/leader_net per segment (leader_net<=0 -> retention 0, mirroring D1's r_n convention)"
+  ],
+  "coins": [
+    "BTC",
+    "ETH",
+    "HYPE",
+    "ZEC"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528\u4ee3\u74061m(Binance)\u6216HL 1h\u6a21\u578b\u4f30\u7b97\uff0cHL/Binance 1m\u6ce2\u5e45\u4fdd\u771f0.7-0.9 -> \u5ef6\u9072\u6210\u672c\u504f\u6a02\u89c0\u3002",
+    "funding\u7528\u9818\u55ae\u8005\u7684\u5217\uff0c\u4e14\u53ea\u6709\u524d500\u7b46 -> \u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb\u662f\u4e0b\u754c\uff08\u672c\u6b21\u6293\u53d6488\u7b46\uff0c\u672a\u9054500\u4e0a\u9650\uff0cW\u7a97\u53e3\u5167\u61c9\u5b8c\u6574\uff0c\u4f46\u65b9\u6cd5\u8ad6\u4e0a\u4ecd\u662f\u4e0b\u754c\uff09\u3002",
+    "\u6f0f\u55ae\u662f\u6a5f\u7387\u6a21\u578b\uff08\u56fa\u5b9a\u7a2e\u5b50\uff09\uff0c\u4e0d\u662f\u771f\u5be6\u4e0b\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662fin-sample\u5207\u5206\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u3002"
+  ],
+  "gate": {
+    "G1": {
+      "copier_net_stress": 406306.25858649705,
+      "pass": true
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 3.6720144062353466,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -1.4363828312136064
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": 119998.36736328987,
+      "net_before": 406585.54810664826,
+      "pass": true
+    },
+    "overall_pass": false
+  },
+  "generated_now_ms": 1790121600000,
+  "leader": {
+    "net_total": 407368.9711579995,
+    "net_total_from_fill_closedpnl_fee_only": 79476.38805100003
+  },
+  "level_counts": {
+    "normal_miss": {
+      "T1": 109,
+      "T2": 414
+    },
+    "normal_nomiss": {
+      "T1": 109,
+      "T2": 427
+    },
+    "stress_miss": {
+      "T1": 105,
+      "T2": 384
+    },
+    "stress_nomiss": {
+      "T1": 109,
+      "T2": 427
+    }
+  },
+  "monthly": {
+    "2025-09": {
+      "copier_net_normal": -618.9194014928441,
+      "leader_net": -527.5180239999947
+    },
+    "2025-10": {
+      "copier_net_normal": 0.0,
+      "leader_net": 0.0
+    },
+    "2025-11": {
+      "copier_net_normal": 0.0,
+      "leader_net": 0.0
+    },
+    "2025-12": {
+      "copier_net_normal": 0.0,
+      "leader_net": 0.0
+    },
+    "2026-01": {
+      "copier_net_normal": 0.0,
+      "leader_net": 0.0
+    },
+    "2026-02": {
+      "copier_net_normal": 0.0,
+      "leader_net": 0.0
+    },
+    "2026-03": {
+      "copier_net_normal": -2220.5166123627782,
+      "leader_net": -2124.381885000004
+    },
+    "2026-04": {
+      "copier_net_normal": 0.0,
+      "leader_net": 0.0
+    },
+    "2026-05": {
+      "copier_net_normal": -1507.8620272080018,
+      "leader_net": -1485.6596530000031
+    },
+    "2026-06": {
+      "copier_net_normal": -2343.6104513786386,
+      "leader_net": -2317.057114000002
+    },
+    "2026-07": {
+      "copier_net_normal": 0.0,
+      "leader_net": 0.0
+    },
+    "2026-08": {
+      "copier_net_normal": 76553.14942793526,
+      "leader_net": 76794.89961499981
+    },
+    "2026-09": {
+      "copier_net_normal": 336723.30717115535,
+      "leader_net": 337028.68821899977
+    }
+  },
+  "n_events_W": 536,
+  "n_twap_merged": 0,
+  "scenarios": {
+    "normal": {
+      "delta_s": 60,
+      "p_miss": 0.02,
+      "slip_bps": 5
+    },
+    "stress": {
+      "delta_s": 300,
+      "p_miss": 0.1,
+      "slip_bps": 15
+    }
+  },
+  "seed": 20260924,
+  "total": 49,
+  "window": {
+    "end": "2026-09-21",
+    "end_ms": 1789948800000,
+    "start": "2025-09-21",
+    "start_ms": 1758412800000
+  }
+}

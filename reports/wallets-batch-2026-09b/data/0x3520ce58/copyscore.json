@@ -1,0 +1,237 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": 22555.2685877107,
+    "net_stress": {
+      "i": 22548.718096988556,
+      "ii": 22127.074474551482,
+      "iii": 22120.690790980247
+    },
+    "r_miss": {
+      "open": 0.18846486722637534,
+      "reduce": 0.18847620706520052,
+      "worst": 0.18846486722637534
+    },
+    "r_normal": 0.1884894465753897,
+    "r_stress": {
+      "i": 0.18843470555706787,
+      "ii": 0.18491112202109042,
+      "iii": 0.1848577749736467,
+      "worst": 0.1848577749736467
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 10,
+    "lev_peak": 12.650297360954404,
+    "mdd": 0.4630977634769538,
+    "score": 6.0,
+    "sub_scores": {
+      "dd_days": 1.0,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -0.3827499879943892,
+    "worst_week_frac": -0.429638401968254
+  },
+  "D3": {
+    "S_conc": 0.0,
+    "S_mhit": 1.0,
+    "S_rob": 0.49030431430798105,
+    "conc": 1.0285875966981162,
+    "dominant_coin": "ZEC",
+    "m_hit": 1.0,
+    "n_open_w_episodes": 2,
+    "n_w_episodes": 30,
+    "regime_score": 0.5,
+    "rob": 0.24515215715399052,
+    "score": 9.951521571539905
+  },
+  "D4": {
+    "R_b": 5.092479918936173,
+    "R_b_star": 7.8500013546014635,
+    "R_c": 14.446604688341091,
+    "excess": 6.596603333739628,
+    "score": 10.0,
+    "sigma_b": 0.24162072595102993,
+    "sigma_c": 0.3724556711480567
+  },
+  "D5": {
+    "S_cov": 0.9295221556334052,
+    "S_hist": 0.0,
+    "S_price": 0.9739847715736041,
+    "coverage": 0.9647610778167026,
+    "fwd_score": 1.0,
+    "hist_days": 39.96110065972222,
+    "price_level_frac": 0.8895939086294417,
+    "retain_back": 0.18895706093653145,
+    "retain_front": 0.18781833460561154,
+    "score": 3.629383659008761
+  },
+  "E0": 1561.2850960000019,
+  "E_min": 1411.8983868834753,
+  "L_peak": 141189.83868834752,
+  "addr": "0x3520ce58ea023ea1f5f9dafa7674a6e3bd5eb21d",
+  "addr10": "0x3520ce58",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 13/18 coins (95% cum-notional rule was larger); remaining 5 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "3 coin(s) not in HL's current perp/spot universe (delisted/renamed identifier \u2014 candleSnapshot returns HTTP 500 for these, verified, not a transient issue): ['xyz:GOLD', 'xyz:HOOD', 'xyz:LLY']. Skipped entirely (T1/T2/HL-1h/HL-1d); no MTM price / always T3_missing for these coins.",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 7/41 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2026-08-13 (first fill) to 2026-08-19 (first day L_t >= E_min, $1,411.90); 34 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "xyz:HOOD: no T1/T2/T3 price data at t=1788511437183; M forced to 1.0 (T3_missing)",
+    "xyz:HOOD: no T1/T2/T3 price data at t=1788511653087; M forced to 1.0 (T3_missing)",
+    "xyz:HOOD: no T1/T2/T3 price data at t=1788565728241; M forced to 1.0 (T3_missing)",
+    "xyz:GOLD: no T1/T2/T3 price data at t=1787159004844; M forced to 1.0 (T3_missing)",
+    "xyz:GOLD: no T1/T2/T3 price data at t=1787213584271; M forced to 1.0 (T3_missing)",
+    "xyz:HOOD: no T1/T2/T3 price data at t=1788402628779; M forced to 1.0 (T3_missing)",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs."
+  ],
+  "coins": [
+    "EIGEN",
+    "ENA",
+    "ETHFI",
+    "GRASS",
+    "HYPE",
+    "LDO",
+    "LIT",
+    "MORPHO",
+    "NEAR",
+    "PENDLE",
+    "PUMP",
+    "TAO",
+    "UNI",
+    "ZEC",
+    "ZRO",
+    "xyz:GOLD",
+    "xyz:HOOD",
+    "xyz:LLY"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": 22120.690790980247,
+      "pass": true,
+      "worst_stress_scenario": "iii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 12.650297360954404,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -0.3827499879943892
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": 5529.47274946492,
+      "net_before": 22555.2685877107,
+      "pass": true
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": 119663.29679200007
+  },
+  "level_counts": {
+    "a_normal": {
+      "T1": 32,
+      "T2": 669,
+      "T3": 84,
+      "T3_missing": 3
+    },
+    "b_i": {
+      "T1": 26,
+      "T2": 666,
+      "T3": 84,
+      "T3_missing": 12
+    },
+    "b_ii": {
+      "T1": 32,
+      "T2": 669,
+      "T3": 84,
+      "T3_missing": 3
+    },
+    "b_iii": {
+      "T1": 26,
+      "T2": 666,
+      "T3": 84,
+      "T3_missing": 12
+    }
+  },
+  "monthly": {
+    "2026-08": {
+      "copier_net_normal": 1711.2485970969115,
+      "leader_net": 5834.140301000076
+    },
+    "2026-09": {
+      "copier_net_normal": 20844.01999061379,
+      "leader_net": 113829.156491
+    }
+  },
+  "n_events_W": 788,
+  "n_twap_merged": 0,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "sample": {
+    "E0": 1561.2850960000019,
+    "leader_net": 119663.29679200007,
+    "perp_events": 788,
+    "sufficient": true
+  },
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": null,
+  "stopout_leverage": null,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": null,
+    "ii": null,
+    "iii": null
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "EIGEN",
+    "ENA",
+    "ETHFI",
+    "HYPE",
+    "LIT",
+    "NEAR",
+    "PUMP",
+    "TAO",
+    "UNI",
+    "ZEC",
+    "ZRO",
+    "xyz:GOLD",
+    "xyz:HOOD"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 30,
+  "unscorable": false,
+  "window": {
+    "days": 35,
+    "end": "2026-09-22",
+    "end_ms": 1790121600000,
+    "start": "2026-08-19",
+    "start_ms": 1787097600000
+  },
+  "window_raw": {
+    "end": "2026-09-22",
+    "start": "2026-08-13"
+  }
+}

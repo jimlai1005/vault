@@ -1,0 +1,116 @@
+====================================================================================================
+WALLET 0x931a42a2386205e8169b2f1cb4a74b077e1cda49  (0x931a42a2)   analysis generated 2026-09-24 01:23 UTC
+====================================================================================================
+
+[A] ACCOUNT ------------------------------------------------------------------
+  userAbstraction=unifiedAccount
+  (no perp dex with value)
+  spot: USDC: total=200518 hold=0 free_usd=200,518 | USDE: total=0 hold=0 free_usd=0 | USDT0: total=0 hold=0 free_usd=0 | USDH: total=0 hold=0 free_usd=0
+  staked HYPE=0 ($0)   vault equity=$0
+  EQUITY BASIS: spot_free 200,537 + perp_av 0 + staked 0 + vault 0 = 200,537   vs venue portfolio 200,537   drift -0 (-0.0%)
+  ledger rows: {'send': 2}
+  ledger $ by type: send=200,029
+  net external flow = deposits 0 - withdrawals 0 = 0
+  venue equity curve: 2026-09-23 $0 -> 2026-09-23 $200,537 | allTime pnl=567 vlm=546,642
+  venue equity peak $200,538 on 2026-09-23; min after peak $0 (drawdown from peak -100.0%)
+
+  -- current positions (all dexes):
+
+  -- open orders: 0
+
+[B] MECHANISM ----------------------------------------------------------------
+  fills=50 (perp 49 / spot 1) 2026-09-23 01:04:19..2026-09-23 02:54:01
+  episodes: total=1 usable=1 (dropped data-gap starts 0) ends={'flat': 1} still-open=[]
+  coins traded=2
+  top coins by notional: xyz:SKHX(100%,net 568), @107(0%,net -0)
+  top coins by |net pnl|: xyz:SKHX(568), @107(-0)
+  HIP-3 share of notional=100%  spot share=0%
+  spot pairs used: @107=HYPE/USDC
+  entry fills: n=38 taker=74%   exit fills: n=11 taker=91%
+  liquidation fills=0 in 0 episodes
+  TWAP slice fills=0 (0% of all fills; 0 merged from the TWAP endpoint, which userFillsByTime omits)  distinct oids=4  fills/oid=12.50
+
+  -- entry/exit shape (medians). 'depth' = how far the entry ladder walked against the first entry:
+   all episodes                      : n=   1 | entry: fills p50= 38 oids p50=  2 span p50=   31bps maker p50= 26% build p50=  2.4m depth p50=  -29bps | exit: fills p50= 11 maker p50=  9% unwind p50=    0s | ntl p50=   546,594 net p50=      568
+   episodes with >=5 entry fills     : n=   1 | entry: fills p50= 38 oids p50=  2 span p50=   31bps maker p50= 26% build p50=  2.4m depth p50=  -29bps | exit: fills p50= 11 maker p50=  9% unwind p50=    0s | ntl p50=   546,594 net p50=      568
+   winners                           : n=   1 | entry: fills p50= 38 oids p50=  2 span p50=   31bps maker p50= 26% build p50=  2.4m depth p50=  -29bps | exit: fills p50= 11 maker p50=  9% unwind p50=    0s | ntl p50=   546,594 net p50=      568
+   losers                            : none
+   large (peak notional >= 100k)     : n=   1 | entry: fills p50= 38 oids p50=  2 span p50=   31bps maker p50= 26% build p50=  2.4m depth p50=  -29bps | exit: fills p50= 11 maker p50=  9% unwind p50=    0s | ntl p50=   546,594 net p50=      568
+  averaging-in: 1/1 episodes have >1 entry fill; median share of entries at a worse price than the first = 46%
+  -- 10 deepest entry ladders (walked furthest against the first entry):
+     2026-09-23 02:08   xyz:SKHX L depth=   -29bps span=   31bps entries=  38 maker=26% hold=  45.6m peak_ntl=    272,600 net=       568 exit_maker=9%
+  -- 10 worst episodes: how were they exited? (stop-loss evidence)
+     2026-09-23 02:08->2026-09-23 02:54   xyz:SKHX L net=       568 hold=  45.6m peak_ntl=    272,600 entries=  38 depth=   -29bps exits= 11 exit_maker=9% unwind=    0s liq_fills=0
+  -- 10 best episodes:
+     2026-09-23 02:08->2026-09-23 02:54   xyz:SKHX L net=       568 hold=  45.6m peak_ntl=    272,600 entries=  38 depth=   -29bps exits= 11 entry_maker=26% exit_maker=9%
+
+  position sizing: peak notional p25=272,600 p50=272,600 p75=272,600 p90=272,600 max=272,600  (vs current equity 200,537 -> p50 1.36x, max 1.36x)
+  current gross exposure=0 = 0.00x equity  (long 0 / short 0)
+  entries by UTC hour (n/net): 02:1/568
+  entries by weekday: {'Wed': 1}
+
+  -- monthly cadence (realized net of fees; taker share):
+     2026-09  fills=    50 taker= 78% coins=  2 ntl=       546,643 net=         568
+
+[C] BIG DAYS -----------------------------------------------------------------
+  active days=1 span=2026-09-23..2026-09-23
+   |daily realized net| >= $5,000: 0 days
+   |daily realized net| >= $10,000: 0 days
+   |daily realized net| >= $20,000: 0 days
+   |daily realized net| >= $10,027 (=5% of equity): 0 days
+
+  -- top 0 days by |realized net| (threshold $4,011); market ctx = that day's 1d candle of the dominant coin:
+     date                net  fills  taker       notional  dominant coins (net)   | market: coin day% range%
+
+  -- what the account did on the 8 biggest days (episodes overlapping the day):
+
+  -- daily trajectory of the 4 coins that dominate PnL: ['xyz:SKHX', '@107']
+   [xyz:SKHX] 1 active days, total net=568
+     2026-09-23 eod_pos=             0 buy=         200 sell=         200 fills=   49 net=        568 cum=         568 | -4.6% rng 5.8%
+   [@107] 1 active days, total net=-0
+     2026-09-23 eod_pos=           0.5 buy=         0.5 sell=           0 fills=    1 net=         -0 cum=          -0 | -
+
+[D] HOLD TIME ----------------------------------------------------------------
+   all episodes                          : n=   1 p10=  45.6m p25=  45.6m p50=  45.6m p75=  45.6m p90=  45.6m max=  45.6m | ntl-weighted p50=  45.6m
+                                           buckets={'<1h': 1}
+                                           win=100% avgWin=568 avgLoss=0 hold(win) p50=  45.6m hold(loss) p50=      -
+   long only                             : n=   1 p10=  45.6m p25=  45.6m p50=  45.6m p75=  45.6m p90=  45.6m max=  45.6m | ntl-weighted p50=  45.6m
+                                           buckets={'<1h': 1}
+                                           win=100% avgWin=568 avgLoss=0 hold(win) p50=  45.6m hold(loss) p50=      -
+   short only                            : none
+   winners                               : n=   1 p10=  45.6m p25=  45.6m p50=  45.6m p75=  45.6m p90=  45.6m max=  45.6m | ntl-weighted p50=  45.6m
+                                           buckets={'<1h': 1}
+                                           win=100% avgWin=568 avgLoss=0 hold(win) p50=  45.6m hold(loss) p50=      -
+   losers                                : none
+   large (peak notional >= 100k)         : n=   1 p10=  45.6m p25=  45.6m p50=  45.6m p75=  45.6m p90=  45.6m max=  45.6m | ntl-weighted p50=  45.6m
+                                           buckets={'<1h': 1}
+                                           win=100% avgWin=568 avgLoss=0 hold(win) p50=  45.6m hold(loss) p50=      -
+   era 1: 2026-09-23..2026-09-23         : none
+   era 2: 2026-09-23..2026-09-23         : none
+   era 3: 2026-09-23..2026-09-23         : n=   1 p10=  45.6m p25=  45.6m p50=  45.6m p75=  45.6m p90=  45.6m max=  45.6m | ntl-weighted p50=  45.6m
+                                           buckets={'<1h': 1}
+                                           win=100% avgWin=568 avgLoss=0 hold(win) p50=  45.6m hold(loss) p50=      -
+   era 4: 2026-09-23..2026-09-23         : none
+
+   -- era summary (fills, taker, realized net, fee bps):
+     2026-09-23..2026-09-23: fills=     1 days=  1 taker=100% ntl=            49 net=          -0 fee_bps= 7.00
+     2026-09-23..2026-09-23: fills=    38 days=  1 taker= 74% ntl=       272,994 net=         -17 fee_bps= 0.61
+     2026-09-23..2026-09-23: fills=    10 days=  1 taker=100% ntl=       227,236 net=         483 fee_bps= 0.90
+
+[E] DATA LIMITS --------------------------------------------------------------
+  fills returned=50 (HL returns at most the 10000 most recent per page; pagination with tid dedup used)
+  first ledger row=2026-09-23 01:03:35 vs first fill=2026-09-23 01:04:19 -> fills appear to cover the account life
+  venue equity curve starts 2026-09-23; fills start 2026-09-23
+  funding rows=0 covering -.. (userFunding startTime=0 returns only the first 500 rows — totals below are a LOWER bound)
+  realized closedPnl=606 fees=39 funding=0
+  spot sells: closedPnl is accounting vs historical average cost (cost basis may predate the window) — not a same-day market PnL
+  daily PnL is realized only, cut on UTC; the venue portfolio curve includes unrealized
+
+  -- position reconstruction vs exchange (every coin must be OK):
+     -> 0 real DRIFT, 0 stale/settled.  OK: position reconstruction matches the exchange.
+
+  -- transfer counterparties (ledger 'send' rows; who funds this wallet / where money goes):
+     0x6b9e773128f453f5c2c60935ee2de2cbc5390a24  in   1 rows $     200,000 | out   0 rows $           0 | 2026-09-23..2026-09-23
+     0x2222222222222222222222222222222222222222  in   0 rows $           0 | out   1 rows $          29 | 2026-09-23..2026-09-23
+
+[done]

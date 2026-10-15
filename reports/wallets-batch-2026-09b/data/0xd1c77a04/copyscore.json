@@ -1,0 +1,201 @@
+{
+  "D1": {
+    "a": 5.0,
+    "b": 0.0,
+    "c": 10.0,
+    "net_normal": 1313495.082876538,
+    "net_stress": {
+      "i": 1314273.6418883232,
+      "ii": -17430.37812238445,
+      "iii": -17384.998421818847
+    },
+    "r_miss": {
+      "open": 9.076344968047893,
+      "reduce": 9.073549718677993,
+      "worst": 9.073549718677993
+    },
+    "r_normal": 9.088295212343029,
+    "r_stress": {
+      "i": 9.093682194168524,
+      "ii": -0.12060374195849596,
+      "iii": -0.12028975211508923,
+      "worst": -0.12060374195849596
+    },
+    "score": 15.0
+  },
+  "D2": {
+    "dd_days": 23,
+    "lev_peak": 41.738470943851674,
+    "mdd": 0.7081835765035498,
+    "score": 6.0,
+    "sub_scores": {
+      "dd_days": 1.0,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -0.4432426884505134,
+    "worst_week_frac": -0.5311638851511513
+  },
+  "D3": {
+    "S_conc": 0.0,
+    "S_mhit": 1.0,
+    "S_rob": 0.1959798944341648,
+    "conc": 1.0204969294384707,
+    "dominant_coin": "BTC",
+    "m_hit": 1.0,
+    "n_open_w_episodes": 1,
+    "n_w_episodes": 8,
+    "regime_score": 0.5,
+    "rob": 0.0979899472170824,
+    "score": 8.479899472170825
+  },
+  "D4": {
+    "R_b": 0.5051276976024209,
+    "R_b_star": 0.9147129630092964,
+    "R_c": 47.82364526655273,
+    "excess": 46.90893230354344,
+    "score": 10.0,
+    "sigma_b": 0.31996495499127553,
+    "sigma_c": 0.5794101044713789
+  },
+  "D5": {
+    "S_cov": 0.9729529837458641,
+    "S_hist": 0.0,
+    "S_price": 1.0,
+    "coverage": 0.9864764918729321,
+    "fwd_score": 1.0,
+    "hist_days": 48.06903768518519,
+    "price_level_frac": 1.0,
+    "retain_back": 7.800946079936461,
+    "retain_front": 0.0,
+    "score": 3.7161912296823303
+  },
+  "E0": 27465.39030129475,
+  "E_min": 1777.8504967262093,
+  "L_peak": 177785.04967262092,
+  "addr": "0xd1c77a04b87393e98a1220532e72e8f7d0a31c5a",
+  "addr10": "0xd1c77a04",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 4/4 coins (top-12 rule was larger); remaining 0 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 7/49 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2026-08-06 (first fill) to 2026-08-14 (first day L_t >= E_min, $1,777.85); 212 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "L_t (leader daily equity) was below E_min ($1,777.85) on 27/41 day(s) of the scored window; the max(L_t, E_min) floor (plan v0.4 \u00a70/\u00a71.2) capped the sizing ratio there (peak ratio observed: 63.51x).",
+    "L_t (leader daily equity) was below E_min ($1,777.85) on 27/41 day(s) of the scored window; the max(L_t, E_min) floor (plan v0.4 \u00a70/\u00a71.2) capped the sizing ratio there (peak ratio observed: 63.58x).",
+    "STOP-OUT on 2026-09-15: C_t=10,035.01, leverage=78.18x (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $10,035.01, no further events followed (plan v0.5 \u00a71.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.",
+    "STOP-OUT on 2026-09-15: C_t=10,080.39, leverage=77.81x (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $10,080.39, no further events followed (plan v0.5 \u00a71.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs."
+  ],
+  "coins": [
+    "BTC",
+    "FARTCOIN",
+    "SUSHI",
+    "TRUMP"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": -17430.37812238445,
+      "pass": false,
+      "worst_stress_scenario": "ii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 41.738470943851674,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -0.4432426884505134
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": 128709.31384096923,
+      "net_before": 1313495.082876538,
+      "pass": true
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": 144526.01419600117
+  },
+  "level_counts": {
+    "a_normal": {
+      "T1": 772,
+      "T2": 1378
+    },
+    "b_i": {
+      "T1": 428,
+      "T2": 1722
+    },
+    "b_ii": {
+      "T2": 1087
+    },
+    "b_iii": {
+      "T2": 1087
+    }
+  },
+  "monthly": {
+    "2026-08": {
+      "copier_net_normal": 68667.69458244408,
+      "leader_net": -21012.02443899937
+    },
+    "2026-09": {
+      "copier_net_normal": 1244827.3882940938,
+      "leader_net": 165538.03863500053
+    }
+  },
+  "n_events_W": 2150,
+  "n_twap_merged": 0,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "sample": {
+    "E0": 27465.39030129475,
+    "leader_net": 144526.01419600117,
+    "perp_events": 2150,
+    "sufficient": true
+  },
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": null,
+  "stopout_leverage": null,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": null,
+    "ii": "2026-09-15",
+    "iii": "2026-09-15"
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "BTC",
+    "FARTCOIN",
+    "SUSHI",
+    "TRUMP"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 43,
+  "unscorable": false,
+  "window": {
+    "days": 41,
+    "end": "2026-09-23",
+    "end_ms": 1790208000000,
+    "start": "2026-08-14",
+    "start_ms": 1786665600000
+  },
+  "window_raw": {
+    "end": "2026-09-23",
+    "start": "2026-08-06"
+  }
+}

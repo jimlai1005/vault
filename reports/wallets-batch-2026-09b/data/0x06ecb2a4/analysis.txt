@@ -1,0 +1,182 @@
+====================================================================================================
+WALLET 0x06ecb2a427c3d51a66c29d9b4fb1960107d10b19  (0x06ecb2a4)   analysis generated 2026-09-24 02:28 UTC
+====================================================================================================
+
+[A] ACCOUNT ------------------------------------------------------------------
+  userAbstraction=unifiedAccount
+  (no perp dex with value)
+  spot: USDC: total=1 hold=0 free_usd=1 | USDE: total=0 hold=0 free_usd=0 | USDT0: total=0 hold=0 free_usd=0 | USDH: total=0 hold=0 free_usd=0
+  staked HYPE=0 ($0)   vault equity=$0
+  EQUITY BASIS: spot_free 1 + perp_av 0 + staked 0 + vault 0 = 1   vs venue portfolio 245,790   drift -245,788 (-100.0%)
+  ledger rows: {'spotTransfer': 1298, 'accountClassTransfer': 1, 'withdraw': 576}
+  ledger $ by type: accountClassTransfer=36,090, spotTransfer=17,558,586, withdraw=19,537,410
+  net external flow = deposits 0 - withdrawals 19,537,410 = -19,537,410
+  venue equity curve: 2026-08-05 $0 -> 2026-09-23 $245,790 | allTime pnl=2,226,300 vlm=19,544,624
+  venue equity peak $254,755 on 2026-09-21; min after peak $361 (drawdown from peak -99.9%)
+
+  -- current positions (all dexes):
+
+  -- open orders: 1
+           @708 n=  1 sides={'A': 1} px 55.614..55.614 (span 0bps, median step 0bps) ntl=247,139 mid=30.676 dist_near=+8129bps dist_far=+8129bps types={('Limit', 'Alo', False): 1}
+
+[B] MECHANISM ----------------------------------------------------------------
+  fills=1362 (perp 0 / spot 1362) 2026-08-01 23:27:21..2026-09-23 18:45:37
+  episodes: total=0 usable=0 (dropped data-gap starts 0) ends={} still-open=[]
+  coins traded=1
+  top coins by notional: @708(100%,net 2,238,301)
+  top coins by |net pnl|: @708(2,238,301)
+  HIP-3 share of notional=0%  spot share=100%
+  spot pairs used: @708=FXMR/USDC
+  entry fills: n=0 taker=0%   exit fills: n=0 taker=0%   (no closed perp episodes — spot-only or a single still-open position)
+  liquidation fills=0 in 0 episodes
+  TWAP slice fills=0 (0% of all fills; 0 merged from the TWAP endpoint, which userFillsByTime omits)  distinct oids=1311  fills/oid=1.04
+
+  -- entry/exit shape (medians). 'depth' = how far the entry ladder walked against the first entry:
+   all episodes                      : none
+   episodes with >=5 entry fills     : none
+   winners                           : none
+   losers                            : none
+   large (peak notional >= 100k)     : none
+  current gross exposure=0 = 0.00x equity  (long 0 / short 0)
+  entries by UTC hour (n/net): 
+  entries by weekday: {}
+
+  -- monthly cadence (realized net of fees; taker share):
+     2026-08  fills=  1010 taker=  0% coins=  1 ntl=    14,126,535 net=   1,915,422
+     2026-09  fills=   352 taker=  0% coins=  1 ntl=     5,418,096 net=     322,879
+
+[C] BIG DAYS -----------------------------------------------------------------
+  active days=53 span=2026-08-01..2026-09-23
+   |daily realized net| >= $5,000: 17 days
+   |daily realized net| >= $10,000: 11 days
+   |daily realized net| >= $20,000: 9 days
+   |daily realized net| >= $12,289 (=5% of equity): 10 days
+
+  -- top 18 days by |realized net| (threshold $4,916); market ctx = that day's 1d candle of the dominant coin:
+     date                net  fills  taker       notional  dominant coins (net)   | market: coin day% range%
+     2026-08-15      988,307    233    0%      4,241,922  @708:988,307   | 
+     2026-08-14      518,782    199    0%      2,879,325  @708:518,782   | 
+     2026-09-18      138,968     29    0%        729,458  @708:138,968   | 
+     2026-08-16      138,547     52    0%      1,089,265  @708:138,547   | 
+     2026-08-13      128,565     99    0%      1,428,610  @708:128,565   | 
+     2026-09-03      123,220     40    0%        882,804  @708:123,220   | 
+     2026-09-21       55,702     87    0%      1,721,032  @708:55,702   | 
+     2026-08-11       38,601     29    0%        247,762  @708:38,601   | 
+     2026-08-12       24,843     22    0%        204,654  @708:24,843   | 
+     2026-08-06       18,165     39    0%        737,525  @708:18,165   | 
+     2026-08-31       10,873     12    0%        102,055  @708:10,873   | 
+     2026-09-05        9,508      6    0%        127,207  @708:9,508   | 
+     2026-08-27        8,154     17    0%        257,548  @708:8,154   | 
+     2026-08-24        8,024     26    0%        254,247  @708:8,024   | 
+     2026-09-13        6,990     19    0%        420,360  @708:6,990   | 
+     2026-08-09        6,345     20    0%        131,196  @708:6,345   | 
+     2026-08-08        5,669     32    0%      1,014,757  @708:5,669   | 
+     2026-09-16       -4,916      3    0%         72,005  @708:-4,916   | 
+
+  -- what the account did on the 8 biggest days (episodes overlapping the day):
+     2026-08-15 net=988,307 fills=233 taker=0% — 0 episodes overlapping:
+        by hour (n/net): 00:5/2,941 01:16/66,897 02:4/12,593 03:13/42,324 04:10/29,508 05:1/6 06:1/94 09:1/208 11:4/3,451 12:2/5,664 14:16/81,143 15:19/115,622 16:27/110,668 17:4/11,896 18:24/116,931 19:20/108,036 20:9/35,157 21:26/130,264 22:15/52,149 23:16/62,753
+     2026-08-14 net=518,782 fills=199 taker=0% — 0 episodes overlapping:
+        by hour (n/net): 00:5/11,025 01:11/23,913 02:1/2 03:9/20,861 04:1/6,290 05:9/28,584 06:5/11,724 08:7/20,206 11:9/15,954 14:10/34,299 15:2/4,628 16:22/70,343 17:18/66,023 18:13/29,137 19:18/40,169 20:15/36,858 21:1/15 22:17/37,582 23:26/61,171
+     2026-09-18 net=138,968 fills=29 taker=0% — 0 episodes overlapping:
+        by hour (n/net): 08:13/87,789 09:6/33,184 12:1/29 13:1/95 17:1/232 20:4/13,663 21:2/3,945 23:1/33
+     2026-08-16 net=138,547 fills=52 taker=0% — 0 episodes overlapping:
+        by hour (n/net): 04:1/1 05:1/1 08:5/-32 09:9/25,552 10:10/15,332 11:6/57,573 12:1/142 13:9/39,442 14:1/15 17:1/81 18:1/40 21:1/230 22:1/29 23:5/141
+     2026-08-13 net=128,565 fills=99 taker=0% — 0 episodes overlapping:
+        by hour (n/net): 00:28/27,405 01:8/10,173 02:4/1,458 03:2/4,284 04:8/4,520 10:1/2,166 12:2/2,814 13:2/139 14:16/25,846 15:1/10,461 17:4/2,271 18:3/9,153 19:2/77 20:1/1,431 21:6/9,866 22:1/6 23:10/16,497
+     2026-09-03 net=123,220 fills=40 taker=0% — 0 episodes overlapping:
+        by hour (n/net): 00:3/-1,200 02:16/81,132 03:6/27,026 04:2/5,410 08:2/4,681 10:1/37 11:2/3,683 12:3/2,359 13:2/40 15:1/4 18:2/47
+     2026-09-21 net=55,702 fills=87 taker=0% — 0 episodes overlapping:
+        by hour (n/net): 04:2/44 05:9/10,971 08:5/4,182 09:29/34,123 10:3/55 12:8/256 13:3/105 14:1/2 15:1/58 16:7/-176 17:2/4 18:2/-3 19:2/885 20:9/4,037 21:1/16 22:3/1,141
+     2026-08-11 net=38,601 fills=29 taker=0% — 0 episodes overlapping:
+        by hour (n/net): 00:1/3 02:1/14 06:1/2 10:1/8 11:1/2 14:6/5,946 15:10/28,902 17:2/45 18:1/22 20:2/330 21:1/506 22:1/2,808 23:1/13
+
+  -- daily trajectory of the 4 coins that dominate PnL: ['@708']
+   [@708] 53 active days, total net=2,238,301
+     2026-08-01 eod_pos=         294.9 buy=           0 sell=         5.1 fills=    1 net=          8 cum=           8 | -
+     2026-08-02 eod_pos=         462.5 buy=           0 sell=        1401 fills=   10 net=         48 cum=          56 | -
+     2026-08-03 eod_pos=          1812 buy=           0 sell=        2782 fills=   21 net=       -240 cum=        -184 | -
+     2026-08-04 eod_pos=          1872 buy=           0 sell=       660.5 fills=   11 net=       -157 cum=        -341 | -
+     2026-08-05 eod_pos=          1099 buy=           0 sell=        4952 fills=   19 net=        504 cum=         163 | -
+     2026-08-06 eod_pos=          1592 buy=           0 sell=   1.996e+04 fills=   39 net=     18,165 cum=      18,327 | -
+     2026-08-07 eod_pos=         577.3 buy=           0 sell=        4508 fills=   15 net=      1,855 cum=      20,182 | -
+     2026-08-08 eod_pos=         272.9 buy=           0 sell=   2.649e+04 fills=   32 net=      5,669 cum=      25,851 | -
+     2026-08-09 eod_pos=          2326 buy=           0 sell=        3404 fills=   20 net=      6,345 cum=      32,196 | -
+     2026-08-10 eod_pos=         276.2 buy=           0 sell=        8471 fills=   29 net=      4,045 cum=      36,241 | -
+     2026-08-11 eod_pos=          2437 buy=           0 sell=        6334 fills=   29 net=     38,601 cum=      74,842 | -
+     2026-08-12 eod_pos=           0.2 buy=           0 sell=        5173 fills=   22 net=     24,843 cum=      99,686 | -
+     2026-08-13 eod_pos=         661.6 buy=           0 sell=   3.547e+04 fills=   99 net=    128,565 cum=     228,251 | -
+     2026-08-14 eod_pos=         154.1 buy=           0 sell=   7.174e+04 fills=  199 net=    518,782 cum=     747,033 | -
+     2026-08-15 eod_pos=         281.7 buy=           0 sell=   1.031e+05 fills=  233 net=    988,307 cum=   1,735,340 | -
+     2026-08-16 eod_pos=          3844 buy=           0 sell=    2.63e+04 fills=   52 net=    138,547 cum=   1,873,887 | -
+     2026-08-17 eod_pos=          3820 buy=           0 sell=        1335 fills=   11 net=      3,282 cum=   1,877,169 | -
+     2026-08-18 eod_pos=          3806 buy=           0 sell=        1213 fills=   14 net=      2,543 cum=   1,879,712 | -
+     2026-08-19 eod_pos=          3828 buy=           0 sell=       242.5 fills=    6 net=        296 cum=   1,880,008 | -
+     2026-08-20 eod_pos=          2401 buy=           0 sell=        3781 fills=    8 net=      2,414 cum=   1,882,422 | -
+     2026-08-21 eod_pos=          3895 buy=           0 sell=       356.5 fills=   10 net=        101 cum=   1,882,524 | -
+     2026-08-22 eod_pos=          3906 buy=           0 sell=       974.7 fills=   18 net=      1,264 cum=   1,883,787 | -
+     2026-08-23 eod_pos=          3810 buy=           0 sell=       555.8 fills=    7 net=        373 cum=   1,884,160 | -
+     2026-08-24 eod_pos=          2675 buy=           0 sell=        5805 fills=   26 net=      8,024 cum=   1,892,184 | -
+     2026-08-25 eod_pos=          3845 buy=           0 sell=        1133 fills=   15 net=      1,292 cum=   1,893,476 | -
+     2026-08-26 eod_pos=          3979 buy=           0 sell=        3792 fills=   17 net=         17 cum=   1,893,493 | -
+     2026-08-27 eod_pos=          1306 buy=           0 sell=        5619 fills=   17 net=      8,154 cum=   1,901,647 | -
+     2026-08-28 eod_pos=          3972 buy=           0 sell=       183.4 fills=    3 net=        353 cum=   1,902,000 | -
+     2026-08-29 eod_pos=          3906 buy=           0 sell=        1468 fills=   10 net=      1,471 cum=   1,903,471 | -
+     2026-08-30 eod_pos=          3956 buy=           0 sell=       444.8 fills=    5 net=      1,077 cum=   1,904,548 | -
+     2026-08-31 eod_pos=          4003 buy=           0 sell=        1939 fills=   12 net=     10,873 cum=   1,915,422 | -
+     2026-09-01 eod_pos=          3153 buy=           0 sell=        4048 fills=   22 net=      4,660 cum=   1,920,082 | -
+     2026-09-02 eod_pos=          4046 buy=           0 sell=       242.3 fills=    9 net=        259 cum=   1,920,340 | -
+     2026-09-03 eod_pos=          4052 buy=           0 sell=   1.718e+04 fills=   40 net=    123,220 cum=   2,043,560 | -
+     2026-09-04 eod_pos=          4042 buy=           0 sell=       180.6 fills=    5 net=        545 cum=   2,044,105 | -
+     2026-09-05 eod_pos=          1833 buy=           0 sell=        2315 fills=    6 net=      9,508 cum=   2,053,614 | -
+     2026-09-06 eod_pos=          4144 buy=           0 sell=        2998 fills=    9 net=      1,104 cum=   2,054,718 | -
+     2026-09-07 eod_pos=          2817 buy=           0 sell=        1423 fills=    9 net=     -1,475 cum=   2,053,243 | -
+     2026-09-08 eod_pos=          3968 buy=           0 sell=        2431 fills=   10 net=     -3,188 cum=   2,050,055 | -
+     2026-09-09 eod_pos=          4089 buy=           0 sell=        1333 fills=   11 net=     -1,837 cum=   2,048,218 | -
+     2026-09-10 eod_pos=          4089 buy=           0 sell=        2017 fills=   14 net=        250 cum=   2,048,468 | -
+     2026-09-11 eod_pos=          4186 buy=           0 sell=        1042 fills=    9 net=         49 cum=   2,048,517 | -
+     2026-09-12 eod_pos=          4164 buy=           0 sell=        1224 fills=    2 net=      1,469 cum=   2,049,986 | -
+     2026-09-13 eod_pos=          4181 buy=           0 sell=        7785 fills=   19 net=      6,990 cum=   2,056,976 | -
+     2026-09-14 eod_pos=          4207 buy=           0 sell=        1169 fills=    9 net=     -1,995 cum=   2,054,981 | -
+     2026-09-15 eod_pos=          3437 buy=           0 sell=        3134 fills=    9 net=     -2,692 cum=   2,052,289 | -
+     2026-09-16 eod_pos=          2792 buy=           0 sell=        1462 fills=    3 net=     -4,916 cum=   2,047,373 | -
+     2026-09-18 eod_pos=          4238 buy=           0 sell=   1.316e+04 fills=   29 net=    138,968 cum=   2,186,341 | -
+     2026-09-19 eod_pos=          3176 buy=           0 sell=        2497 fills=   16 net=      2,312 cum=   2,188,653 | -
+     2026-09-20 eod_pos=          4127 buy=           0 sell=       178.7 fills=    1 net=        -50 cum=   2,188,603 | -
+     2026-09-21 eod_pos=          4078 buy=           0 sell=   2.953e+04 fills=   87 net=     55,702 cum=   2,244,305 | -
+     2026-09-22 eod_pos=          4426 buy=           0 sell=        1897 fills=   11 net=     -2,795 cum=   2,241,510 | -
+     2026-09-23 eod_pos=          4076 buy=           0 sell=        1762 fills=   22 net=     -3,209 cum=   2,238,301 | -
+
+[D] HOLD TIME ----------------------------------------------------------------
+   all episodes                          : none
+   long only                             : none
+   short only                            : none
+   winners                               : none
+   losers                                : none
+   large (peak notional >= 100k)         : none
+   era 1: 2026-08-01..2026-08-15         : none
+   era 2: 2026-08-15..2026-08-28         : none
+   era 3: 2026-08-28..2026-09-10         : none
+   era 4: 2026-09-10..2026-09-23         : none
+
+   -- era summary (fills, taker, realized net, fee bps):
+     2026-08-01..2026-08-15: fills=   591 days= 15 taker=  0% ntl=     8,335,183 net=     899,897 fee_bps= 3.33
+     2026-08-15..2026-08-28: fills=   389 days= 13 taker=  0% ntl=     5,589,606 net=   1,001,749 fee_bps= 2.95
+     2026-08-28..2026-09-10: fills=   158 days= 14 taker=  0% ntl=     1,928,124 net=     146,994 fee_bps= 3.96
+     2026-09-10..2026-09-23: fills=   223 days= 13 taker=  0% ntl=     3,674,013 net=     190,569 fee_bps= 3.95
+
+[E] DATA LIMITS --------------------------------------------------------------
+  fills returned=1362 (HL returns at most the 10000 most recent per page; pagination with tid dedup used)
+  first ledger row=2026-08-01 07:11:37 vs first fill=2026-08-01 23:27:21 -> fills appear to cover the account life
+  venue equity curve starts 2026-08-05; fills start 2026-08-01
+  funding rows=0 covering -.. (userFunding startTime=0 returns only the first 500 rows — totals below are a LOWER bound)
+  realized closedPnl=2,244,945 fees=6,644 funding=0
+  spot sells: closedPnl is accounting vs historical average cost (cost basis may predate the window) — not a same-day market PnL
+  daily PnL is realized only, cut on UTC; the venue portfolio curve includes unrealized
+
+  -- position reconstruction vs exchange (every coin must be OK):
+     -> 0 real DRIFT, 0 stale/settled.  OK: position reconstruction matches the exchange.
+
+  -- transfer counterparties (ledger 'send' rows; who funds this wallet / where money goes):
+
+[done]

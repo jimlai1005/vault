@@ -1,0 +1,210 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": 44972.41195308844,
+    "net_stress": {
+      "i": 44974.14931631309,
+      "ii": 44858.13213787343,
+      "iii": 44859.86744874914
+    },
+    "r_miss": {
+      "open": 0.24297963341382323,
+      "reduce": 0.24299410983002775,
+      "worst": 0.24297963341382323
+    },
+    "r_normal": 0.24302945419082533,
+    "r_stress": {
+      "i": 0.24303884284528882,
+      "ii": 0.24241188977943232,
+      "iii": 0.24242126734306876,
+      "worst": 0.24241188977943232
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 78,
+    "lev_peak": 5.833674458159747,
+    "mdd": 0.6723951426359004,
+    "score": 4.08,
+    "sub_scores": {
+      "dd_days": 0.68,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -0.3688924607897949,
+    "worst_week_frac": -0.5208715408063078
+  },
+  "D3": {
+    "S_conc": 0.18397738561296548,
+    "S_mhit": 0.5624999999999999,
+    "S_rob": 0.07292431900777452,
+    "conc": 0.8620169607902759,
+    "dominant_coin": "BTC",
+    "m_hit": 0.625,
+    "n_open_w_episodes": 3,
+    "n_w_episodes": 6,
+    "regime_score": 1.0,
+    "rob": 0.03646215950388726,
+    "score": 9.0970085231037
+  },
+  "D4": {
+    "R_b": 2.653044706394319,
+    "R_b_star": 3.5501255484648215,
+    "R_c": 7.8262714510923,
+    "excess": 4.276145902627478,
+    "score": 10.0,
+    "sigma_b": 0.08904066439349136,
+    "sigma_c": 0.11914821365570807
+  },
+  "D5": {
+    "S_cov": 0.975198169520253,
+    "S_hist": 1.0,
+    "S_price": 1.0,
+    "coverage": 0.9875990847601265,
+    "fwd_score": 0.5,
+    "hist_days": 675.8409981134259,
+    "price_level_frac": 1.0,
+    "retain_back": 0.19132138338410487,
+    "retain_front": 0.7338286250756927,
+    "score": 4.343997711900316
+  },
+  "E0": 5746.339394707772,
+  "E_min": 4137.201504648675,
+  "L_peak": 413720.1504648675,
+  "addr": "0xca810f64a0bbc8498dd0d714113c8518feeb8d29",
+  "addr10": "0xca810f64",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 5/5 coins (top-12 rule was larger); remaining 0 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "1 coin(s) not in HL's current perp/spot universe (delisted/renamed identifier \u2014 candleSnapshot returns HTTP 500 for these, verified, not a transient issue): ['xyz:SPCX']. Skipped entirely (T1/T2/HL-1h/HL-1d); no MTM price / always T3_missing for these coins.",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 6/677 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2024-11-08 (first fill) to 2026-02-01 (first day L_t >= E_min, $4,137.20); 2 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "xyz:SPCX: no T1/T2/T3 price data at t=1781288416242; M forced to 1.0 (T3_missing)",
+    "xyz:SPCX: no T1/T2/T3 price data at t=1781566872718; M forced to 1.0 (T3_missing)",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs."
+  ],
+  "coins": [
+    "BTC",
+    "DYDX",
+    "HYPE",
+    "ZEC",
+    "xyz:SPCX"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": 44858.13213787343,
+      "pass": true,
+      "worst_stress_scenario": "ii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 5.833674458159747,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -0.3688924607897949
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": 1639.7912579080366,
+      "net_before": 44972.41195308844,
+      "pass": true
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": 185049.2241890004
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 139
+    },
+    "b_i": {
+      "T2": 139
+    },
+    "b_ii": {
+      "T2": 139
+    },
+    "b_iii": {
+      "T2": 139
+    }
+  },
+  "monthly": {
+    "2026-02": {
+      "copier_net_normal": -891.6412856029826,
+      "leader_net": -1138.6725600000027
+    },
+    "2026-03": {
+      "copier_net_normal": 2644.402230310147,
+      "leader_net": 3566.723724999998
+    },
+    "2026-04": {
+      "copier_net_normal": 1490.9568617878758,
+      "leader_net": 2020.539085000003
+    },
+    "2026-05": {
+      "copier_net_normal": 16557.152109964216,
+      "leader_net": 22092.79161499999
+    },
+    "2026-06": {
+      "copier_net_normal": -4435.17621516467,
+      "leader_net": -5766.395393999997
+    },
+    "2026-07": {
+      "copier_net_normal": -6833.571175184326,
+      "leader_net": -8973.965994
+    },
+    "2026-08": {
+      "copier_net_normal": 20816.627271381923,
+      "leader_net": 51054.48568200046
+    },
+    "2026-09": {
+      "copier_net_normal": 15623.662155596281,
+      "leader_net": 122193.71802999996
+    }
+  },
+  "n_events_W": 139,
+  "n_twap_merged": 0,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "seed": 20260924,
+  "spec_version": "v0.4",
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "BTC",
+    "DYDX",
+    "HYPE",
+    "ZEC",
+    "xyz:SPCX"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 28,
+  "unscorable": false,
+  "window": {
+    "days": 227,
+    "end": "2026-09-15",
+    "end_ms": 1789516800000,
+    "start": "2026-02-01",
+    "start_ms": 1769904000000
+  },
+  "window_raw": {
+    "end": "2026-09-15",
+    "start": "2024-11-08"
+  }
+}

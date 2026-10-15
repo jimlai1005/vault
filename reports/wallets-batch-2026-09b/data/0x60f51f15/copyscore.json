@@ -1,0 +1,191 @@
+{
+  "D1": {
+    "a": 5.0,
+    "b": 20.0,
+    "c": 10.0,
+    "net_normal": 45804.49693201587,
+    "net_stress": {
+      "i": 45805.009269762704,
+      "ii": 45642.63743653636,
+      "iii": 45643.14675388336
+    },
+    "r_miss": {
+      "open": 1.2295674022736705,
+      "reduce": 1.2295161307426445,
+      "worst": 1.2295161307426445
+    },
+    "r_normal": 1.2297321630971547,
+    "r_stress": {
+      "i": 1.2297459180393078,
+      "ii": 1.2253866546683807,
+      "iii": 1.2254003285206174,
+      "worst": 1.2253866546683807
+    },
+    "score": 35.0
+  },
+  "D2": {
+    "dd_days": 4,
+    "lev_peak": 14.532730461290951,
+    "mdd": 0.3217547796725587,
+    "score": 12.0,
+    "sub_scores": {
+      "dd_days": 1.0,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 1.0
+    },
+    "worst_day_frac": -0.2586177039004646,
+    "worst_week_frac": -0.04093702247022449
+  },
+  "D3": {
+    "S_conc": 0.0,
+    "S_mhit": 1.0,
+    "S_rob": 0.0,
+    "conc": 1.1221467999376535,
+    "dominant_coin": "HYPE",
+    "m_hit": 1.0,
+    "n_open_w_episodes": 1,
+    "n_w_episodes": 2,
+    "regime_score": 1.0,
+    "rob": -0.30014065559654235,
+    "score": 10.0
+  },
+  "D4": {
+    "R_b": 1.0972988384909808,
+    "R_b_star": 2.3469744694952315,
+    "R_c": 9.062294735956996,
+    "excess": 6.715320266461765,
+    "score": 10.0,
+    "sigma_b": 0.2897742424084204,
+    "sigma_c": 0.6197880877967185
+  },
+  "D5": {
+    "S_cov": 0.03242565648958551,
+    "S_hist": 0.0,
+    "S_price": 1.0,
+    "coverage": 0.5162128282447928,
+    "fwd_score": 0.0,
+    "hist_days": 14.666805115740742,
+    "price_level_frac": 1.0,
+    "retain_back": 0.0,
+    "retain_front": 0.8725231883925627,
+    "score": 1.2905320706119818
+  },
+  "E0": 5054.403797999937,
+  "E_min": 1091.1336326580667,
+  "L_peak": 109113.36326580666,
+  "addr": "0x60f51f154e09eff7fa9c78afdc2f2cbc5e8b0a90",
+  "addr10": "0x60f51f15",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 2/2 coins (95% cum-notional rule was larger); remaining 0 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 1/16 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2026-08-26 (first fill) to 2026-08-26 (first day L_t >= E_min, $1,091.13); 0 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs."
+  ],
+  "coins": [
+    "HYPE",
+    "ZEC"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": 45642.63743653636,
+      "pass": true,
+      "worst_stress_scenario": "ii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 14.532730461290951,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -0.2586177039004646
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -13747.791738445056,
+      "net_before": 45804.49693201587,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": 37247.53918499983
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 210
+    },
+    "b_i": {
+      "T2": 210
+    },
+    "b_ii": {
+      "T2": 210
+    },
+    "b_iii": {
+      "T2": 210
+    }
+  },
+  "monthly": {
+    "2026-08": {
+      "copier_net_normal": 9162.535402266794,
+      "leader_net": 9217.18463099993
+    },
+    "2026-09": {
+      "copier_net_normal": 36641.96152974909,
+      "leader_net": 28030.3545539999
+    }
+  },
+  "n_events_W": 210,
+  "n_twap_merged": 0,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "sample": {
+    "E0": 5054.403797999937,
+    "leader_net": 37247.53918499983,
+    "perp_events": 210,
+    "sufficient": true
+  },
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": null,
+  "stopout_leverage": null,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": null,
+    "ii": null,
+    "iii": null
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "HYPE",
+    "ZEC"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 68,
+  "unscorable": false,
+  "window": {
+    "days": 16,
+    "end": "2026-09-10",
+    "end_ms": 1789084800000,
+    "start": "2026-08-26",
+    "start_ms": 1787702400000
+  },
+  "window_raw": {
+    "end": "2026-09-10",
+    "start": "2026-08-26"
+  }
+}

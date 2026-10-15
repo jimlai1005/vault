@@ -1,0 +1,89 @@
+============================================================================================
+COPY-TRADE SCORE  0x808fda72039e892730fb1e86256feceb7cc95422  (0x808fda72)   [spec v0.5]
+window W (full history, raw): 2025-11-22 -> 2026-09-23   scored window (E_min-pushed): 2025-11-24 -> 2026-09-23  (304d)   seed=20260924
+E0=$3,119.76   E_min=$1,000.00   L_peak=$89,803.75
+D1 tests: a=normal(sampled delay median 3.0s/P95 15.0s) b=stress(worst of i/ii/iii) c=miss-recovery(closed-form)
+============================================================================================
+
+== GATE ==
+** 模擬跟單者於 2025-12-09 爆倉（plan v0.5 §1.4b：C_t<=0 或槓桿 > 50x）**
+G1 延遲後仍有收益 (stress worst=iii): net = $-2,347.37 > 0  -> FAIL
+G2 庫存風險有限 (normal a): peak_leverage=72.93x (<= 3.0x)  worst_day=-69.55% (>= -15%)  [爆倉於 2025-12-09]  -> FAIL
+G3 不依賴少數行情 (normal a): 移除最佳 3 天後 net = $-5,110.97 (原 $-2,208.80)  -> FAIL
+GATE OVERALL: FAIL
+
+== D1 跟單可複製性 (35 = 5+20+10) ==
+score = 0.00 / 35
+  a 正常跟單(5): r_normal=0.000  score=0.00
+  b 執行壓力(20): r_i=0.000 r_ii=0.000 r_iii=0.000 worst=0.000 (scenario iii)  score=0.00
+  c 漏單恢復(10): r_open=0.000 r_reduce=0.000 worst=0.000  score=0.00
+
+== D2 下檔控制 (權重30，跟單者normal-a) ==
+score = 0.00 / 30
+  MDD           85.08%   S=0.000
+  最差日        -69.55%   S=0.000
+  最差週(7日)   -78.91%   S=0.000
+  最長回撤天數  299天   S=0.000
+  槓桿尖峰      72.93x  S=0.000
+
+== D3 獲利穩健性 (權重20，跟單者normal-a) ==
+score = 5.00 / 20
+  m_hit(正月占比) = 9.09% (1/11)  S=0.000
+  regime (主力幣=BTC)  score=1.00
+  rob   = -5,110.97/-2,208.80 = 0.000  S=0.000
+  conc  = 1.000  S=0.000 (episodes: 139 in W, 2 open)
+
+== D4 超額收益 (權重10) ==
+score = 0.00 / 10
+  R_b=0.7989  R_b*=0.0737  R_c=-0.7080  excess=-0.7817
+
+== D5 證據品質 (權重5) ==
+score = 3.47 / 5
+  歷史長度 305天  S=0.781
+  覆蓋率 99.91%  S=0.998
+  價格級別(T1+T2占比) 100.00%  S=1.000
+  前瞻切分: retain_front=0.000 retain_back=0.000  fwd_score=0.00
+
+== TOTAL ==
+TOTAL = D1+D2+D3+D4+D5 = 0.00+0.00+5.00+0.00+3.47 = 8 / 100
+(門檻 未通過)
+
+== 價格級別占比 (test a, normal) ==
+  T2=100.0%
+  合計 = 100.0%  (events=380)
+
+== T2 範圍 ==
+  12/19 幣進 T2（Binance 代理）：['ASTER', 'AVAX', 'BTC', 'DOT', 'ETH', 'NEAR', 'SOL', 'TNSR', 'TRUMP', 'XPL', 'ZEC', 'xyz:SP500']
+
+== 月表：跟單者(normal-a) vs 領單者 淨損益 ==
+  month           copier_net      leader_net
+  2025-11           2,407.38        2,897.60
+  2025-12          -4,616.19       -2,674.53
+  2026-01               0.00       16,726.63
+  2026-02               0.00       15,158.40
+  2026-03               0.00        7,527.23
+  2026-04               0.00      -32,737.48
+  2026-05               0.00       -7,868.48
+  2026-06               0.00       -6,371.98
+  2026-07               0.00        2,320.40
+  2026-08               0.00       -1,894.11
+  2026-09               0.00        3,297.42
+
+== 資料極限 (plan §4) ==
+  - 延遲成本用 Binance 1m 代理／HL 1m 的相對變動估算（保真 0.7–0.9 → 偏樂觀）；δ 小於 1 分鐘時延遲成本幾乎只剩滑價。
+  - 跟單者資金費 = 領單者 funding 列（只有前 500 筆）= 下界。
+  - 延遲分布是假設值（未有實測）；漏單恢復是模型內的逐事件精算，不是實盤跟單記錄；前瞻分項是同窗口切分。
+
+== ASSUMPTIONS ==
+  - T2 (Binance proxy) scope = 12/19 coins (top-12 rule was larger); remaining 7 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.
+  - 8 coin(s) not in HL's current perp/spot universe (delisted/renamed identifier — candleSnapshot returns HTTP 500 for these, verified, not a transient issue): ['#450', '#500', '#7781', '#7790', '#7791', '#8220', 'xyz:CL', 'xyz:SP500']. Skipped entirely (T1/T2/HL-1h/HL-1d); no MTM price / always T3_missing for these coins.
+  - L_t (leader daily equity for proportional sizing, v0.4 §1.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary — the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 5/306 day(s) of the full raw history outside accountValueHistory's covered range.
+  - start day pushed from 2025-11-22 (first fill) to 2025-11-24 (first day L_t >= E_min, $1,000.00); 100 earlier event(s) ignored per plan v0.4 §0.
+  - STOP-OUT on 2025-12-09: C_t=910.95, leverage=72.93x (> 50x or equity<=0) — closed all positions at close, equity floored at $910.95, no further events followed (plan v0.5 §1.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.
+  - STOP-OUT on 2025-12-09: C_t=908.46, leverage=72.49x (> 50x or equity<=0) — closed all positions at close, equity floored at $908.46, no further events followed (plan v0.5 §1.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.
+  - STOP-OUT on 2025-12-09: C_t=773.91, leverage=81.96x (> 50x or equity<=0) — closed all positions at close, equity floored at $773.91, no further events followed (plan v0.5 §1.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.
+  - STOP-OUT on 2025-12-09: C_t=772.38, leverage=81.38x (> 50x or equity<=0) — closed all positions at close, equity floored at $772.38, no further events followed (plan v0.5 §1.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.
+  - D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+δ trade would have paid — the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.
+
+timing: fetch=86.5s sim=0.1s total=86.7s  cache: 55 hit / 88 miss
+============================================================================================

@@ -1,0 +1,74 @@
+============================================================================================
+COPY-TRADE SCORE  0xbaf999f4d00b3d34fff4c24d24fecaa65c0ee0e2  (0xbaf999f4)   [spec v0.5]
+window W (full history, raw): 2026-04-28 -> 2026-05-20   scored window (E_min-pushed): 2026-04-30 -> 2026-05-20  (21d)   seed=20260924
+E0=$76,329.49   E_min=$1,000.00   L_peak=$84,846.18
+D1 tests: a=normal(sampled delay median 3.0s/P95 15.0s) b=stress(worst of i/ii/iii) c=miss-recovery(closed-form)
+============================================================================================
+
+== GATE ==
+G1 延遲後仍有收益 (stress worst=ii): net = $-10,805.62 > 0  -> FAIL
+G2 庫存風險有限 (normal a): peak_leverage=1.46x (<= 3.0x)  worst_day=-5.12% (>= -15%)  -> PASS
+G3 不依賴少數行情 (normal a): 移除最佳 3 天後 net = $-23,790.51 (原 $-10,755.13)  -> FAIL
+GATE OVERALL: FAIL
+
+== D1 跟單可複製性 (35 = 5+20+10) ==
+score = 0.00 / 35
+  a 正常跟單(5): r_normal=0.000  score=0.00
+  b 執行壓力(20): r_i=0.000 r_ii=0.000 r_iii=0.000 worst=0.000 (scenario ii)  score=0.00
+  c 漏單恢復(10): r_open=0.000 r_reduce=0.000 worst=0.000  score=0.00
+
+== D2 下檔控制 (權重30，跟單者normal-a) ==
+score = 19.64 / 30
+  MDD           24.90%   S=0.255
+  最差日        -5.12%   S=0.824
+  最差週(7日)   -19.13%   S=0.309
+  最長回撤天數  10天   S=1.000
+  槓桿尖峰      1.46x  S=0.886
+
+== D3 獲利穩健性 (權重20，跟單者normal-a) ==
+score = 1.25 / 20
+  m_hit(正月占比) = 50.00% (1/2)  S=0.250
+  regime (主力幣=ARB)  score=0.00
+  rob   = -23,790.51/-10,755.13 = 0.000  S=0.000
+  conc  = 1.000  S=0.000 (episodes: 1 in W, 1 open)
+
+== D4 超額收益 (權重10) ==
+score = 0.00 / 10
+  R_b=-0.0906  R_b*=-0.0844  R_c=-0.1409  excess=-0.0566
+
+== D5 證據品質 (權重5) ==
+score = 2.50 / 5
+  歷史長度 22天  S=0.000
+  覆蓋率 14.89%  S=0.000
+  價格級別(T1+T2占比) 100.00%  S=1.000
+  前瞻切分: retain_front=0.000 retain_back=0.000  fwd_score=1.00
+
+== TOTAL ==
+TOTAL = D1+D2+D3+D4+D5 = 0.00+19.64+1.25+0.00+2.50 = 23 / 100
+(門檻 未通過)
+
+== 價格級別占比 (test a, normal) ==
+  T2=100.0%
+  合計 = 100.0%  (events=4788)
+
+== T2 範圍 ==
+  1/1 幣進 T2（Binance 代理）：['ARB']
+
+== 月表：跟單者(normal-a) vs 領單者 淨損益 ==
+  month           copier_net      leader_net
+  2026-04               6.22            6.22
+  2026-05         -10,761.35      -10,661.62
+
+== 資料極限 (plan §4) ==
+  - 延遲成本用 Binance 1m 代理／HL 1m 的相對變動估算（保真 0.7–0.9 → 偏樂觀）；δ 小於 1 分鐘時延遲成本幾乎只剩滑價。
+  - 跟單者資金費 = 領單者 funding 列（只有前 500 筆）= 下界。
+  - 延遲分布是假設值（未有實測）；漏單恢復是模型內的逐事件精算，不是實盤跟單記錄；前瞻分項是同窗口切分。
+
+== ASSUMPTIONS ==
+  - T2 (Binance proxy) scope = 1/1 coins (95% cum-notional rule was larger); remaining 0 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.
+  - L_t (leader daily equity for proportional sizing, v0.4 §1.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary — the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 2/23 day(s) of the full raw history outside accountValueHistory's covered range.
+  - start day pushed from 2026-04-28 (first fill) to 2026-04-30 (first day L_t >= E_min, $1,000.00); 2211 earlier event(s) ignored per plan v0.4 §0.
+  - D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+δ trade would have paid — the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.
+
+timing: fetch=3.5s sim=0.1s total=3.7s  cache: 4 hit / 6 miss
+============================================================================================

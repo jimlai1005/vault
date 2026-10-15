@@ -1,0 +1,93 @@
+============================================================================================
+COPY-TRADE SCORE  0xb4a3349619ff3da514b42bd7a124947aaf2b9210  (0xb4a33496)   [spec v0.5]
+window W (full history, raw): 2026-05-22 -> 2026-09-23   scored window (E_min-pushed): 2026-06-02 -> 2026-09-23  (114d)   seed=20260924
+E0=$7,791.05   E_min=$7,013.16   L_peak=$701,316.29
+D1 tests: a=normal(sampled delay median 3.0s/P95 15.0s) b=stress(worst of i/ii/iii) c=miss-recovery(closed-form)
+============================================================================================
+
+== GATE ==
+** 模擬跟單者於 2026-06-15 爆倉（plan v0.5 §1.4b：C_t<=0 或槓桿 > 50x）**
+G1 延遲後仍有收益 (stress worst=iii): net = $-816.09 > 0  -> FAIL
+G2 庫存風險有限 (normal a): peak_leverage=54.15x (<= 3.0x)  worst_day=-56.14% (>= -15%)  [爆倉於 2026-06-15]  -> FAIL
+G3 不依賴少數行情 (normal a): 移除最佳 3 天後 net = $-66,063.69 (原 $14,291.14)  -> FAIL
+GATE OVERALL: FAIL
+
+== D1 跟單可複製性 (35 = 5+20+10) ==
+score = 0.00 / 35
+  a 正常跟單(5): r_normal=0.000  score=0.00
+  b 執行壓力(20): r_i=0.000 r_ii=0.000 r_iii=0.000 worst=0.000 (scenario iii)  score=0.00
+  c 漏單恢復(10): r_open=0.000 r_reduce=0.000 worst=0.000  score=0.00
+
+== D2 下檔控制 (權重30，跟單者normal-a) ==
+score = 3.00 / 30
+  MDD           68.16%   S=0.000
+  最差日        -56.14%   S=0.000
+  最差週(7日)   -68.16%   S=0.000
+  最長回撤天數  105天   S=0.500
+  槓桿尖峰      54.15x  S=0.000
+
+== D3 獲利穩健性 (權重20，跟單者normal-a) ==
+score = 5.00 / 20
+  m_hit(正月占比) = 25.00% (1/4)  S=0.000
+  regime (主力幣=BTC)  score=1.00
+  rob   = -66,063.69/14,291.14 = -4.623  S=0.000
+  conc  = 1.000  S=0.000 (episodes: 174 in W, 3 open)
+
+== D4 超額收益 (權重10) ==
+score = 10.00 / 10
+  R_b=-30.6520  R_b*=-6.8888  R_c=1.8343  excess=8.7231
+
+== D5 證據品質 (權重5) ==
+score = 2.65 / 5
+  歷史長度 124天  S=0.124
+  覆蓋率 99.77%  S=0.995
+  價格級別(T1+T2占比) 97.08%  S=1.000
+  前瞻切分: retain_front=0.000 retain_back=0.000  fwd_score=0.00
+
+== TOTAL ==
+TOTAL = D1+D2+D3+D4+D5 = 0.00+3.00+5.00+10.00+2.65 = 21 / 100
+(門檻 未通過)
+
+== 價格級別占比 (test a, normal) ==
+  T2=97.1%  T3=0.6%  T3_missing=2.3%
+  合計 = 100.0%  (events=1026)
+
+== T2 範圍 ==
+  12/16 幣進 T2（Binance 代理）：['BTC', 'HYPE', 'NEAR', 'PONS', 'PUMP', 'SOL', 'ZEC', 'xyz:CL', 'xyz:JP225', 'xyz:JPY', 'xyz:SILVER', 'xyz:SP500']
+
+== 月表：跟單者(normal-a) vs 領單者 淨損益 ==
+  month           copier_net      leader_net
+  2026-06          14,291.14       68,347.86
+  2026-07               0.00       26,782.48
+  2026-08               0.00     -197,032.16
+  2026-09               0.00     -529,026.10
+
+== 資料極限 (plan §4) ==
+  - 延遲成本用 Binance 1m 代理／HL 1m 的相對變動估算（保真 0.7–0.9 → 偏樂觀）；δ 小於 1 分鐘時延遲成本幾乎只剩滑價。
+  - 跟單者資金費 = 領單者 funding 列（只有前 500 筆）= 下界。
+  - 延遲分布是假設值（未有實測）；漏單恢復是模型內的逐事件精算，不是實盤跟單記錄；前瞻分項是同窗口切分。
+
+== ASSUMPTIONS ==
+  - T2 (Binance proxy) scope = 12/16 coins (top-12 rule was larger); remaining 4 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.
+  - 7 coin(s) not in HL's current perp/spot universe (delisted/renamed identifier — candleSnapshot returns HTTP 500 for these, verified, not a transient issue): ['xyz:CL', 'xyz:JP225', 'xyz:JPY', 'xyz:MU', 'xyz:PURRDAT', 'xyz:SILVER', 'xyz:SP500']. Skipped entirely (T1/T2/HL-1h/HL-1d); no MTM price / always T3_missing for these coins.
+  - L_t (leader daily equity for proportional sizing, v0.4 §1.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary — the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 6/125 day(s) of the full raw history outside accountValueHistory's covered range.
+  - start day pushed from 2026-05-22 (first fill) to 2026-06-02 (first day L_t >= E_min, $7,013.16); 1570 earlier event(s) ignored per plan v0.4 §0.
+  - xyz:SP500: no T1/T2/T3 price data at t=1780665232212; M forced to 1.0 (T3_missing)
+  - xyz:SP500: no T1/T2/T3 price data at t=1781087159877; M forced to 1.0 (T3_missing)
+  - xyz:PURRDAT: no T1/T2/T3 price data at t=1781123450590; M forced to 1.0 (T3_missing)
+  - STOP-OUT on 2026-06-15: C_t=22,082.19, leverage=54.15x (> 50x or equity<=0) — closed all positions at close, equity floored at $22,082.19, no further events followed (plan v0.5 §1.4b).
+  - xyz:SP500: no T1/T2/T3 price data at t=1780665043049; M forced to 1.0 (T3_missing)
+  - xyz:SP500: no T1/T2/T3 price data at t=1780665159495; M forced to 1.0 (T3_missing)
+  - xyz:SP500: no T1/T2/T3 price data at t=1781086134881; M forced to 1.0 (T3_missing)
+  - xyz:SP500: no T1/T2/T3 price data at t=1781086856327; M forced to 1.0 (T3_missing)
+  - xyz:SP500: no T1/T2/T3 price data at t=1781086856681; M forced to 1.0 (T3_missing)
+  - STOP-OUT on 2026-06-15: C_t=22,095.41, leverage=54.13x (> 50x or equity<=0) — closed all positions at close, equity floored at $22,095.41, no further events followed (plan v0.5 §1.4b).
+  - STOP-OUT on 2026-06-03: C_t=6,976.87, leverage=51.35x (> 50x or equity<=0) — closed all positions at close, equity floored at $6,976.87, no further events followed (plan v0.5 §1.4b).
+  - STOP-OUT on 2026-06-03: C_t=6,974.96, leverage=51.36x (> 50x or equity<=0) — closed all positions at close, equity floored at $6,974.96, no further events followed (plan v0.5 §1.4b).
+  - xyz:SP500: no T1/T2/T3 price data at t=1780665014040; M forced to 1.0 (T3_missing)
+  - xyz:SP500: no T1/T2/T3 price data at t=1780665072939; M forced to 1.0 (T3_missing)
+  - D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+δ trade would have paid — the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.
+  - xyz:SILVER: no W-end price for open episode unrealized valuation; unrealized treated as 0 for conc
+
+timing: fetch=35.2s sim=0.1s total=35.6s  cache: 20 hit / 56 miss
+============================================================================================

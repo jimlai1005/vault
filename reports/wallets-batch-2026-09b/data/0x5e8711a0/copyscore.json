@@ -1,0 +1,270 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": -27617.181105557298,
+    "net_stress": {
+      "i": -27603.60205374823,
+      "ii": -28094.292663290395,
+      "iii": -28081.41133833118
+    },
+    "r_miss": {
+      "open": -2.0349349903859437,
+      "reduce": -2.0500230748189296,
+      "worst": -2.0500230748189296
+    },
+    "r_normal": -2.025750424513271,
+    "r_stress": {
+      "i": -2.024754386218792,
+      "ii": -2.060747078839571,
+      "iii": -2.0598022195722665,
+      "worst": -2.060747078839571
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 470,
+    "lev_peak": null,
+    "mdd": 1.9830174841735435,
+    "score": 0.0,
+    "sub_scores": {
+      "dd_days": 0.0,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -1.9830174841735435,
+    "worst_week_frac": -3.602151290208412
+  },
+  "D3": {
+    "S_conc": 0.0,
+    "S_mhit": 0.0,
+    "S_rob": 0.0,
+    "conc": 9.007778514181169,
+    "dominant_coin": "ETH",
+    "m_hit": 0.0,
+    "n_open_w_episodes": 3,
+    "n_w_episodes": 181,
+    "regime_score": 1.0,
+    "rob": 0.0,
+    "score": 5.0
+  },
+  "D4": {
+    "R_b": 19.428040752290773,
+    "R_b_star": 3.8528191629031716,
+    "R_c": -3.366657750979745,
+    "excess": -7.219476913882916,
+    "score": 0.0,
+    "sigma_b": 0.5415442401332302,
+    "sigma_c": 0.10739487591918546
+  },
+  "D5": {
+    "S_cov": 0.998616277169649,
+    "S_hist": 1.0,
+    "S_price": 1.0,
+    "coverage": 0.9993081385848245,
+    "fwd_score": 0.0,
+    "hist_days": 476.72508018518516,
+    "price_level_frac": 1.0,
+    "retain_back": 0.0,
+    "retain_front": 0.0,
+    "score": 3.7482703464620615
+  },
+  "E0": 8203.144824424255,
+  "E_min": 2423.5872196048444,
+  "L_peak": 242358.72196048443,
+  "addr": "0x5e8711a0dbb0cddc8e7663cf494a016fb12db273",
+  "addr10": "0x5e8711a0",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 12/13 coins (top-12 rule was larger); remaining 1 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 2/478 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2025-06-03 (first fill) to 2025-06-05 (first day L_t >= E_min, $2,423.59); 32 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "STOP-OUT on 2025-06-11: C_t=<=0, leverage=undefined (C_t<=0) (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $0.00, no further events followed (plan v0.5 \u00a71.4b).",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.",
+    "D2/gate denominators (peak/day-equity C_t) floored at 1% of E0 on at least one day to avoid divide-by-zero"
+  ],
+  "coins": [
+    "ASTER",
+    "BTC",
+    "ENA",
+    "ETH",
+    "FARTCOIN",
+    "HYPE",
+    "NEAR",
+    "PUMP",
+    "SOL",
+    "SPX",
+    "XRP",
+    "ZEC",
+    "kPEPE"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": -28094.292663290395,
+      "pass": false,
+      "worst_stress_scenario": "ii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": null,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -1.9830174841735435
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -40091.34329305831,
+      "net_before": -27617.181105557298,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": 13633.061986001016
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 298
+    },
+    "b_i": {
+      "T2": 298
+    },
+    "b_ii": {
+      "T2": 298
+    },
+    "b_iii": {
+      "T2": 298
+    }
+  },
+  "monthly": {
+    "2025-06": {
+      "copier_net_normal": -27617.181105557298,
+      "leader_net": -35707.865849999565
+    },
+    "2025-07": {
+      "copier_net_normal": 0.0,
+      "leader_net": -7873.2700390003465
+    },
+    "2025-08": {
+      "copier_net_normal": 0.0,
+      "leader_net": -87479.79713899818
+    },
+    "2025-09": {
+      "copier_net_normal": 0.0,
+      "leader_net": -9954.273250000246
+    },
+    "2025-10": {
+      "copier_net_normal": 0.0,
+      "leader_net": -13644.527902000245
+    },
+    "2025-11": {
+      "copier_net_normal": 0.0,
+      "leader_net": -17429.087023999837
+    },
+    "2025-12": {
+      "copier_net_normal": 0.0,
+      "leader_net": 1182.3626339999857
+    },
+    "2026-01": {
+      "copier_net_normal": 0.0,
+      "leader_net": 1217.6203469999828
+    },
+    "2026-02": {
+      "copier_net_normal": 0.0,
+      "leader_net": 1995.1773659999753
+    },
+    "2026-03": {
+      "copier_net_normal": 0.0,
+      "leader_net": -291.6981719999949
+    },
+    "2026-04": {
+      "copier_net_normal": 0.0,
+      "leader_net": -749.899439999992
+    },
+    "2026-05": {
+      "copier_net_normal": 0.0,
+      "leader_net": -282.1987050000154
+    },
+    "2026-06": {
+      "copier_net_normal": 0.0,
+      "leader_net": 722.254841999993
+    },
+    "2026-07": {
+      "copier_net_normal": 0.0,
+      "leader_net": 421.6595579999939
+    },
+    "2026-08": {
+      "copier_net_normal": 0.0,
+      "leader_net": 31126.76113999999
+    },
+    "2026-09": {
+      "copier_net_normal": 0.0,
+      "leader_net": 150379.84361999956
+    }
+  },
+  "n_events_W": 10673,
+  "n_twap_merged": 0,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "sample": {
+    "E0": 8203.144824424255,
+    "leader_net": 13633.061986001016,
+    "perp_events": 10673,
+    "sufficient": true
+  },
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": "2025-06-11",
+  "stopout_leverage": null,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": "2025-06-11",
+    "ii": "2025-06-11",
+    "iii": "2025-06-11"
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "ASTER",
+    "BTC",
+    "ENA",
+    "ETH",
+    "FARTCOIN",
+    "HYPE",
+    "NEAR",
+    "PUMP",
+    "SOL",
+    "XRP",
+    "ZEC",
+    "kPEPE"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 9,
+  "unscorable": false,
+  "window": {
+    "days": 476,
+    "end": "2026-09-23",
+    "end_ms": 1790208000000,
+    "start": "2025-06-05",
+    "start_ms": 1749081600000
+  },
+  "window_raw": {
+    "end": "2026-09-23",
+    "start": "2025-06-03"
+  }
+}

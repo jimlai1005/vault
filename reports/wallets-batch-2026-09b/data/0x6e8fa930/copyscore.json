@@ -1,0 +1,195 @@
+{
+  "D1": {
+    "a": 5.0,
+    "b": 20.0,
+    "c": 10.0,
+    "net_normal": 560265.1782295526,
+    "net_stress": {
+      "i": 560341.8593175666,
+      "ii": 558249.1785358973,
+      "iii": 558325.6890964063
+    },
+    "r_miss": {
+      "open": 1.4043920147107638,
+      "reduce": 1.4044128047997722,
+      "worst": 1.4043920147107638
+    },
+    "r_normal": 1.4045553329397413,
+    "r_stress": {
+      "i": 1.4047475683941133,
+      "ii": 1.3995013277454933,
+      "iii": 1.3996931356963795,
+      "worst": 1.3995013277454933
+    },
+    "score": 35.0
+  },
+  "D2": {
+    "dd_days": 10,
+    "lev_peak": 6.986389893217355,
+    "mdd": 0.17066370667566833,
+    "score": 15.880088799729949,
+    "sub_scores": {
+      "dd_days": 1.0,
+      "lev_peak": 0.0,
+      "mdd": 0.6466814666216584,
+      "worst_day": 0.0,
+      "worst_week": 1.0
+    },
+    "worst_day_frac": -0.17066370667566838,
+    "worst_week_frac": -0.026054165533973064
+  },
+  "D3": {
+    "S_conc": 0.0,
+    "S_mhit": 1.0,
+    "S_rob": 0.08751875967559702,
+    "conc": 1.0201021847462521,
+    "dominant_coin": "NEAR",
+    "m_hit": 1.0,
+    "n_open_w_episodes": 1,
+    "n_w_episodes": 6,
+    "regime_score": 0.5,
+    "rob": 0.04375937983779851,
+    "score": 7.937593798377986
+  },
+  "D4": {
+    "R_b": 2.0186824991820593,
+    "R_b_star": 1.3077625574596297,
+    "R_c": 5.485271733916319,
+    "excess": 4.177509176456689,
+    "score": 10.0,
+    "sigma_b": 0.5630683002488721,
+    "sigma_c": 0.36477239023782776
+  },
+  "D5": {
+    "S_cov": 0.9345379763796413,
+    "S_hist": 0.0,
+    "S_price": 1.0,
+    "coverage": 0.9672689881898207,
+    "fwd_score": 1.0,
+    "hist_days": 16.918359166666665,
+    "price_level_frac": 1.0,
+    "retain_back": 1.398136522999321,
+    "retain_front": 1.4150061876024602,
+    "score": 3.6681724704745515
+  },
+  "E0": 102139.91309953574,
+  "E_min": 4749.801557014814,
+  "L_peak": 474980.1557014814,
+  "addr": "0x6e8fa9304880f4a428bfbc35166c7e2825574364",
+  "addr10": "0x6e8fa930",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 4/4 coins (95% cum-notional rule was larger); remaining 0 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 1/18 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2026-09-06 (first fill) to 2026-09-07 (first day L_t >= E_min, $4,749.80); 162 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs."
+  ],
+  "coins": [
+    "ASTER",
+    "JUP",
+    "NEAR",
+    "PUMP"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": 558249.1785358973,
+      "pass": true,
+      "worst_stress_scenario": "ii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 6.986389893217355,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -0.17066370667566838
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": 24516.856744038872,
+      "net_before": 560265.1782295526,
+      "pass": true
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": 398891.4961840021
+  },
+  "level_counts": {
+    "a_normal": {
+      "T1": 629,
+      "T2": 808
+    },
+    "b_i": {
+      "T1": 553,
+      "T2": 884
+    },
+    "b_ii": {
+      "T1": 629,
+      "T2": 808
+    },
+    "b_iii": {
+      "T1": 553,
+      "T2": 884
+    }
+  },
+  "monthly": {
+    "2026-09": {
+      "copier_net_normal": 560265.1782295526,
+      "leader_net": 398891.4961840021
+    }
+  },
+  "n_events_W": 1437,
+  "n_twap_merged": 0,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "sample": {
+    "E0": 102139.91309953574,
+    "leader_net": 398891.4961840021,
+    "perp_events": 1437,
+    "sufficient": true
+  },
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": null,
+  "stopout_leverage": null,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": null,
+    "ii": null,
+    "iii": null
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "ASTER",
+    "JUP",
+    "NEAR",
+    "PUMP"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 72,
+  "unscorable": false,
+  "window": {
+    "days": 17,
+    "end": "2026-09-23",
+    "end_ms": 1790208000000,
+    "start": "2026-09-07",
+    "start_ms": 1788739200000
+  },
+  "window_raw": {
+    "end": "2026-09-23",
+    "start": "2026-09-06"
+  }
+}

@@ -1,0 +1,264 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": -1397.8558330345293,
+    "net_stress": {
+      "i": -1396.7964152467805,
+      "ii": -1430.4294449241668,
+      "iii": -1429.3782103872652
+    },
+    "r_miss": {
+      "open": -0.027715159939290995,
+      "reduce": -0.027735679909067328,
+      "worst": -0.027735679909067328
+    },
+    "r_normal": -0.027667453838077928,
+    "r_stress": {
+      "i": -0.027646485014222788,
+      "ii": -0.028312176192127544,
+      "iii": -0.028291369337561163,
+      "worst": -0.028312176192127544
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 297,
+    "lev_peak": null,
+    "mdd": 1.0797218968303577,
+    "score": 0.0,
+    "sub_scores": {
+      "dd_days": 0.0,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -1.2156890164352865,
+    "worst_week_frac": -1.358923084840991
+  },
+  "D3": {
+    "S_conc": 0.7396370745360157,
+    "S_mhit": 0.0,
+    "S_rob": 0.0,
+    "conc": 0.4452721940979882,
+    "dominant_coin": "ZEC",
+    "m_hit": 0.0,
+    "n_open_w_episodes": 1,
+    "n_w_episodes": 49,
+    "regime_score": 0.0,
+    "rob": 0.0,
+    "score": 3.6981853726800784
+  },
+  "D4": {
+    "R_b": 0.22233844602858457,
+    "R_b_star": 0.16000176048425058,
+    "R_c": -1.100257588925366,
+    "excess": -1.2602593494096166,
+    "score": 0.0,
+    "sigma_b": 0.12740379910577868,
+    "sigma_c": 0.09168379339435355
+  },
+  "D5": {
+    "S_cov": 0.6474315954100518,
+    "S_hist": 0.7607597560185185,
+    "S_price": 1.0,
+    "coverage": 0.8237157977050259,
+    "fwd_score": 0.0,
+    "hist_days": 299.2089329050926,
+    "price_level_frac": 0.9451219512195121,
+    "retain_back": 0.0,
+    "retain_front": 0.0,
+    "score": 3.0102391892857128
+  },
+  "E0": 1270.4805193844022,
+  "E_min": 1000.0,
+  "L_peak": 64844.79021923941,
+  "addr": "0x9179fb7270634f2ca56809483c505602941ecef0",
+  "addr10": "0x9179fb72",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 12/18 coins (95% cum-notional rule was larger); remaining 6 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "6 coin(s) not in HL's current perp/spot universe (delisted/renamed identifier \u2014 candleSnapshot returns HTTP 500 for these, verified, not a transient issue): ['xyz:BIRD', 'xyz:CL', 'xyz:IBM', 'xyz:MU', 'xyz:NBIS', 'xyz:SPCX']. Skipped entirely (T1/T2/HL-1h/HL-1d); no MTM price / always T3_missing for these coins.",
+    "CASHCAT: in T2 scope but no Binance USDT-perp symbol found; falls back to T1/T3",
+    "TON: in T2 scope but no Binance USDT-perp symbol found; falls back to T1/T3",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 0/301 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2025-11-10 (first fill) to 2025-11-10 (first day L_t >= E_min, $1,000.00); 0 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "UNI: no T1/T2/T3 price data at t=1762813060421; M forced to 1.0 (T3_missing)",
+    "UNI: no T1/T2/T3 price data at t=1762813680195; M forced to 1.0 (T3_missing)",
+    "STOP-OUT on 2025-11-17: C_t=<=0, leverage=undefined (C_t<=0) (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $0.00, no further events followed (plan v0.5 \u00a71.4b).",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.",
+    "D2/gate denominators (peak/day-equity C_t) floored at 1% of E0 on at least one day to avoid divide-by-zero"
+  ],
+  "coins": [
+    "ARB",
+    "CASHCAT",
+    "HYPE",
+    "JTO",
+    "PONS",
+    "PUMP",
+    "TAO",
+    "TON",
+    "UNI",
+    "VVV",
+    "ZEC",
+    "kBONK",
+    "xyz:BIRD",
+    "xyz:CL",
+    "xyz:IBM",
+    "xyz:MU",
+    "xyz:NBIS",
+    "xyz:SPCX"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": -1430.4294449241668,
+      "pass": false,
+      "worst_stress_scenario": "ii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": null,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -1.2156890164352865
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -1960.7898053780862,
+      "net_before": -1397.8558330345293,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": 50523.47213500001
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 155,
+      "T3_missing": 9
+    },
+    "b_i": {
+      "T2": 155,
+      "T3_missing": 9
+    },
+    "b_ii": {
+      "T2": 155,
+      "T3_missing": 9
+    },
+    "b_iii": {
+      "T2": 155,
+      "T3_missing": 9
+    }
+  },
+  "monthly": {
+    "2025-11": {
+      "copier_net_normal": -1397.8558330345293,
+      "leader_net": -12876.523537999963
+    },
+    "2025-12": {
+      "copier_net_normal": 0.0,
+      "leader_net": 0.0
+    },
+    "2026-01": {
+      "copier_net_normal": 0.0,
+      "leader_net": 0.0
+    },
+    "2026-02": {
+      "copier_net_normal": 0.0,
+      "leader_net": 0.0
+    },
+    "2026-03": {
+      "copier_net_normal": 0.0,
+      "leader_net": 0.0
+    },
+    "2026-04": {
+      "copier_net_normal": 0.0,
+      "leader_net": 0.0
+    },
+    "2026-05": {
+      "copier_net_normal": 0.0,
+      "leader_net": -7254.316724999985
+    },
+    "2026-06": {
+      "copier_net_normal": 0.0,
+      "leader_net": 2963.0599610000177
+    },
+    "2026-07": {
+      "copier_net_normal": 0.0,
+      "leader_net": -3296.3373219999985
+    },
+    "2026-08": {
+      "copier_net_normal": 0.0,
+      "leader_net": 14321.151615000002
+    },
+    "2026-09": {
+      "copier_net_normal": 0.0,
+      "leader_net": 56666.43814399993
+    }
+  },
+  "n_events_W": 1647,
+  "n_twap_merged": 0,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "sample": {
+    "E0": 1270.4805193844022,
+    "leader_net": 50523.47213500001,
+    "perp_events": 1647,
+    "sufficient": true
+  },
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": "2025-11-17",
+  "stopout_leverage": null,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": "2025-11-17",
+    "ii": "2025-11-17",
+    "iii": "2025-11-17"
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "ARB",
+    "CASHCAT",
+    "HYPE",
+    "JTO",
+    "PONS",
+    "PUMP",
+    "TON",
+    "ZEC",
+    "xyz:CL",
+    "xyz:IBM",
+    "xyz:MU",
+    "xyz:SPCX"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 7,
+  "unscorable": false,
+  "window": {
+    "days": 301,
+    "end": "2026-09-06",
+    "end_ms": 1788739200000,
+    "start": "2025-11-10",
+    "start_ms": 1762732800000
+  },
+  "window_raw": {
+    "end": "2026-09-06",
+    "start": "2025-11-10"
+  }
+}

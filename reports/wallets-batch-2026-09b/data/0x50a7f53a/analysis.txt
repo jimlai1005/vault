@@ -1,0 +1,257 @@
+====================================================================================================
+WALLET 0x50a7f53a14a04d91b791e996b7d7a144ea93f053  (0x50a7f53a)   analysis generated 2026-09-24 01:50 UTC
+====================================================================================================
+
+[A] ACCOUNT ------------------------------------------------------------------
+  userAbstraction=unifiedAccount
+  dex=default    accountValue=      5,704.64 totalNtlPos=    100,162.98 marginUsed=     5,008.15 withdrawable=        0.00
+  dex=xyz        accountValue=      5,669.94 totalNtlPos=     96,519.86 marginUsed=     4,825.99 withdrawable=      843.94
+  spot: USDC: total=11374.6 hold=11374.6 free_usd=0 | USDE: total=0 hold=0 free_usd=0 | USDT0: total=0 hold=0 free_usd=0 | USDH: total=0 hold=0 free_usd=0
+  staked HYPE=0 ($0)   vault equity=$0
+  EQUITY BASIS: spot_free 0 + perp_av 11,375 + staked 0 + vault 0 = 11,375   vs venue portfolio 11,344   drift +30 (+0.3%)
+  ledger rows: {'send': 12}
+  ledger $ by type: send=39,670
+  net external flow = deposits 0 - withdrawals 0 = 0
+  venue equity curve: 2026-08-19 $0 -> 2026-09-23 $11,344 | allTime pnl=-3,828 vlm=14,474,736
+  venue equity peak $18,304 on 2026-08-19; min after peak $0 (drawdown from peak -100.0%)
+
+  -- current positions (all dexes):
+            SOL szi=        876.01 entry=     114.56 value=      100,163 upnl=        -193 lev=20xcross liq=106.779488677 opened=2026-09-23 17:54 age=? realized_since=-45
+   xyz:BRENTOIL szi=        979.38 entry=    98.2795 value=       96,520 upnl=         267 lev=20xcross liq=91.7894731727 opened=2026-09-23 15:38 age=2.3h realized_since=-9
+
+  -- open orders: 1
+            SOL n=  1 sides={'A': 1} px 104.4..104.4 (span 0bps, median step 0bps) ntl=0 mid=114.725 dist_near=-900bps dist_far=-900bps types={('Take Profit Market', None, True): 1}
+
+[B] MECHANISM ----------------------------------------------------------------
+  fills=3697 (perp 3697 / spot 0) 2026-08-16 20:17:21..2026-09-23 17:54:14
+  episodes: total=140 usable=140 (dropped data-gap starts 0) ends={'flat': 133, 'flip': 7} still-open=['SOL', 'xyz:BRENTOIL']
+  coins traded=21
+  top coins by notional: BTC(19%,net 6,972), xyz:SILVER(18%,net 777), SOL(14%,net 4,802), xyz:NVDA(8%,net 4,505), ENA(6%,net 1,048), TRUMP(6%,net -2,793), xyz:SNDK(5%,net 1,636), xyz:META(4%,net -744), xyz:SPCX(4%,net 694), xyz:UNITREE(3%,net -5,721)
+  top coins by |net pnl|: PUMP(-8,555), BTC(6,972), xyz:UNITREE(-5,721), xyz:BRENTOIL(-4,888), SOL(4,802), xyz:NVDA(4,505), TRUMP(-2,793), WLD(-2,710), xyz:SNDK(1,636), ENA(1,048)
+  HIP-3 share of notional=47%  spot share=0%
+  entry fills: n=1872 taker=49%   exit fills: n=1814 taker=100%
+  liquidation fills=45 in 5 episodes  first=2026-08-20 01:31 last=2026-09-18 16:32
+  TWAP slice fills=0 (0% of all fills; 0 merged from the TWAP endpoint, which userFillsByTime omits)  distinct oids=313  fills/oid=11.81
+
+  -- entry/exit shape (medians). 'depth' = how far the entry ladder walked against the first entry:
+   all episodes                      : n= 140 | entry: fills p50=  9 oids p50=  1 span p50=    1bps maker p50= 36% build p50=    0s depth p50=   +0bps | exit: fills p50=  9 maker p50=  0% unwind p50=    0s | ntl p50=    82,446 net p50=       51
+   episodes with >=5 entry fills     : n=  99 | entry: fills p50= 13 oids p50=  1 span p50=    2bps maker p50= 47% build p50=    0s depth p50=   +0bps | exit: fills p50= 13 maker p50=  0% unwind p50=    0s | ntl p50=    98,281 net p50=       56
+   winners                           : n=  91 | entry: fills p50=  9 oids p50=  1 span p50=    1bps maker p50= 42% build p50=    0s depth p50=   +0bps | exit: fills p50=  9 maker p50=  0% unwind p50=    0s | ntl p50=    77,334 net p50=      222
+   losers                            : n=  49 | entry: fills p50=  8 oids p50=  1 span p50=    0bps maker p50= 33% build p50=    1s depth p50=   +0bps | exit: fills p50= 10 maker p50=  0% unwind p50=    0s | ntl p50=   107,148 net p50=     -314
+   large (peak notional >= 100k)     : n=  21 | entry: fills p50= 13 oids p50=  1 span p50=    1bps maker p50= 42% build p50=    1s depth p50=   +0bps | exit: fills p50= 12 maker p50=  0% unwind p50=    0s | ntl p50=   248,050 net p50=      110
+  averaging-in: 132/140 episodes have >1 entry fill; median share of entries at a worse price than the first = 0%
+  -- 10 deepest entry ladders (walked furthest against the first entry):
+     2026-08-23 14:27      TRUMP L depth=  -953bps span= 1054bps entries=  14 maker=93% hold=  15.8m peak_ntl=     20,306 net=    -1,897 exit_maker=0%
+     2026-08-20 01:31 xyz:UNITREE L depth=  -927bps span= 1022bps entries=  71 maker=39% hold=   1.2d peak_ntl=     70,537 net=    -3,332 exit_maker=0%
+     2026-08-19 08:08 xyz:UNITREE L depth=  -580bps span=  616bps entries=  44 maker=66% hold=  17.4h peak_ntl=     51,551 net=    -2,783 exit_maker=0%
+     2026-08-21 09:03        ENA L depth=  -282bps span=  311bps entries=  35 maker=0% hold=   3.7m peak_ntl=     73,956 net=    -2,069 exit_maker=0%
+     2026-08-22 06:52      TRUMP L depth=  -245bps span=  251bps entries=  16 maker=50% hold=   1.5h peak_ntl=     58,685 net=    -3,137 exit_maker=0%
+     2026-08-26 05:48 xyz:SILVER L depth=   -51bps span=   51bps entries=  16 maker=0% hold=  19.9h peak_ntl=    122,995 net=       673 exit_maker=0%
+     2026-09-13 22:55 xyz:SILVER L depth=   -29bps span=   30bps entries=   4 maker=0% hold=   1.8d peak_ntl=     36,204 net=      -116 exit_maker=0%
+     2026-08-18 10:30   xyz:META S depth=    +0bps span=    0bps entries=   4 maker=100% hold=   3.2h peak_ntl=     20,151 net=       577 exit_maker=0%
+     2026-08-18 08:36   xyz:SNDK L depth=    +0bps span=    1bps entries=   3 maker=0% hold=   5.3h peak_ntl=     20,608 net=      -474 exit_maker=0%
+     2026-08-19 02:44 xyz:UNITREE S depth=    +0bps span=    0bps entries=  19 maker=100% hold=  24.4m peak_ntl=     23,165 net=       316 exit_maker=0%
+  -- 10 worst episodes: how were they exited? (stop-loss evidence)
+     2026-08-30 20:55->2026-09-01 17:40 xyz:BRENTOIL S net=    -5,966 hold=   1.9d peak_ntl=    126,478 entries=  34 depth=  +263bps exits= 26 exit_maker=0% unwind=    0s liq_fills=0
+     2026-08-19 16:00->2026-08-20 13:58       PUMP S net=    -5,655 hold=  22.0h peak_ntl=     55,202 entries=  29 depth=  +935bps exits= 25 exit_maker=0% unwind=    0s liq_fills=25
+     2026-09-18 16:45->2026-09-21 22:14        WLD S net=    -3,349 hold=   3.2d peak_ntl=     49,003 entries=  40 depth=  +573bps exits= 43 exit_maker=0% unwind=    0s liq_fills=0
+     2026-08-20 01:31->2026-08-21 06:48 xyz:UNITREE L net=    -3,332 hold=   1.2d peak_ntl=     70,537 entries=  71 depth=  -927bps exits= 47 exit_maker=0% unwind=    0s liq_fills=0
+     2026-08-22 06:52->2026-08-22 08:19      TRUMP L net=    -3,137 hold=   1.5h peak_ntl=     58,685 entries=  16 depth=  -245bps exits= 17 exit_maker=0% unwind=    0s liq_fills=0
+     2026-08-22 13:44->2026-08-22 14:18      TRUMP L net=    -3,005 hold=  34.0m peak_ntl=     41,264 entries=  20 depth=    +0bps exits= 16 exit_maker=0% unwind=    0s liq_fills=0
+     2026-08-19 08:08->2026-08-20 01:31 xyz:UNITREE L net=    -2,783 hold=  17.4h peak_ntl=     51,551 entries=  44 depth=  -580bps exits=  5 exit_maker=0% unwind= 11.8h liq_fills=1
+     2026-08-21 13:19->2026-08-21 14:58       PUMP S net=    -2,486 hold=   1.7h peak_ntl=     62,794 entries=   5 depth=    +0bps exits= 23 exit_maker=0% unwind=    0s liq_fills=0
+     2026-09-10 14:42->2026-09-11 01:41 xyz:SILVER L net=    -2,394 hold=  11.0h peak_ntl=    125,214 entries=   6 depth=    +0bps exits= 27 exit_maker=0% unwind=    0s liq_fills=0
+     2026-08-21 09:03->2026-08-21 09:06        ENA L net=    -2,069 hold=   3.7m peak_ntl=     73,956 entries=  35 depth=  -282bps exits= 35 exit_maker=0% unwind=    0s liq_fills=0
+  -- 10 best episodes:
+     2026-09-16 18:55->2026-09-18 13:55        BTC L net=     7,115 hold=   1.8d peak_ntl=    122,455 entries=   6 depth=    +0bps exits=  1 entry_maker=100% exit_maker=0%
+     2026-09-16 20:27->2026-09-18 13:54        SOL L net=     3,012 hold=   1.7d peak_ntl=     33,133 entries=  10 depth=    +0bps exits= 17 entry_maker=100% exit_maker=0%
+     2026-08-19 07:14->2026-08-19 10:10   xyz:SNDK S net=     2,660 hold=   2.9h peak_ntl=    100,034 entries=   6 depth=  +402bps exits=  9 entry_maker=100% exit_maker=0%
+     2026-08-26 20:04->2026-08-27 04:10   xyz:NVDA L net=     2,150 hold=   8.1h peak_ntl=     41,008 entries=  12 depth=    +0bps exits=  7 entry_maker=0% exit_maker=0%
+     2026-08-21 18:58->2026-08-22 01:51        ENA L net=     1,770 hold=   6.9h peak_ntl=     40,610 entries=  12 depth=    +0bps exits= 21 entry_maker=0% exit_maker=0%
+     2026-08-29 14:53->2026-08-29 15:32      TRUMP S net=     1,501 hold=  39.3m peak_ntl=     54,849 entries=  25 depth=    +0bps exits=  8 entry_maker=0% exit_maker=0%
+     2026-08-22 08:27->2026-08-22 13:38      TRUMP S net=     1,388 hold=   5.2h peak_ntl=     18,350 entries=   3 depth=    +0bps exits=  5 entry_maker=0% exit_maker=0%
+     2026-08-22 06:22->2026-08-22 06:38      TRUMP L net=     1,256 hold=  16.2m peak_ntl=     41,004 entries=   9 depth=    +0bps exits=  8 entry_maker=0% exit_maker=0%
+     2026-08-27 07:33->2026-08-28 15:52   xyz:NVDA S net=     1,093 hold=   1.3d peak_ntl=    171,141 entries=  24 depth=  +180bps exits=  9 entry_maker=42% exit_maker=0%
+     2026-09-13 05:44->2026-09-14 00:03 xyz:BRENTOIL L net=     1,087 hold=  18.3h peak_ntl=     45,846 entries=  23 depth=    +0bps exits=  5 entry_maker=13% exit_maker=0%
+
+  position sizing: peak notional p25=21,408 p50=40,610 p75=73,253 p90=122,455 max=171,141  (vs current equity 11,344 -> p50 3.58x, max 15.09x)
+  current gross exposure=196,683 = 17.34x equity  (long 196,683 / short 0)
+  entries by UTC hour (n/net): 01:1/-3,332 02:1/316 03:3/-421 04:4/198 05:4/1,497 06:4/-899 07:7/5,052 08:7/-1,756 09:4/-1,905 10:7/219 11:6/295 12:3/722 13:12/-5,773 14:19/-2,390 15:14/-164 16:7/-7,371 17:8/1,561 18:10/8,789 19:5/706 20:7/-483 21:3/651 22:4/-101
+  entries by weekday: {'Sun': 15, 'Mon': 12, 'Tue': 25, 'Wed': 36, 'Thu': 12, 'Fri': 27, 'Sat': 13}
+
+  -- monthly cadence (realized net of fees; taker share):
+     2026-08  fills=  2255 taker= 70% coins= 14 ntl=     6,581,054 net=      -5,002
+     2026-09  fills=  1442 taker= 81% coins= 17 ntl=     7,893,698 net=         360
+
+[C] BIG DAYS -----------------------------------------------------------------
+  active days=37 span=2026-08-16..2026-09-23
+   |daily realized net| >= $5,000: 4 days
+   |daily realized net| >= $10,000: 0 days
+   |daily realized net| >= $20,000: 0 days
+   |daily realized net| >= $567 (=5% of equity): 24 days
+
+  -- top 25 days by |realized net| (threshold $227); market ctx = that day's 1d candle of the dominant coin:
+     date                net  fills  taker       notional  dominant coins (net)   | market: coin day% range%
+     2026-09-18        9,661     64   59%        566,810  BTC:6,677, SOL:2,995, WLD:-11   | BTC +5.9% range 6.8%
+     2026-08-20       -8,396    155   78%        400,099  PUMP:-5,652, xyz:UNITREE:-1,966, xyz:AMZN:-544   | xyz:UNITREE -14.8% range 24.8%
+     2026-08-21       -7,193    516   84%      1,171,607  xyz:UNITREE:-3,276, PUMP:-2,493, ENA:-988   | ENA +21.9% range 34.0%
+     2026-09-01       -5,519     81   94%        375,662  xyz:BRENTOIL:-5,963, xyz:SILVER:445   | xyz:SILVER -3.7% range 4.8%
+     2026-08-19        3,943    241   46%        775,133  xyz:SNDK:3,274, xyz:SILVER:575, xyz:UNITREE:-480   | xyz:SNDK +1.1% range 10.8%
+     2026-08-27        3,783    154   94%        479,257  xyz:NVDA:2,146, ENA:932, xyz:SILVER:682   | xyz:NVDA +3.0% range 5.3%
+     2026-08-22       -3,037    147   81%        396,472  TRUMP:-3,499, ENA:461   | TRUMP +27.7% range 101.6%
+     2026-09-21       -2,999    121   57%        189,519  WLD:-3,338, ENA:276, NEAR:64   | WLD +5.2% range 9.2%
+     2026-09-11       -1,990     60  100%        415,696  xyz:SILVER:-2,390, ETH:332, SOL:69   | SOL +3.9% range 8.0%
+     2026-08-23       -1,858     89   73%        238,414  TRUMP:-1,901, PUMP:-407, ENA:346   | SOL +1.7% range 7.4%
+     2026-09-04       -1,679     63   92%        351,894  xyz:SNDK:-1,656, xyz:SILVER:-183, xyz:SPCX:160   | xyz:SNDK +11.8% range 12.7%
+     2026-09-14        1,651     27   70%        128,534  xyz:BRENTOIL:1,091, SOL:560   | SOL +3.3% range 5.9%
+     2026-08-29        1,477    151   75%        432,465  TRUMP:1,489, HYPE:-12   | TRUMP -2.1% range 16.8%
+     2026-09-23       -1,414    109  100%        966,734  BTC:-747, SOL:-659, xyz:BRENTOIL:-9   | SOL -3.1% range 6.1%
+     2026-08-18        1,380     22   68%        174,883  xyz:SPCX:614, xyz:META:577, xyz:SNDK:190   | xyz:SNDK -12.1% range 14.8%
+     2026-08-26        1,245    163   76%        661,353  xyz:NVDA:1,026, xyz:META:242, xyz:SILVER:-146   | xyz:SILVER +0.3% range 3.3%
+     2026-08-25        1,190    133   83%        545,894  SOL:818, xyz:SILVER:711, xyz:SNDK:-330   | SOL -2.5% range 8.2%
+     2026-09-02        1,145     23   91%        258,813  xyz:SILVER:610, xyz:NVDA:535   | xyz:NVDA +3.7% range 5.5%
+     2026-08-24        1,139    110   88%        249,702  TRUMP:1,111, ENA:31, xyz:NVDA:-2   | TRUMP -8.8% range 12.4%
+     2026-08-28        1,097     35   26%        311,646  xyz:NVDA:1,101, xyz:SILVER:-4   | xyz:NVDA -3.6% range 5.6%
+     2026-09-10       -1,075     63   70%        460,651  xyz:META:-1,223, xyz:SILVER:148   | xyz:SILVER -5.5% range 7.3%
+     2026-09-20          717     28   50%        227,373  SOL:721, ENA:-4   | SOL +0.1% range 3.8%
+     2026-09-09          572     89   79%        243,842  xyz:AMD:254, xyz:SNDK:160, xyz:SILVER:145   | xyz:META +5.7% range 7.1%
+     2026-09-16         -568    165   84%      1,298,654  xyz:SILVER:-647, SOL:220, BTC:-140   | BTC +0.8% range 2.1%
+     2026-09-22          524     18   39%        161,041  BTC:524   | BTC -0.5% range 1.9%
+
+  -- what the account did on the 8 biggest days (episodes overlapping the day):
+     2026-09-18 net=9,661 fills=64 taker=59% — 6 episodes overlapping:
+        by hour (n/net): 13:19/10,097 14:5/-413 15:9/-6 16:31/-17
+               BTC L 2026-09-16 18:55->2026-09-18 13:55 hold=   1.8d peak_ntl=    122,455 entries=6 exits=1 exit_maker=0% net=7,115
+               WLD S 2026-09-18 16:45->2026-09-21 22:14 hold=   3.2d peak_ntl=     49,003 entries=40 exits=43 exit_maker=0% net=-3,349
+               SOL L 2026-09-16 20:27->2026-09-18 13:54 hold=   1.7d peak_ntl=     33,133 entries=10 exits=17 exit_maker=0% net=3,012
+               SOL S 2026-09-18 14:13->2026-09-20 16:28 hold=   2.1d peak_ntl=    145,009 entries=24 exits=4 exit_maker=0% net=726
+               BTC S 2026-09-18 13:55->2026-09-18 14:00 hold=   4.4m peak_ntl=    117,743 entries=1 exits=1 exit_maker=0% net=-457
+     2026-08-20 net=-8,396 fills=155 taker=78% — 6 episodes overlapping:
+        by hour (n/net): 01:13/-1,962 03:26/-8 04:3/-0 07:13/-144 08:69/-636 09:6/-2 13:25/-5,643
+              PUMP S 2026-08-19 16:00->2026-08-20 13:58 hold=  22.0h peak_ntl=     55,202 entries=29 exits=25 exit_maker=0% net=-5,655
+        xyz:UNITREE L 2026-08-20 01:31->2026-08-21 06:48 hold=   1.2d peak_ntl=     70,537 entries=71 exits=47 exit_maker=0% net=-3,332
+        xyz:UNITREE L 2026-08-19 08:08->2026-08-20 01:31 hold=  17.4h peak_ntl=     51,551 entries=44 exits=5 exit_maker=0% net=-2,783
+          xyz:AMZN S 2026-08-19 14:55->2026-08-20 08:13 hold=  17.3h peak_ntl=     83,291 entries=22 exits=30 exit_maker=0% net=-547
+          xyz:META S 2026-08-19 14:12->2026-08-20 07:32 hold=  17.3h peak_ntl=     22,121 entries=6 exits=8 exit_maker=0% net=-126
+     2026-08-21 net=-7,193 fills=516 taker=84% — 13 episodes overlapping:
+        by hour (n/net): 06:92/-3,331 07:29/-4 08:33/57 09:146/-2,172 10:50/613 11:6/-8 12:36/0 13:5/-9 14:23/-2,476 15:72/-439 16:12/593 18:12/-18
+        xyz:UNITREE L 2026-08-20 01:31->2026-08-21 06:48 hold=   1.2d peak_ntl=     70,537 entries=71 exits=47 exit_maker=0% net=-3,332
+              PUMP S 2026-08-21 13:19->2026-08-21 14:58 hold=   1.7h peak_ntl=     62,794 entries=5 exits=23 exit_maker=0% net=-2,486
+               ENA L 2026-08-21 09:03->2026-08-21 09:06 hold=   3.7m peak_ntl=     73,956 entries=35 exits=35 exit_maker=0% net=-2,069
+               ENA L 2026-08-21 18:58->2026-08-22 01:51 hold=   6.9h peak_ntl=     40,610 entries=12 exits=21 exit_maker=0% net=1,770
+               ENA S 2026-08-21 09:06->2026-08-21 09:09 hold=   2.4m peak_ntl=     57,000 entries=11 exits=21 exit_maker=0% net=-762
+     2026-09-01 net=-5,519 fills=81 taker=94% — 3 episodes overlapping:
+        by hour (n/net): 05:27/450 08:8/-2 17:46/-5,967
+        xyz:BRENTOIL S 2026-08-30 20:55->2026-09-01 17:40 hold=   1.9d peak_ntl=    126,478 entries=34 exits=26 exit_maker=0% net=-5,966
+        xyz:SILVER L 2026-09-01 17:41->2026-09-02 14:30 hold=  20.8h peak_ntl=     81,221 entries=20 exits=13 exit_maker=0% net=605
+        xyz:SILVER L 2026-08-30 21:06->2026-09-01 05:59 hold=   1.4d peak_ntl=    145,101 entries=72 exits=27 exit_maker=0% net=445
+     2026-08-19 net=3,943 fills=241 taker=46% — 13 episodes overlapping:
+        by hour (n/net): 02:19/-1 03:32/654 07:5/-2 08:3/-2 10:9/2,662 13:16/-244 14:67/658 15:14/-1 16:29/-3 17:15/-0 19:15/-2 21:17/223
+              PUMP S 2026-08-19 16:00->2026-08-20 13:58 hold=  22.0h peak_ntl=     55,202 entries=29 exits=25 exit_maker=0% net=-5,655
+        xyz:UNITREE L 2026-08-19 08:08->2026-08-20 01:31 hold=  17.4h peak_ntl=     51,551 entries=44 exits=5 exit_maker=0% net=-2,783
+          xyz:SNDK S 2026-08-19 07:14->2026-08-19 10:10 hold=   2.9h peak_ntl=    100,034 entries=6 exits=9 exit_maker=0% net=2,660
+          xyz:SNDK L 2026-08-19 14:18->2026-08-19 14:43 hold=  24.7m peak_ntl=     31,707 entries=2 exits=9 exit_maker=0% net=614
+        xyz:SILVER L 2026-08-18 15:40->2026-08-19 13:51 hold=  22.2h peak_ntl=     31,010 entries=3 exits=11 exit_maker=0% net=574
+     2026-08-27 net=3,783 fills=154 taker=94% — 5 episodes overlapping:
+        by hour (n/net): 01:27/682 04:30/2,149 06:17/-10 07:52/23 08:1/-1 13:22/942 14:4/-1 15:1/-0
+          xyz:NVDA L 2026-08-26 20:04->2026-08-27 04:10 hold=   8.1h peak_ntl=     41,008 entries=12 exits=7 exit_maker=0% net=2,150
+          xyz:NVDA S 2026-08-27 07:33->2026-08-28 15:52 hold=   1.3d peak_ntl=    171,141 entries=24 exits=9 exit_maker=0% net=1,093
+               ENA S 2026-08-27 06:48->2026-08-27 13:26 hold=   6.6h peak_ntl=     22,451 entries=17 exits=22 exit_maker=0% net=932
+        xyz:SILVER L 2026-08-26 05:48->2026-08-27 01:40 hold=  19.9h peak_ntl=    122,995 entries=16 exits=27 exit_maker=0% net=673
+          xyz:SPCX S 2026-08-27 04:35->2026-08-27 07:32 hold=   3.0h peak_ntl=     49,773 entries=23 exits=34 exit_maker=0% net=24
+     2026-08-22 net=-3,037 fills=147 taker=81% — 6 episodes overlapping:
+        by hour (n/net): 01:21/1,787 06:25/1,249 07:8/-8 08:20/-3,131 13:25/1,378 14:16/-2,987 15:20/-3 22:12/-1,323
+             TRUMP L 2026-08-22 06:52->2026-08-22 08:19 hold=   1.5h peak_ntl=     58,685 entries=16 exits=17 exit_maker=0% net=-3,137
+             TRUMP L 2026-08-22 13:44->2026-08-22 14:18 hold=  34.0m peak_ntl=     41,264 entries=20 exits=16 exit_maker=0% net=-3,005
+               ENA L 2026-08-21 18:58->2026-08-22 01:51 hold=   6.9h peak_ntl=     40,610 entries=12 exits=21 exit_maker=0% net=1,770
+             TRUMP S 2026-08-22 08:27->2026-08-22 13:38 hold=   5.2h peak_ntl=     18,350 entries=3 exits=5 exit_maker=0% net=1,388
+               ENA S 2026-08-22 15:40->2026-08-22 22:29 hold=   6.8h peak_ntl=     19,954 entries=20 exits=12 exit_maker=0% net=-1,326
+     2026-09-21 net=-2,999 fills=121 taker=57% — 5 episodes overlapping:
+        by hour (n/net): 03:12/-1 04:22/-5 08:25/73 16:1/276 18:18/-8 22:43/-3,335
+               WLD S 2026-09-18 16:45->2026-09-21 22:14 hold=   3.2d peak_ntl=     49,003 entries=40 exits=43 exit_maker=0% net=-3,349
+               SOL S 2026-09-20 20:33->2026-09-23 14:14 hold=   2.7d peak_ntl=    114,140 entries=28 exits=12 exit_maker=0% net=-839
+               ENA S 2026-09-19 09:08->2026-09-21 16:15 hold=   2.3d peak_ntl=     39,229 entries=18 exits=1 exit_maker=0% net=267
+              NEAR S 2026-09-21 04:28->2026-09-21 08:25 hold=   4.0h peak_ntl=     13,789 entries=13 exits=16 exit_maker=0% net=64
+             TRUMP S 2026-09-18 14:46->2026-09-21 08:33 hold=   2.7d peak_ntl=      2,227 entries=2 exits=9 exit_maker=0% net=7
+
+  -- daily trajectory of the 4 coins that dominate PnL: ['PUMP', 'BTC', 'xyz:UNITREE', 'xyz:BRENTOIL']
+   [PUMP] 4 active days, total net=-8,555
+     2026-08-19 eod_pos=    -6.778e+06 buy=           0 sell=   6.778e+06 fills=   18 net=         -3 cum=          -3 | -3.1% rng 10.5%
+     2026-08-20 eod_pos=             0 buy=   1.577e+07 sell=   8.992e+06 fills=   36 net=     -5,652 cum=      -5,655 | +27.9% rng 31.4%
+     2026-08-21 eod_pos=             0 buy=   2.734e+07 sell=   2.734e+07 fills=   70 net=     -2,493 cum=      -8,148 | +6.1% rng 14.1%
+     2026-08-23 eod_pos=             0 buy=   4.876e+06 sell=   4.876e+06 fills=   38 net=       -407 cum=      -8,555 | +5.3% rng 18.3%
+   [BTC] 8 active days, total net=6,972
+     2026-09-03 eod_pos=             0 buy=       1.482 sell=       1.481 fills=   18 net=        223 cum=         223 | +5.1% rng 6.9%
+     2026-09-05 eod_pos=        0.4801 buy=      0.4801 sell=           0 fills=    4 net=        -17 cum=         205 | +0.2% rng 1.0%
+     2026-09-06 eod_pos=             0 buy=           0 sell=      0.4801 fills=    9 net=         96 cum=         302 | +0.6% rng 1.6%
+     2026-09-15 eod_pos=             0 buy=       4.426 sell=       4.426 fills=   48 net=        356 cum=         658 | -3.3% rng 4.4%
+     2026-09-16 eod_pos=         1.622 buy=       6.525 sell=       4.903 fills=   54 net=       -140 cum=         518 | +0.8% rng 2.1%
+     2026-09-18 eod_pos=             0 buy=       1.472 sell=       3.094 fills=    3 net=      6,677 cum=       7,195 | +5.9% rng 6.8%
+     2026-09-22 eod_pos=             0 buy=      0.9335 sell=      0.9335 fills=   18 net=        524 cum=       7,719 | -0.5% rng 1.9%
+     2026-09-23 eod_pos=             0 buy=        2.29 sell=        2.29 fills=   48 net=       -747 cum=       6,972 | -2.2% rng 4.7%
+   [xyz:UNITREE] 3 active days, total net=-5,721
+     2026-08-19 eod_pos=         455.7 buy=       848.7 sell=         393 fills=   86 net=       -480 cum=        -480 | +16.8% rng 50.3%
+     2026-08-20 eod_pos=         712.9 buy=       712.9 sell=       455.7 fills=   72 net=     -1,966 cum=      -2,445 | -14.8% rng 24.8%
+     2026-08-21 eod_pos=             0 buy=       791.3 sell=        1504 fills=  200 net=     -3,276 cum=      -5,721 | +3.9% rng 12.6%
+   [xyz:BRENTOIL] 5 active days, total net=-4,888
+     2026-08-30 eod_pos=         -1160 buy=           0 sell=        1160 fills=   26 net=         -3 cum=          -3 | +1.9% rng 3.2%
+     2026-09-01 eod_pos=             0 buy=        1372 sell=       212.6 fills=   34 net=     -5,963 cum=      -5,966 | +4.7% rng 5.2%
+     2026-09-13 eod_pos=         456.5 buy=       456.5 sell=           0 fills=   23 net=         -4 cum=      -5,970 | +3.1% rng 4.1%
+     2026-09-14 eod_pos=             0 buy=           0 sell=       456.5 fills=    5 net=      1,091 cum=      -4,879 | -1.5% rng 4.1%
+     2026-09-23 eod_pos=         979.4 buy=       979.4 sell=           0 fills=   11 net=         -9 cum=      -4,888 | +3.6% rng 5.2%
+
+[D] HOLD TIME ----------------------------------------------------------------
+   all episodes                          : n= 140 p10=   7.8m p25=  32.1m p50=   2.8h p75=  12.9h p90=   1.3d max=   4.7d | ntl-weighted p50=   3.9h
+                                           buckets={'<1m': 2, '<10m': 15, '<1h': 31, '<4h': 32, '<1d': 42, '<7d': 18}
+                                           win=65% avgWin=483 avgLoss=-991 hold(win) p50=   2.9h hold(loss) p50=   1.7h
+   long only                             : n=  67 p10=   8.1m p25=  24.7m p50=   1.4h p75=  12.4h p90=   1.3d max=   2.0d | ntl-weighted p50=   1.7h
+                                           buckets={'<1m': 1, '<10m': 7, '<1h': 19, '<4h': 12, '<1d': 20, '<7d': 8}
+                                           win=70% avgWin=580 avgLoss=-1,076 hold(win) p50=   1.3h hold(loss) p50=   1.4h
+   short only                            : n=  73 p10=   5.2m p25=  35.1m p50=   3.0h p75=  16.1h p90=   1.3d max=   4.7d | ntl-weighted p50=   6.0h
+                                           buckets={'<1m': 1, '<10m': 8, '<1h': 12, '<4h': 20, '<1d': 22, '<7d': 10}
+                                           win=60% avgWin=380 avgLoss=-934 hold(win) p50=   3.1h hold(loss) p50=   2.9h
+   winners                               : n=  91 p10=  14.4m p25=  35.1m p50=   2.9h p75=  12.5h p90=   1.3d max=   4.7d | ntl-weighted p50=   3.9h
+                                           buckets={'<10m': 8, '<1h': 22, '<4h': 21, '<1d': 29, '<7d': 11}
+                                           win=100% avgWin=483 avgLoss=0 hold(win) p50=   2.9h hold(loss) p50=      -
+   losers                                : n=  49 p10=   3.7m p25=  15.8m p50=   1.7h p75=  15.9h p90=   1.2d max=   3.2d | ntl-weighted p50=   3.6h
+                                           buckets={'<1m': 2, '<10m': 7, '<1h': 9, '<4h': 11, '<1d': 13, '<7d': 7}
+                                           win=0% avgWin=0 avgLoss=-991 hold(win) p50=      - hold(loss) p50=   1.7h
+   large (peak notional >= 100k)         : n=  21 p10=  17.1m p25=   1.2h p50=   7.5h p75=   1.4d p90=   2.0d max=   2.7d | ntl-weighted p50=   7.5h
+                                           buckets={'<10m': 2, '<1h': 1, '<4h': 6, '<1d': 5, '<7d': 7}
+                                           win=62% avgWin=1,067 avgLoss=-1,309 hold(win) p50=   7.5h hold(loss) p50=   7.1h
+   era 1: 2026-08-16..2026-08-26         : n=  57 p10=   5.2m p25=  24.7m p50=   1.4h p75=   8.8h p90=  21.8h max=   1.7d | ntl-weighted p50=   1.7h
+                                           buckets={'<10m': 7, '<1h': 18, '<4h': 11, '<1d': 19, '<7d': 2}
+                                           win=61% avgWin=520 avgLoss=-1,328 hold(win) p50=   1.7h hold(loss) p50=   1.3h
+   era 2: 2026-08-26..2026-09-04         : n=  28 p10=   5.6m p25=  41.7m p50=   3.6h p75=  16.1h p90=   1.9d max=   4.7d | ntl-weighted p50=  10.0h
+                                           buckets={'<10m': 3, '<1h': 5, '<4h': 7, '<1d': 8, '<7d': 5}
+                                           win=68% avgWin=479 avgLoss=-978 hold(win) p50=   6.6h hold(loss) p50=   2.9h
+   era 3: 2026-09-04..2026-09-14         : n=  26 p10=  17.1m p25=  54.8m p50=   7.2h p75=  18.3h p90=   1.1d max=   1.8d | ntl-weighted p50=  11.0h
+                                           buckets={'<1m': 1, '<1h': 6, '<4h': 5, '<1d': 10, '<7d': 4}
+                                           win=69% avgWin=168 avgLoss=-505 hold(win) p50=   3.4h hold(loss) p50=  16.6h
+   era 4: 2026-09-14..2026-09-23         : n=  29 p10=   4.4m p25=  15.8m p50=   2.7h p75=  12.4h p90=   2.7d max=   3.2d | ntl-weighted p50=   3.6h
+                                           buckets={'<1m': 1, '<10m': 5, '<1h': 2, '<4h': 9, '<1d': 5, '<7d': 7}
+                                           win=66% avgWin=719 avgLoss=-652 hold(win) p50=   1.8h hold(loss) p50=   3.2h
+
+   -- era summary (fills, taker, realized net, fee bps):
+     2026-08-16..2026-08-26: fills=  1517 days= 11 taker= 76% ntl=     4,370,827 net=     -12,640 fee_bps= 2.35
+     2026-08-26..2026-09-04: fills=  1009 days=  9 taker= 65% ntl=     3,845,604 net=       1,680 fee_bps= 1.38
+     2026-09-04..2026-09-14: fills=   506 days= 10 taker= 82% ntl=     1,756,372 net=        -668 fee_bps= 2.23
+     2026-09-14..2026-09-23: fills=   658 days=  9 taker= 78% ntl=     4,401,594 net=       7,032 fee_bps= 3.68
+
+[E] DATA LIMITS --------------------------------------------------------------
+  fills returned=3697 (HL returns at most the 10000 most recent per page; pagination with tid dedup used)
+  first ledger row=2026-08-16 18:00:48 vs first fill=2026-08-16 20:17:21 -> fills appear to cover the account life
+  venue equity curve starts 2026-08-19; fills start 2026-08-16
+  funding rows=500 covering 2026-08-16.. (userFunding startTime=0 returns only the first 500 rows — totals below are a LOWER bound)
+  realized closedPnl=-1,032 fees=3,610 funding=744
+  spot sells: closedPnl is accounting vs historical average cost (cost basis may predate the window) — not a same-day market PnL
+  daily PnL is realized only, cut on UTC; the venue portfolio curve includes unrealized
+
+  -- position reconstruction vs exchange (every coin must be OK):
+     -> 0 real DRIFT, 0 stale/settled.  OK: position reconstruction matches the exchange.
+
+  -- transfer counterparties (ledger 'send' rows; who funds this wallet / where money goes):
+     0x6b9e773128f453f5c2c60935ee2de2cbc5390a24  in   5 rows $      27,422 | out   0 rows $           0 | 2026-08-16..2026-09-05
+     0x2000000000000000000000000000000000000000  in   0 rows $           0 | out   7 rows $      12,249 | 2026-08-24..2026-09-02
+
+[done]

@@ -27,6 +27,9 @@ Hyperliquid 量化交易 monorepo。**這個 repo 管理實盤資金**——先�
   費率，重跑 `stablepairs/g0_hl_stables.py` 一小時即可重評。
 - `scripts/` — 研究與運維腳本。`research_*.py` 是一次性研究、`run_*.py` 是回測入口。
 - `reports/` — 研究結論。`*-verdict.md` 是各子專案的最終判定（GO／NO-GO）。
+  `reports/wallet-<前6碼>-<YYYY-MM>/`、`reports/wallets-batch-<YYYY-MM>/` 是 HL 錢包逆向工作目錄（skill
+  `hl-wallet-forensics`；報告本體在 pandora `wallets/`）。目前最完整工具鏈：`reports/wallet-0xf97a-2026-10/scripts/`。
+  只 commit 腳本、README、drafts、`*.txt` 與 `copyscore*/segments*.json`；API 原始傾印與 K 線快取被 .gitignore 擋掉，重抓即可。
 - `docs/superpowers/specs/`、`plans/` — 子專案的設計與計畫文件。
 - `deploy/` — systemd service 檔與部署腳本（碰錢，見紅線）。
 - `tests/` — pytest。用 `.venv`：`source .venv/bin/activate` 或 `.venv/bin/pytest`。
