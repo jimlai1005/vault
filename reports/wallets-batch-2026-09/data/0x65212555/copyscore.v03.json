@@ -1,0 +1,177 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": -1604722.949186384,
+    "net_stress": {
+      "i": -1618207.627370215,
+      "ii": -1839131.6622219896,
+      "iii": -1853922.602146994
+    },
+    "r_miss": {
+      "open": -12.67304212870528,
+      "reduce": -12.673042172481361,
+      "worst": -12.673042172481361
+    },
+    "r_normal": -12.673042652720698,
+    "r_stress": {
+      "i": -12.779535740433158,
+      "ii": -14.524247946429352,
+      "iii": -14.641057027173444,
+      "worst": -14.641057027173444
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 16,
+    "lev_peak": 372307.85346253845,
+    "mdd": 6.800709578903589,
+    "score": 6.0,
+    "sub_scores": {
+      "dd_days": 1.0,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -22496.894924791282,
+    "worst_week_frac": -22812.371261772125
+  },
+  "D3": {
+    "S_conc": 0.3752816025821685,
+    "S_mhit": 0.0,
+    "S_rob": 0.0,
+    "conc": 0.7185387980633736,
+    "dominant_coin": "BTC",
+    "m_hit": 0.0,
+    "n_open_w_episodes": 0,
+    "n_w_episodes": 9,
+    "regime_score": 0.5,
+    "rob": 0.0,
+    "score": 4.376408012910843
+  },
+  "D4": {
+    "R_b": -7.237997827420232,
+    "R_b_star": -4740.282793858208,
+    "R_c": -316.8621337335562,
+    "excess": 4423.4206601246515,
+    "score": 10.0,
+    "sigma_b": 8.441678772716202,
+    "sigma_c": 5528.593071137626
+  },
+  "D5": {
+    "S_cov": 0.7911350597764721,
+    "S_hist": 0.0,
+    "S_price": 1.0,
+    "coverage": 0.8955675298882361,
+    "fwd_score": 0.5,
+    "hist_days": 35.31864335648148,
+    "price_level_frac": 0.9921465968586387,
+    "retain_back": -12.154309170942527,
+    "retain_front": -13.959608942107613,
+    "score": 2.8639188247205905
+  },
+  "E0": 5064.420069,
+  "addr": "0x65212555160d29b9b1fe02307dc8d0266248364f",
+  "addr10": "0x65212555",
+  "assumptions": [
+    "E0 (accountValueHistory <= W0) was missing/<=0; pushed W0 forward to the first point with value>0 (E0=$5,064.42)",
+    "T2 (Binance proxy) scope = 3/3 coins (top-12 rule was larger); remaining 0 coin(s) use T1 (if recent) or T3 only",
+    "L_t (leader daily equity for proportional sizing) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary, minus cumulative net EXTERNAL ledger flow since W0 (deposit/withdraw, plus spotTransfer/send to a different address); 15 such events fell inside W. Falls back to the leader's own fills-based MTM curve on 0 day(s) outside accountValueHistory's covered range. Internal moves (accountClassTransfer, same-address dex sends, subAccountTransfer, internalTransfer) are not netted.",
+    "L_t (leader daily equity) was <=1% of E0 on 4/19 day(s) of the full-history window (min ratio observed for the proportional sizing multiplier reached 144.1x); this is a real characteristic of this wallet's capital history (large early swings/withdrawals relative to its tiny starting E0), not a computation bug \u2014 it drives outsized D2/gate leverage numbers when it occurs.",
+    "D1-c loss(e) = -qty*(p_recon - p_exec) - (catch-up slippage + catch-up fee), per plan \u00a73 D1-c; does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only subtracts the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.",
+    "D2/gate denominators (peak/day-equity C_t) floored at 1% of E0 on at least one day to avoid divide-by-zero"
+  ],
+  "coins": [
+    "ASTER",
+    "BTC",
+    "PONS"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": -1853922.602146994,
+      "pass": false,
+      "worst_stress_scenario": "iii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 372307.85346253845,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -22496.894924791282
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -2124776.5399682475,
+      "net_before": -1604722.949186384,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790121600000,
+  "leader": {
+    "net_total": 126624.91503900019
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 758,
+      "T3": 6
+    },
+    "b_i": {
+      "T2": 709,
+      "T3": 55
+    },
+    "b_ii": {
+      "T2": 758,
+      "T3": 6
+    },
+    "b_iii": {
+      "T2": 709,
+      "T3": 55
+    }
+  },
+  "monthly": {
+    "2026-08": {
+      "copier_net_normal": -20565.74988537804,
+      "leader_net": -140.516788
+    },
+    "2026-09": {
+      "copier_net_normal": -1584157.1993010058,
+      "leader_net": 126765.43182700018
+    }
+  },
+  "n_events_W": 836,
+  "n_twap_merged": 0,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "seed": 20260924,
+  "spec_version": "v0.3",
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "ASTER",
+    "BTC",
+    "PONS"
+  ],
+  "total": 23,
+  "window": {
+    "days": 19,
+    "end": "2026-09-18",
+    "end_ms": 1789776000000,
+    "start": "2026-08-31",
+    "start_ms": 1788134400000
+  }
+}

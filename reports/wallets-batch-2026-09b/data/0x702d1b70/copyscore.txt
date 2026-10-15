@@ -1,0 +1,137 @@
+============================================================================================
+COPY-TRADE SCORE  0x702d1b700c443423d6f62182f6f7fb9ca4b2bf47  (0x702d1b70)   [spec v0.5]
+window W (full history, raw): 2023-12-23 -> 2026-09-15   scored window (E_min-pushed): 2024-01-06 -> 2026-09-15  (984d)   seed=20260924
+E0=$1,093.61   E_min=$1,000.00   L_peak=$74,466.21
+D1 tests: a=normal(sampled delay median 3.0s/P95 15.0s) b=stress(worst of i/ii/iii) c=miss-recovery(closed-form)
+============================================================================================
+
+== GATE ==
+** 模擬跟單者於 2024-04-12 爆倉（plan v0.5 §1.4b：C_t<=0 或槓桿 > 50x）**
+G1 延遲後仍有收益 (stress worst=iii): net = $-1,113.42 > 0  -> FAIL
+G2 庫存風險有限 (normal a): peak_leverage=140.33x (<= 3.0x)  worst_day=-95.63% (>= -15%)  [爆倉於 2024-04-12]  -> FAIL
+G3 不依賴少數行情 (normal a): 移除最佳 3 天後 net = $-1,579.04 (原 $-1,067.25)  -> FAIL
+GATE OVERALL: FAIL
+
+== D1 跟單可複製性 (35 = 5+20+10) ==
+score = 0.00 / 35
+  a 正常跟單(5): r_normal=0.000  score=0.00
+  b 執行壓力(20): r_i=0.000 r_ii=0.000 r_iii=0.000 worst=0.000 (scenario iii)  score=0.00
+  c 漏單恢復(10): r_open=0.000 r_reduce=0.000 worst=0.000  score=0.00
+
+== D2 下檔控制 (權重30，跟單者normal-a) ==
+score = 0.00 / 30
+  MDD           97.59%   S=0.000
+  最差日        -95.63%   S=0.000
+  最差週(7日)   -97.32%   S=0.000
+  最長回撤天數  984天   S=0.000
+  槓桿尖峰      140.33x  S=0.000
+
+== D3 獲利穩健性 (權重20，跟單者normal-a) ==
+score = 0.00 / 20
+  m_hit(正月占比) = 3.03% (1/33)  S=0.000
+  regime (主力幣=BTC)  score=0.00
+  rob   = -1,579.04/-1,067.25 = 0.000  S=0.000
+  conc  = 1.000  S=0.000 (episodes: 335 in W, 0 open)
+
+== D4 超額收益 (權重10) ==
+score = 0.00 / 10
+  R_b=-0.0338  R_b*=-0.0405  R_c=-0.9759  excess=-0.9354
+
+== D5 證據品質 (權重5) ==
+score = 3.73 / 5
+  歷史長度 997天  S=1.000
+  覆蓋率 99.18%  S=0.984
+  價格級別(T1+T2占比) 91.62%  S=1.000
+  前瞻切分: retain_front=0.000 retain_back=0.000  fwd_score=0.00
+
+== TOTAL ==
+TOTAL = D1+D2+D3+D4+D5 = 0.00+0.00+0.00+0.00+3.73 = 4 / 100
+(門檻 未通過)
+
+== 價格級別占比 (test a, normal) ==
+  T2=91.6%  T3=2.2%  T3_missing=6.2%
+  合計 = 100.0%  (events=811)
+
+== T2 範圍 ==
+  12/39 幣進 T2（Binance 代理）：['BTC', 'DYDX', 'ETH', 'HYPE', 'PAXG', 'POPCAT', 'SOL', 'SPX', 'XRP', 'xyz:GOLD', 'xyz:JPY', 'xyz:XYZ100']
+
+== 月表：跟單者(normal-a) vs 領單者 淨損益 ==
+  month           copier_net      leader_net
+  2024-01            -268.95         -525.37
+  2024-02              19.79         -287.81
+  2024-03             -22.97          993.12
+  2024-04            -795.12       -1,601.98
+  2024-05               0.00         -293.14
+  2024-06               0.00          599.37
+  2024-07               0.00            0.00
+  2024-08               0.00            0.00
+  2024-09               0.00            0.00
+  2024-10               0.00         -466.74
+  2024-11               0.00            0.00
+  2024-12               0.00      -47,520.50
+  2025-01               0.00       -7,373.95
+  2025-02               0.00         -331.89
+  2025-03               0.00          -43.46
+  2025-04               0.00          100.15
+  2025-05               0.00          -36.18
+  2025-06               0.00         -219.90
+  2025-07               0.00       -4,097.17
+  2025-08               0.00          502.42
+  2025-09               0.00          913.58
+  2025-10               0.00          166.83
+  2025-11               0.00       -1,458.98
+  2025-12               0.00          -98.73
+  2026-01               0.00      -10,825.87
+  2026-02               0.00       -1,215.25
+  2026-03               0.00          786.47
+  2026-04               0.00       -4,394.25
+  2026-05               0.00       -1,097.58
+  2026-06               0.00          326.50
+  2026-07               0.00           88.99
+  2026-08               0.00           59.55
+  2026-09               0.00        1,861.01
+
+== 資料極限 (plan §4) ==
+  - 延遲成本用 Binance 1m 代理／HL 1m 的相對變動估算（保真 0.7–0.9 → 偏樂觀）；δ 小於 1 分鐘時延遲成本幾乎只剩滑價。
+  - 跟單者資金費 = 領單者 funding 列（只有前 500 筆）= 下界。
+  - 延遲分布是假設值（未有實測）；漏單恢復是模型內的逐事件精算，不是實盤跟單記錄；前瞻分項是同窗口切分。
+
+== ASSUMPTIONS ==
+  - T2 (Binance proxy) scope = 12/39 coins (top-12 rule was larger); remaining 27 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.
+  - 15 coin(s) not in HL's current perp/spot universe (delisted/renamed identifier — candleSnapshot returns HTTP 500 for these, verified, not a transient issue): ['#0', '#1101', '#18180', '#3980', '#5990', '#8221', '#8720', 'flx:SILVER', 'km:USTECH', 'xyz:CL'].... Skipped entirely (T1/T2/HL-1h/HL-1d); no MTM price / always T3_missing for these coins.
+  - L_t (leader daily equity for proportional sizing, v0.4 §1.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary — the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 5/998 day(s) of the full raw history outside accountValueHistory's covered range.
+  - start day pushed from 2023-12-23 (first fill) to 2024-01-06 (first day L_t >= E_min, $1,000.00); 8 earlier event(s) ignored per plan v0.4 §0.
+  - LDO: no T1/T2/T3 price data at t=1705500397114; M forced to 1.0 (T3_missing)
+  - LDO: no T1/T2/T3 price data at t=1705576107573; M forced to 1.0 (T3_missing)
+  - LDO: no T1/T2/T3 price data at t=1706007917466; M forced to 1.0 (T3_missing)
+  - TRB: no T1/T2/T3 price data at t=1706094380543; M forced to 1.0 (T3_missing)
+  - LDO: no T1/T2/T3 price data at t=1706167097663; M forced to 1.0 (T3_missing)
+  - LDO: no T1/T2/T3 price data at t=1706167274848; M forced to 1.0 (T3_missing)
+  - ORDI: no T1/T2/T3 price data at t=1706187099119; M forced to 1.0 (T3_missing)
+  - LDO: no T1/T2/T3 price data at t=1706209658710; M forced to 1.0 (T3_missing)
+  - SNX: no T1/T2/T3 price data at t=1706266826983; M forced to 1.0 (T3_missing)
+  - ORDI: no T1/T2/T3 price data at t=1706288542139; M forced to 1.0 (T3_missing)
+  - TRB: no T1/T2/T3 price data at t=1706289116626; M forced to 1.0 (T3_missing)
+  - SNX: no T1/T2/T3 price data at t=1706289955405; M forced to 1.0 (T3_missing)
+  - SUI: no T1/T2/T3 price data at t=1708446850728; M forced to 1.0 (T3_missing)
+  - STRK: no T1/T2/T3 price data at t=1708453864042; M forced to 1.0 (T3_missing)
+  - SUI: no T1/T2/T3 price data at t=1708458865734; M forced to 1.0 (T3_missing)
+  - ONDO: no T1/T2/T3 price data at t=1708621825424; M forced to 1.0 (T3_missing)
+  - ONDO: no T1/T2/T3 price data at t=1708633816239; M forced to 1.0 (T3_missing)
+  - JUP: no T1/T2/T3 price data at t=1708790691480; M forced to 1.0 (T3_missing)
+  - JUP: no T1/T2/T3 price data at t=1708793374043; M forced to 1.0 (T3_missing)
+  - TRB: no T1/T2/T3 price data at t=1709000349919; M forced to 1.0 (T3_missing)
+  - STRK: no T1/T2/T3 price data at t=1709130770519; M forced to 1.0 (T3_missing)
+  - TRB: no T1/T2/T3 price data at t=1709587570319; M forced to 1.0 (T3_missing)
+  - STRK: no T1/T2/T3 price data at t=1709653001547; M forced to 1.0 (T3_missing)
+  - LDO: no T1/T2/T3 price data at t=1710881771164; M forced to 1.0 (T3_missing)
+  - LDO: no T1/T2/T3 price data at t=1710974300654; M forced to 1.0 (T3_missing)
+  - SNX: no T1/T2/T3 price data at t=1712337014020; M forced to 1.0 (T3_missing)
+  - LDO: no T1/T2/T3 price data at t=1712945881681; M forced to 1.0 (T3_missing)
+  - STOP-OUT on 2024-04-12: C_t=26.35, leverage=140.33x (> 50x or equity<=0) — closed all positions at close, equity floored at $26.35, no further events followed (plan v0.5 §1.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.
+  - STOP-OUT on 2024-04-12: C_t=26.26, leverage=140.79x (> 50x or equity<=0) — closed all positions at close, equity floored at $26.26, no further events followed (plan v0.5 §1.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.
+  - STOP-OUT on 2024-04-12: C_t=<=0, leverage=undefined (C_t<=0) (> 50x or equity<=0) — closed all positions at close, equity floored at $0.00, no further events followed (plan v0.5 §1.4b).
+  - D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+δ trade would have paid — the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.
+
+timing: fetch=25.6s sim=0.1s total=25.9s  cache: 84 hit / 44 miss
+============================================================================================

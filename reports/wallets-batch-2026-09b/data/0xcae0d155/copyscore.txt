@@ -1,0 +1,277 @@
+============================================================================================
+COPY-TRADE SCORE  0xcae0d1558b70b92ee9fd0acb20cb639c8c28ae69  (0xcae0d155)   [spec v0.5]
+window W (full history, raw): 2025-06-02 -> 2026-09-23   scored window (E_min-pushed): 2025-06-05 -> 2026-09-23  (476d)   seed=20260924
+E0=$6,918.40   E_min=$1,149.20   L_peak=$114,919.69
+D1 tests: a=normal(sampled delay median 3.0s/P95 15.0s) b=stress(worst of i/ii/iii) c=miss-recovery(closed-form)
+============================================================================================
+
+== GATE ==
+G1 延遲後仍有收益 (stress worst=iii): net = $4,721.97 > 0  -> PASS
+G2 庫存風險有限 (normal a): peak_leverage=26.97x (<= 3.0x)  worst_day=-45.74% (>= -15%)  -> FAIL
+G3 不依賴少數行情 (normal a): 移除最佳 5 天後 net = $-7,482.14 (原 $17,388.94)  -> FAIL
+GATE OVERALL: FAIL
+
+== D1 跟單可複製性 (35 = 5+20+10) ==
+score = 0.00 / 35
+  a 正常跟單(5): r_normal=0.191  score=0.00
+  b 執行壓力(20): r_i=0.190 r_ii=0.052 r_iii=0.052 worst=0.052 (scenario iii)  score=0.00
+  c 漏單恢復(10): r_open=0.190 r_reduce=0.190 worst=0.190  score=0.00
+
+== D2 下檔控制 (權重30，跟單者normal-a) ==
+score = 0.00 / 30
+  MDD           81.57%   S=0.000
+  最差日        -45.74%   S=0.000
+  最差週(7日)   -49.47%   S=0.000
+  最長回撤天數  204天   S=0.000
+  槓桿尖峰      26.97x  S=0.000
+
+== D3 獲利穩健性 (權重20，跟單者normal-a) ==
+score = 10.43 / 20
+  m_hit(正月占比) = 62.50% (10/16)  S=0.562
+  regime (主力幣=BTC)  score=1.00
+  rob   = -7,482.14/17,388.94 = -0.430  S=0.000
+  conc  = 0.607  S=0.523 (episodes: 176 in W, 4 open)
+
+== D4 超額收益 (權重10) ==
+score = 0.00 / 10
+  R_b=5.2415  R_b*=5.6821  R_c=2.5134  excess=-3.1687
+
+== D5 證據品質 (權重5) ==
+score = 4.26 / 5
+  歷史長度 478天  S=1.000
+  覆蓋率 99.90%  S=0.998
+  價格級別(T1+T2占比) 86.37%  S=0.909
+  前瞻切分: retain_front=0.505 retain_back=0.150  fwd_score=0.50
+
+== TOTAL ==
+TOTAL = D1+D2+D3+D4+D5 = 0.00+0.00+10.43+0.00+4.26 = 15 / 100
+(門檻 未通過)
+
+== 價格級別占比 (test a, normal) ==
+  T1=3.5%  T2=82.9%  T3=11.1%  T3_missing=2.5%
+  合計 = 100.0%  (events=10660)
+
+== T2 範圍 ==
+  12/28 幣進 T2（Binance 代理）：['BNB', 'BTC', 'ENA', 'ETH', 'FARTCOIN', 'HYPE', 'LIT', 'MET', 'PUMP', 'SOL', 'ZEC', 'ZRO']
+
+== 月表：跟單者(normal-a) vs 領單者 淨損益 ==
+  month           copier_net      leader_net
+  2025-06            -147.56           10.14
+  2025-07             424.34        1,954.29
+  2025-08            -113.78            0.00
+  2025-09             258.37            0.00
+  2025-10             694.44            0.00
+  2025-11             608.75            0.00
+  2025-12             134.22          -81.92
+  2026-01           4,636.56        2,988.43
+  2026-02           1,824.78            0.00
+  2026-03          -6,176.88       -3,830.83
+  2026-04             -78.89        2,659.89
+  2026-05           2,634.99        6,724.95
+  2026-06           2,591.46         -603.16
+  2026-07          -2,140.87       -1,611.76
+  2026-08          -4,356.68        9,885.36
+  2026-09          16,595.70       73,141.99
+
+== 資料極限 (plan §4) ==
+  - 延遲成本用 Binance 1m 代理／HL 1m 的相對變動估算（保真 0.7–0.9 → 偏樂觀）；δ 小於 1 分鐘時延遲成本幾乎只剩滑價。
+  - 跟單者資金費 = 領單者 funding 列（只有前 500 筆）= 下界。
+  - 延遲分布是假設值（未有實測）；漏單恢復是模型內的逐事件精算，不是實盤跟單記錄；前瞻分項是同窗口切分。
+
+== ASSUMPTIONS ==
+  - T2 (Binance proxy) scope = 12/28 coins (95% cum-notional rule was larger); remaining 16 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.
+  - L_t (leader daily equity for proportional sizing, v0.4 §1.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary — the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 3/479 day(s) of the full raw history outside accountValueHistory's covered range.
+  - start day pushed from 2025-06-02 (first fill) to 2025-06-05 (first day L_t >= E_min, $1,149.20); 21 earlier event(s) ignored per plan v0.4 §0.
+  - PENDLE: no T1/T2/T3 price data at t=1749158791436; M forced to 1.0 (T3_missing)
+  - PENDLE: no T1/T2/T3 price data at t=1749715528687; M forced to 1.0 (T3_missing)
+  - TRUMP: no T1/T2/T3 price data at t=1751543255638; M forced to 1.0 (T3_missing)
+  - TRUMP: no T1/T2/T3 price data at t=1751545940040; M forced to 1.0 (T3_missing)
+  - TRUMP: no T1/T2/T3 price data at t=1751546017794; M forced to 1.0 (T3_missing)
+  - TRUMP: no T1/T2/T3 price data at t=1751550711980; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483420071; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483450070; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483480047; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483484351; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483510041; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483540053; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483570044; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483600018; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483630127; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483660016; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483690029; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483720068; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483750073; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483780031; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483810013; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483840036; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483870048; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483900098; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483930132; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483960034; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752483990071; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484020053; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484050026; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484080073; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484110046; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484140023; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484170013; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484200019; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484230027; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484260003; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484290009; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484320020; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484350077; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484380087; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484410039; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484440082; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484470034; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484500044; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484530011; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484560010; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484590017; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484620039; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484650020; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484680031; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484710014; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484740048; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484770005; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484800087; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484830043; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484860103; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484890045; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484920041; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484950029; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752484980092; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485010018; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485040044; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485070110; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485100046; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485130063; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485160047; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485190029; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485220142; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485250198; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485280155; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485310024; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485340018; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485370008; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485400011; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485430096; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485460006; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485490012; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485520038; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485550048; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485580079; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485610083; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485640039; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485670068; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485700000; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485730042; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485760018; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485790009; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485820002; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485850036; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485880092; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485910139; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485940000; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752485970023; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486000092; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486030022; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486060019; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486090055; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486120011; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486150037; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486180033; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486210068; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486240050; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486270026; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486300046; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486330087; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486360056; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486390004; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486420005; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486450008; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486480029; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486510090; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486540028; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486570029; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486600037; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486630039; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486660047; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486690094; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486720055; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486750091; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486780083; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486810028; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486840043; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486870080; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486900019; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486930051; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486960019; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752486990020; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487020019; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487050017; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487080039; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487110030; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487140068; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487170048; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487200025; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487230041; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487260037; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487290052; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487320063; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487350012; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487380071; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487410020; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487440080; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487470031; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487500013; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487530067; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487560034; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487590076; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487620011; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487650007; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487680041; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487710014; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487740015; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487770036; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487800001; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487830077; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487860003; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487890064; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487920034; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487950042; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752487980048; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488010011; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488040063; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488070037; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488100042; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488130008; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488160058; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488190061; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488220088; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488250049; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488280034; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488310045; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488340002; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488370024; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488400008; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488430070; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488460003; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488490047; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488520065; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488550026; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488580133; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488610042; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488640040; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488670001; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488700092; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488730027; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488760122; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488790016; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752488820008; M forced to 1.0 (T3_missing)
+  - DOGE: no T1/T2/T3 price data at t=1752495817960; M forced to 1.0 (T3_missing)
+  - D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+δ trade would have paid — the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.
+
+timing: fetch=9.7s sim=0.4s total=10.3s  cache: 142 hit / 19 miss
+============================================================================================

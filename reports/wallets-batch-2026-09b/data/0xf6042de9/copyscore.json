@@ -1,0 +1,274 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": -1386.0623651376163,
+    "net_stress": {
+      "i": -1386.1687769252526,
+      "ii": -1529.753932612075,
+      "iii": -1529.8602153518518
+    },
+    "r_miss": {
+      "open": 0.0,
+      "reduce": 0.0,
+      "worst": 0.0
+    },
+    "r_normal": 0.0,
+    "r_stress": {
+      "i": 0.0,
+      "ii": 0.0,
+      "iii": 0.0,
+      "worst": 0.0
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 226,
+    "lev_peak": null,
+    "mdd": 1.2245631352694397,
+    "score": 0.0,
+    "sub_scores": {
+      "dd_days": 0.0,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -1.2245631352694397,
+    "worst_week_frac": -1.2245631352694397
+  },
+  "D3": {
+    "S_conc": 0.0,
+    "S_mhit": 0.0,
+    "S_rob": 0.0,
+    "conc": 1.0,
+    "dominant_coin": "BTC",
+    "m_hit": 0.0,
+    "n_open_w_episodes": 8,
+    "n_w_episodes": 189,
+    "regime_score": 0.0,
+    "rob": 0.0,
+    "score": 0.0
+  },
+  "D4": {
+    "R_b": -62.43321770048107,
+    "R_b_star": -0.0,
+    "R_c": -1.2245631352694397,
+    "excess": -1.2245631352694397,
+    "score": 0.0,
+    "sigma_b": 2.5119837867441985,
+    "sigma_c": 0.0
+  },
+  "D5": {
+    "S_cov": 0.9975676443911374,
+    "S_hist": 0.8036197323653199,
+    "S_price": 1.0,
+    "coverage": 0.9987838221955687,
+    "fwd_score": 0.0,
+    "hist_days": 310.995426400463,
+    "price_level_frac": 0.953125,
+    "retain_back": 0.0,
+    "retain_front": 0.0,
+    "score": 3.5014842209455717
+  },
+  "E0": 1131.883138742897,
+  "E_min": 1000.0,
+  "L_peak": 30182.122267000123,
+  "addr": "0xf6042de98e4e8c50cee1cdc36fea6ad640e21615",
+  "addr10": "0xf6042de9",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 12/39 coins (top-12 rule was larger); remaining 27 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "19 coin(s) not in HL's current perp/spot universe (delisted/renamed identifier \u2014 candleSnapshot returns HTTP 500 for these, verified, not a transient issue): ['para:BTCD', 'para:OTHERS', 'para:TOTAL2', 'para:UNITREE', 'xyz:ASML', 'xyz:BRENTOIL', 'xyz:COIN', 'xyz:COPPER', 'xyz:CRCL', 'xyz:GOLD'].... Skipped entirely (T1/T2/HL-1h/HL-1d); no MTM price / always T3_missing for these coins.",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 4/312 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2025-11-17 (first fill) to 2026-02-11 (first day L_t >= E_min, $1,000.00); 23 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "UNI: no T1/T2/T3 price data at t=1770825002103; M forced to 1.0 (T3_missing)",
+    "STOP-OUT on 2026-02-11: C_t=<=0, leverage=undefined (C_t<=0) (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $0.00, no further events followed (plan v0.5 \u00a71.4b).",
+    "xyz:COPPER: no T1/T2/T3 price data at t=1770821889423; M forced to 1.0 (T3_missing)",
+    "xyz:GOLD: no T1/T2/T3 price data at t=1770824701988; M forced to 1.0 (T3_missing)",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.",
+    "D2/gate denominators (peak/day-equity C_t) floored at 1% of E0 on at least one day to avoid divide-by-zero",
+    "xyz:GOLD: no W-end price for open episode unrealized valuation; unrealized treated as 0 for conc",
+    "xyz:PLATINUM: no W-end price for open episode unrealized valuation; unrealized treated as 0 for conc"
+  ],
+  "coins": [
+    "ARB",
+    "BERA",
+    "BNB",
+    "BTC",
+    "CASHCAT",
+    "ETH",
+    "HYPE",
+    "INJ",
+    "JTO",
+    "KAITO",
+    "LIT",
+    "NEAR",
+    "OP",
+    "PUMP",
+    "PURR",
+    "SOL",
+    "UNI",
+    "WLD",
+    "WLFI",
+    "ZEC",
+    "para:BTCD",
+    "para:OTHERS",
+    "para:TOTAL2",
+    "para:UNITREE",
+    "xyz:ASML",
+    "xyz:BRENTOIL",
+    "xyz:COIN",
+    "xyz:COPPER",
+    "xyz:CRCL",
+    "xyz:GOLD",
+    "xyz:HOOD",
+    "xyz:IBM",
+    "xyz:MU",
+    "xyz:PLATINUM",
+    "xyz:PURRDAT",
+    "xyz:QNT",
+    "xyz:SP500",
+    "xyz:SPCX",
+    "xyz:ZHIPU"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": -1529.8602153518518,
+      "pass": false,
+      "worst_stress_scenario": "iii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": null,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -1.2245631352694397
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -1386.0623651376163,
+      "net_before": -1386.0623651376163,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": -58054.21709186371
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 61,
+      "T3_missing": 3
+    },
+    "b_i": {
+      "T2": 61,
+      "T3_missing": 3
+    },
+    "b_ii": {
+      "T2": 61,
+      "T3_missing": 3
+    },
+    "b_iii": {
+      "T2": 61,
+      "T3_missing": 3
+    }
+  },
+  "monthly": {
+    "2026-02": {
+      "copier_net_normal": -1386.0623651376163,
+      "leader_net": -1972.3426069999966
+    },
+    "2026-03": {
+      "copier_net_normal": 0.0,
+      "leader_net": 261.59260100000023
+    },
+    "2026-04": {
+      "copier_net_normal": 0.0,
+      "leader_net": -4942.071487999943
+    },
+    "2026-05": {
+      "copier_net_normal": 0.0,
+      "leader_net": -13347.389189999996
+    },
+    "2026-06": {
+      "copier_net_normal": 0.0,
+      "leader_net": -7075.8861021284265
+    },
+    "2026-07": {
+      "copier_net_normal": 0.0,
+      "leader_net": 8948.18685299988
+    },
+    "2026-08": {
+      "copier_net_normal": 0.0,
+      "leader_net": 77.3342142662134
+    },
+    "2026-09": {
+      "copier_net_normal": 0.0,
+      "leader_net": -40003.641373001454
+    }
+  },
+  "n_events_W": 4892,
+  "n_twap_merged": 3649,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "sample": {
+    "E0": 1131.883138742897,
+    "leader_net": -58054.21709186371,
+    "perp_events": 4892,
+    "sufficient": true
+  },
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": "2026-02-11",
+  "stopout_leverage": null,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": "2026-02-11",
+    "ii": "2026-02-11",
+    "iii": "2026-02-11"
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "BTC",
+    "ETH",
+    "HYPE",
+    "KAITO",
+    "LIT",
+    "PUMP",
+    "SOL",
+    "ZEC",
+    "xyz:COPPER",
+    "xyz:CRCL",
+    "xyz:GOLD",
+    "xyz:HOOD"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 4,
+  "unscorable": false,
+  "window": {
+    "days": 226,
+    "end": "2026-09-24",
+    "end_ms": 1790294400000,
+    "start": "2026-02-11",
+    "start_ms": 1770768000000
+  },
+  "window_raw": {
+    "end": "2026-09-24",
+    "start": "2025-11-17"
+  }
+}

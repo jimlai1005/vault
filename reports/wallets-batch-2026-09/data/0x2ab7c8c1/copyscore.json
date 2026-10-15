@@ -1,0 +1,269 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": -14018.447176031488,
+    "net_stress": {
+      "i": -13999.065924770786,
+      "ii": -14207.156127381248,
+      "iii": -14187.922028513538
+    },
+    "r_miss": {
+      "open": -0.021909060708855493,
+      "reduce": -0.021897839624242528,
+      "worst": -0.021909060708855493
+    },
+    "r_normal": -0.021890770403975957,
+    "r_stress": {
+      "i": -0.021860505245776752,
+      "ii": -0.02218545242369607,
+      "iii": -0.022155417054089636,
+      "worst": -0.02218545242369607
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 416,
+    "lev_peak": 142.10728444536258,
+    "mdd": 0.8858899681731184,
+    "score": 0.0,
+    "sub_scores": {
+      "dd_days": 0.0,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -0.7838558193320663,
+    "worst_week_frac": -0.8858899681731183
+  },
+  "D3": {
+    "S_conc": 0.27240993850298806,
+    "S_mhit": 0.0,
+    "S_rob": 0.0,
+    "conc": 0.795692546122759,
+    "dominant_coin": "TAO",
+    "m_hit": 0.0,
+    "n_open_w_episodes": 2,
+    "n_w_episodes": 38,
+    "regime_score": 0.0,
+    "rob": 0.0,
+    "score": 1.3620496925149403
+  },
+  "D4": {
+    "R_b": 7.77981072145478,
+    "R_b_star": 1.1900212656208957,
+    "R_c": -0.8858899681731183,
+    "excess": -2.075911233794014,
+    "score": 0.0,
+    "sigma_b": 0.25124797458959713,
+    "sigma_c": 0.03843158187399829
+  },
+  "D5": {
+    "S_cov": 0.28623852111290393,
+    "S_hist": 1.0,
+    "S_price": 1.0,
+    "coverage": 0.643119260556452,
+    "fwd_score": 0.0,
+    "hist_days": 415.5347916087963,
+    "price_level_frac": 1.0,
+    "retain_back": 0.0,
+    "retain_front": -0.17554901474255316,
+    "score": 2.8577981513911297
+  },
+  "E0": 15824.140333071296,
+  "E_min": 11906.357095540094,
+  "L_peak": 1190635.7095540094,
+  "addr": "0x2ab7c8c121bba1b6b744664237ae00ded55ec2f8",
+  "addr10": "0x2ab7c8c1",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 12/19 coins (top-12 rule was larger); remaining 7 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "2 coin(s) not in HL's current perp/spot universe (delisted/renamed identifier \u2014 candleSnapshot returns HTTP 500 for these, verified, not a transient issue): ['xyz:SKHX', 'xyz:SMSN']. Skipped entirely (T1/T2/HL-1h/HL-1d); no MTM price / always T3_missing for these coins.",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 0/417 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2025-07-25 (first fill) to 2025-07-26 (first day L_t >= E_min, $11,906.36); 112 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "STOP-OUT on 2025-07-27: C_t=1,805.69, leverage=142.11x (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $1,805.69, no further events followed (plan v0.5 \u00a71.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.",
+    "STOP-OUT on 2025-07-27: C_t=1,825.07, leverage=140.63x (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $1,825.07, no further events followed (plan v0.5 \u00a71.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.",
+    "STOP-OUT on 2025-07-27: C_t=1,616.98, leverage=158.32x (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $1,616.98, no further events followed (plan v0.5 \u00a71.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.",
+    "STOP-OUT on 2025-07-27: C_t=1,636.22, leverage=156.50x (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $1,636.22, no further events followed (plan v0.5 \u00a71.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs."
+  ],
+  "coins": [
+    "AAVE",
+    "ARB",
+    "ENA",
+    "ETH",
+    "HYPE",
+    "LDO",
+    "LIT",
+    "ME",
+    "PENDLE",
+    "PUMP",
+    "RESOLV",
+    "TAO",
+    "UNI",
+    "VIRTUAL",
+    "VVV",
+    "ZEC",
+    "ZRO",
+    "xyz:SKHX",
+    "xyz:SMSN"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": -14207.156127381248,
+      "pass": false,
+      "worst_stress_scenario": "ii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 142.10728444536258,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -0.7838558193320663
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -14018.447176031488,
+      "net_before": -14018.447176031488,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": 640381.6273860036
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 584
+    },
+    "b_i": {
+      "T2": 584
+    },
+    "b_ii": {
+      "T2": 584
+    },
+    "b_iii": {
+      "T2": 584
+    }
+  },
+  "monthly": {
+    "2025-07": {
+      "copier_net_normal": -14018.447176031488,
+      "leader_net": -16948.430906000212
+    },
+    "2025-08": {
+      "copier_net_normal": 0.0,
+      "leader_net": 19922.679009000098
+    },
+    "2025-09": {
+      "copier_net_normal": 0.0,
+      "leader_net": 13661.669880000003
+    },
+    "2025-10": {
+      "copier_net_normal": 0.0,
+      "leader_net": 27973.177680000004
+    },
+    "2025-11": {
+      "copier_net_normal": 0.0,
+      "leader_net": 22278.721679999995
+    },
+    "2025-12": {
+      "copier_net_normal": 0.0,
+      "leader_net": 9846.384359999996
+    },
+    "2026-01": {
+      "copier_net_normal": 0.0,
+      "leader_net": 10253.370479999998
+    },
+    "2026-02": {
+      "copier_net_normal": 0.0,
+      "leader_net": 4797.967313843633
+    },
+    "2026-03": {
+      "copier_net_normal": 0.0,
+      "leader_net": -7282.328993843592
+    },
+    "2026-04": {
+      "copier_net_normal": 0.0,
+      "leader_net": -1962.2425439999934
+    },
+    "2026-05": {
+      "copier_net_normal": 0.0,
+      "leader_net": -1629.421892000046
+    },
+    "2026-06": {
+      "copier_net_normal": 0.0,
+      "leader_net": 2672.039736000006
+    },
+    "2026-07": {
+      "copier_net_normal": 0.0,
+      "leader_net": -15283.941467000175
+    },
+    "2026-08": {
+      "copier_net_normal": 0.0,
+      "leader_net": 41892.4975120021
+    },
+    "2026-09": {
+      "copier_net_normal": 0.0,
+      "leader_net": 530189.4855380018
+    }
+  },
+  "n_events_W": 9351,
+  "n_twap_merged": 0,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": "2025-07-27",
+  "stopout_leverage": 142.10728444536258,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": "2025-07-27",
+    "ii": "2025-07-27",
+    "iii": "2025-07-27"
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "ENA",
+    "ETH",
+    "HYPE",
+    "LIT",
+    "ME",
+    "PENDLE",
+    "PUMP",
+    "RESOLV",
+    "TAO",
+    "UNI",
+    "ZEC",
+    "xyz:SKHX"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 4,
+  "unscorable": false,
+  "window": {
+    "days": 416,
+    "end": "2026-09-14",
+    "end_ms": 1789430400000,
+    "start": "2025-07-26",
+    "start_ms": 1753488000000
+  },
+  "window_raw": {
+    "end": "2026-09-14",
+    "start": "2025-07-25"
+  }
+}

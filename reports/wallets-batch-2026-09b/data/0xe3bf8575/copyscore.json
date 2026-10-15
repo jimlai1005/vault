@@ -1,0 +1,191 @@
+{
+  "D1": {
+    "a": 5.0,
+    "b": 20.0,
+    "c": 10.0,
+    "net_normal": 24809.697580094245,
+    "net_stress": {
+      "i": 24817.344673260926,
+      "ii": 16223.027537857553,
+      "iii": 16230.463844209838
+    },
+    "r_miss": {
+      "open": 2.819184660372949,
+      "reduce": 2.8221092338459868,
+      "worst": 2.819184660372949
+    },
+    "r_normal": 2.831264737345143,
+    "r_stress": {
+      "i": 2.832137418084444,
+      "ii": 1.8513601648158748,
+      "iii": 1.8522087907164264,
+      "worst": 1.8513601648158748
+    },
+    "score": 35.0
+  },
+  "D2": {
+    "dd_days": 23,
+    "lev_peak": 11.831603030765496,
+    "mdd": 0.157490839908074,
+    "score": 16.214245978850347,
+    "sub_scores": {
+      "dd_days": 1.0,
+      "lev_peak": 0.0,
+      "mdd": 0.71254580045963,
+      "worst_day": 0.28351924791766836,
+      "worst_week": 0.7063092814310925
+    },
+    "worst_day_frac": -0.11597769024987979,
+    "worst_week_frac": -0.11580123652809242
+  },
+  "D3": {
+    "S_conc": 0.0,
+    "S_mhit": 0.24999999999999994,
+    "S_rob": 0.0,
+    "conc": 1.2689767153171727,
+    "dominant_coin": "BTC",
+    "m_hit": 0.5,
+    "n_open_w_episodes": 0,
+    "n_w_episodes": 48,
+    "regime_score": 0.0,
+    "rob": -0.4163001043973442,
+    "score": 1.2499999999999998
+  },
+  "D4": {
+    "R_b": 0.16338578580660032,
+    "R_b_star": 1.5521119605168894,
+    "R_c": 0.18193471313461246,
+    "excess": -1.3701772473822769,
+    "score": 0.0,
+    "sigma_b": 0.004183839697503687,
+    "sigma_c": 0.03974511982987021
+  },
+  "D5": {
+    "S_cov": 0.0,
+    "S_hist": 0.0,
+    "S_price": 1.0,
+    "coverage": 0.35719744724634067,
+    "fwd_score": 0.5,
+    "hist_days": 32.71049296296296,
+    "price_level_frac": 1.0,
+    "retain_back": 0.2317822564067826,
+    "retain_front": 9.373057119535286,
+    "score": 1.875
+  },
+  "E0": 136365.93672884014,
+  "E_min": 2220.372665820854,
+  "L_peak": 222037.2665820854,
+  "addr": "0xe3bf8575faa592ad4c38e2e0ba0ae329a6c4b885",
+  "addr10": "0xe3bf8575",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 2/2 coins (top-12 rule was larger); remaining 0 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 0/34 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2026-07-27 (first fill) to 2026-07-27 (first day L_t >= E_min, $2,220.37); 0 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs."
+  ],
+  "coins": [
+    "BTC",
+    "ETH"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": 16223.027537857553,
+      "pass": true,
+      "worst_stress_scenario": "ii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 11.831603030765496,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -0.11597769024987979
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -10328.279692659773,
+      "net_before": 24809.697580094245,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": 8762.76148000138
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 2011
+    },
+    "b_i": {
+      "T2": 2011
+    },
+    "b_ii": {
+      "T2": 2011
+    },
+    "b_iii": {
+      "T2": 2011
+    }
+  },
+  "monthly": {
+    "2026-07": {
+      "copier_net_normal": -10514.088491723182,
+      "leader_net": -3322.8825679996685
+    },
+    "2026-08": {
+      "copier_net_normal": 35323.78607181742,
+      "leader_net": 12085.64404800105
+    }
+  },
+  "n_events_W": 2011,
+  "n_twap_merged": 0,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "sample": {
+    "E0": 136365.93672884014,
+    "leader_net": 8762.76148000138,
+    "perp_events": 2011,
+    "sufficient": true
+  },
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": null,
+  "stopout_leverage": null,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": null,
+    "ii": null,
+    "iii": null
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "BTC",
+    "ETH"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 54,
+  "unscorable": false,
+  "window": {
+    "days": 34,
+    "end": "2026-08-29",
+    "end_ms": 1788048000000,
+    "start": "2026-07-27",
+    "start_ms": 1785110400000
+  },
+  "window_raw": {
+    "end": "2026-08-29",
+    "start": "2026-07-27"
+  }
+}

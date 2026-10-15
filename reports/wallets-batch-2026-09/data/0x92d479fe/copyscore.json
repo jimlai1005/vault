@@ -1,0 +1,223 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": -2964.747448820428,
+    "net_stress": {
+      "i": -2964.7293302637536,
+      "ii": -2981.724014140187,
+      "iii": -2981.7059590325102
+    },
+    "r_miss": {
+      "open": -0.04937785037611254,
+      "reduce": -0.049300009520941164,
+      "worst": -0.04937785037611254
+    },
+    "r_normal": -0.04929532502066497,
+    "r_stress": {
+      "i": -0.04929502376055578,
+      "ii": -0.04957759705888025,
+      "iii": -0.04957729685374757,
+      "worst": -0.04957759705888025
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 233,
+    "lev_peak": 2.590924260274839,
+    "mdd": 0.7283347157942361,
+    "score": 3.6136136095877416,
+    "sub_scores": {
+      "dd_days": 0.0,
+      "lev_peak": 0.6022689349312903,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -0.24864620025181028,
+    "worst_week_frac": -0.4379634600985922
+  },
+  "D3": {
+    "S_conc": 0.0,
+    "S_mhit": 0.0,
+    "S_rob": 0.0,
+    "conc": 3.8465211175237632,
+    "dominant_coin": "ZEC",
+    "m_hit": 0.25,
+    "n_open_w_episodes": 1,
+    "n_w_episodes": 2,
+    "regime_score": 1.0,
+    "rob": 0.0,
+    "score": 5.0
+  },
+  "D4": {
+    "R_b": -0.054533117120720564,
+    "R_b_star": -0.11160808210975558,
+    "R_c": -0.5734749652468847,
+    "excess": -0.4618668831371291,
+    "score": 0.0,
+    "sigma_b": 0.018074789033469513,
+    "sigma_c": 0.036992063631687735
+  },
+  "D5": {
+    "S_cov": 0.9535047345829306,
+    "S_hist": 0.9256619166666665,
+    "S_price": 1.0,
+    "coverage": 0.9767523672914653,
+    "fwd_score": 0.0,
+    "hist_days": 344.5570270833333,
+    "price_level_frac": 1.0,
+    "retain_back": -0.07885993716679796,
+    "retain_front": 1.0,
+    "score": 3.5989583140619965
+  },
+  "E0": 5169.794025000002,
+  "E_min": 3843.090266817097,
+  "L_peak": 384309.0266817097,
+  "addr": "0x92d479fe3ce423e06f2c2e12b8171436d8b09b49",
+  "addr10": "0x92d479fe",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 1/1 coins (95% cum-notional rule was larger); remaining 0 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 3/345 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2025-10-06 (first fill) to 2025-10-08 (first day L_t >= E_min, $3,843.09); 21 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs."
+  ],
+  "coins": [
+    "ZEC"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": -2981.724014140187,
+      "pass": false,
+      "worst_stress_scenario": "ii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 2.590924260274839,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -0.24864620025181028
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -5502.604918350196,
+      "net_before": -2964.747448820428,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": 60142.568236999825
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 307
+    },
+    "b_i": {
+      "T2": 307
+    },
+    "b_ii": {
+      "T2": 307
+    },
+    "b_iii": {
+      "T2": 307
+    }
+  },
+  "monthly": {
+    "2025-10": {
+      "copier_net_normal": -565.079587,
+      "leader_net": -565.079587
+    },
+    "2025-11": {
+      "copier_net_normal": 3035.399178,
+      "leader_net": 3035.399178
+    },
+    "2025-12": {
+      "copier_net_normal": -409.91167900000016,
+      "leader_net": -409.91167900000016
+    },
+    "2026-01": {
+      "copier_net_normal": 775.7293400000001,
+      "leader_net": 775.7293400000001
+    },
+    "2026-02": {
+      "copier_net_normal": -306.121201,
+      "leader_net": -306.121201
+    },
+    "2026-03": {
+      "copier_net_normal": -291.583955,
+      "leader_net": -291.583955
+    },
+    "2026-04": {
+      "copier_net_normal": -284.24248800000004,
+      "leader_net": -284.24248800000004
+    },
+    "2026-05": {
+      "copier_net_normal": -1184.204004,
+      "leader_net": -1184.204004
+    },
+    "2026-06": {
+      "copier_net_normal": 610.8729340275152,
+      "leader_net": 150.39947199999796
+    },
+    "2026-07": {
+      "copier_net_normal": -1230.7640961738748,
+      "leader_net": 3114.8848369999696
+    },
+    "2026-08": {
+      "copier_net_normal": -2405.2262520461795,
+      "leader_net": 18823.242985000004
+    },
+    "2026-09": {
+      "copier_net_normal": -709.6156386278891,
+      "leader_net": 37284.05533899988
+    }
+  },
+  "n_events_W": 307,
+  "n_twap_merged": 0,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": null,
+  "stopout_leverage": null,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": null,
+    "ii": null,
+    "iii": null
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "ZEC"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 12,
+  "unscorable": false,
+  "window": {
+    "days": 343,
+    "end": "2026-09-15",
+    "end_ms": 1789516800000,
+    "start": "2025-10-08",
+    "start_ms": 1759881600000
+  },
+  "window_raw": {
+    "end": "2026-09-15",
+    "start": "2025-10-06"
+  }
+}

@@ -1,0 +1,212 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": -161894.05817032384,
+    "net_stress": {
+      "i": -162374.77380045172,
+      "ii": -168635.7214735769,
+      "iii": -169035.56249827237
+    },
+    "r_miss": {
+      "open": 0.0,
+      "reduce": 0.0,
+      "worst": 0.0
+    },
+    "r_normal": 0.0,
+    "r_stress": {
+      "i": 0.0,
+      "ii": 0.0,
+      "iii": 0.0,
+      "worst": 0.0
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 31,
+    "lev_peak": 2148.951223187165,
+    "mdd": 1.2132458561675266,
+    "score": 5.96,
+    "sub_scores": {
+      "dd_days": 0.9933333333333333,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -11.341693412951365,
+    "worst_week_frac": -1.5085804959900408
+  },
+  "D3": {
+    "S_conc": 0.0,
+    "S_mhit": 0.0,
+    "S_rob": 0.0,
+    "conc": 1.0,
+    "dominant_coin": "BTC",
+    "m_hit": 0.3333333333333333,
+    "n_open_w_episodes": 4,
+    "n_w_episodes": 61,
+    "regime_score": 1.0,
+    "rob": 0.0,
+    "score": 5.0
+  },
+  "D4": {
+    "R_b": -1.3563355748196115,
+    "R_b_star": -40.83120597133501,
+    "R_c": -0.6643757797644935,
+    "excess": 40.16683019157052,
+    "score": 10.0,
+    "sigma_b": 0.17052151980142016,
+    "sigma_c": 5.133389868125278
+  },
+  "D5": {
+    "S_cov": 0.0,
+    "S_hist": 0.0,
+    "S_price": 1.0,
+    "coverage": 0.4615433478939477,
+    "fwd_score": 0.0,
+    "hist_days": 66.16807385416666,
+    "price_level_frac": 0.9608068062326738,
+    "retain_back": 0.7141368985822181,
+    "retain_front": 0.0,
+    "score": 1.25
+  },
+  "E0": 243678.446899,
+  "addr": "0x41c684cbde3e449cc67c70aacb6132e3eb25b06d",
+  "addr10": "0x41c684cb",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 12/19 coins (top-12 rule was larger); remaining 7 coin(s) use T1 (if recent) or T3 only",
+    "xyz:HIMS: in T2 scope but no Binance USDT-perp symbol found; falls back to T1/T3",
+    "xyz:HOOD: in T2 scope but no Binance USDT-perp symbol found; falls back to T1/T3",
+    "xyz:NBIS: in T2 scope but no Binance USDT-perp symbol found; falls back to T1/T3",
+    "xyz:XYZ100: in T2 scope but no Binance USDT-perp symbol found; falls back to T1/T3",
+    "L_t (leader daily equity for proportional sizing) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary, minus cumulative net EXTERNAL ledger flow since W0 (deposit/withdraw, plus spotTransfer/send to a different address); 141 such events fell inside W. Falls back to the leader's own fills-based MTM curve on 0 day(s) outside accountValueHistory's covered range. Internal moves (accountClassTransfer, same-address dex sends, subAccountTransfer, internalTransfer) are not netted.",
+    "D1-c loss(e) = -qty*(p_recon - p_exec) - (catch-up slippage + catch-up fee), per plan \u00a73 D1-c; does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only subtracts the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.",
+    "D2/gate denominators (peak/day-equity C_t) floored at 1% of E0 on at least one day to avoid divide-by-zero"
+  ],
+  "coins": [
+    "BTC",
+    "CASHCAT",
+    "ETH",
+    "ETHFI",
+    "FARTCOIN",
+    "HYPE",
+    "LIT",
+    "PONS",
+    "PUMP",
+    "SOL",
+    "UNI",
+    "VVV",
+    "ZEC",
+    "io:GPRO",
+    "xyz:CL",
+    "xyz:HIMS",
+    "xyz:HOOD",
+    "xyz:NBIS",
+    "xyz:XYZ100"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": -169035.56249827237,
+      "pass": false,
+      "worst_stress_scenario": "iii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 2148.951223187165,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -11.341693412951365
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -447923.00552248285,
+      "net_before": -161894.05817032384,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790121600000,
+  "leader": {
+    "net_total": -70649.89168400166
+  },
+  "level_counts": {
+    "a_normal": {
+      "T1": 232,
+      "T2": 29921,
+      "T3": 1230
+    },
+    "b_i": {
+      "T1": 136,
+      "T2": 28920,
+      "T3": 2327
+    },
+    "b_ii": {
+      "T1": 232,
+      "T2": 29921,
+      "T3": 1230
+    },
+    "b_iii": {
+      "T1": 136,
+      "T2": 28920,
+      "T3": 2327
+    }
+  },
+  "monthly": {
+    "2026-07": {
+      "copier_net_normal": 13932.832546137999,
+      "leader_net": 10874.013175000238
+    },
+    "2026-08": {
+      "copier_net_normal": -94757.33046782012,
+      "leader_net": -56705.15702401111
+    },
+    "2026-09": {
+      "copier_net_normal": -81069.56024864168,
+      "leader_net": -24818.747834990863
+    }
+  },
+  "n_events_W": 31383,
+  "n_twap_merged": 9762,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "seed": 20260924,
+  "spec_version": "v0.3",
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "BTC",
+    "ETH",
+    "HYPE",
+    "LIT",
+    "PONS",
+    "PUMP",
+    "SOL",
+    "ZEC",
+    "xyz:HIMS",
+    "xyz:HOOD",
+    "xyz:NBIS",
+    "xyz:XYZ100"
+  ],
+  "total": 22,
+  "window": {
+    "days": 67,
+    "end": "2026-09-20",
+    "end_ms": 1789948800000,
+    "start": "2026-07-16",
+    "start_ms": 1784160000000
+  }
+}

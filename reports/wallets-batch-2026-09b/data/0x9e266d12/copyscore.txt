@@ -1,0 +1,147 @@
+============================================================================================
+COPY-TRADE SCORE  0x9e266d1253d06c0bb81a7c65faa26ab0a39525f9  (0x9e266d12)   [spec v0.5]
+window W (full history, raw): 2024-09-13 -> 2026-09-21   scored window (E_min-pushed): 2024-09-18 -> 2026-09-21  (734d)   seed=20260924
+E0=$1,665.90   E_min=$1,000.00   L_peak=$44,403.61
+D1 tests: a=normal(sampled delay median 3.0s/P95 15.0s) b=stress(worst of i/ii/iii) c=miss-recovery(closed-form)
+============================================================================================
+
+== GATE ==
+** 模擬跟單者於 2024-09-20 爆倉（plan v0.5 §1.4b：C_t<=0 或槓桿 > 50x）**
+G1 延遲後仍有收益 (stress worst=iii): net = $-1,109.06 > 0  -> FAIL
+G2 庫存風險有限 (normal a): peak_leverage=160.49x (<= 3.0x)  worst_day=-76.53% (>= -15%)  [爆倉於 2024-09-20]  -> FAIL
+G3 不依賴少數行情 (normal a): 移除最佳 3 天後 net = $-1,936.29 (原 $-1,071.99)  -> FAIL
+GATE OVERALL: FAIL
+
+== D1 跟單可複製性 (35 = 5+20+10) ==
+score = 0.00 / 35
+  a 正常跟單(5): r_normal=0.000  score=0.00
+  b 執行壓力(20): r_i=0.000 r_ii=0.000 r_iii=0.000 worst=0.000 (scenario iii)  score=0.00
+  c 漏單恢復(10): r_open=0.000 r_reduce=0.000 worst=0.000  score=0.00
+
+== D2 下檔控制 (權重30，跟單者normal-a) ==
+score = 0.00 / 30
+  MDD           76.53%   S=0.000
+  最差日        -76.53%   S=0.000
+  最差週(7日)   -76.53%   S=0.000
+  最長回撤天數  732天   S=0.000
+  槓桿尖峰      160.49x  S=0.000
+
+== D3 獲利穩健性 (權重20，跟單者normal-a) ==
+score = 5.00 / 20
+  m_hit(正月占比) = 0.00% (0/25)  S=0.000
+  regime (主力幣=ETH)  score=1.00
+  rob   = -1,936.29/-1,071.99 = 0.000  S=0.000
+  conc  = 1.000  S=0.000 (episodes: 963 in W, 1 open)
+
+== D4 超額收益 (權重10) ==
+score = 0.00 / 10
+  R_b=-5.1111  R_b*=-0.0532  R_c=-0.6435  excess=-0.5903
+
+== D5 證據品質 (權重5) ==
+score = 2.49 / 5
+  歷史長度 738天  S=1.000
+  覆蓋率 99.72%  S=0.994
+  價格級別(T1+T2占比) 35.79%  S=0.000
+  前瞻切分: retain_front=0.000 retain_back=0.000  fwd_score=0.00
+
+== TOTAL ==
+TOTAL = D1+D2+D3+D4+D5 = 0.00+0.00+5.00+0.00+2.49 = 7 / 100
+(門檻 未通過)
+
+== 價格級別占比 (test a, normal) ==
+  T2=35.8%  T3_missing=64.2%
+  合計 = 100.0%  (events=95)
+
+== T2 範圍 ==
+  22/68 幣進 T2（Binance 代理）：['AAVE', 'ADA', 'BTC', 'DOGE', 'ETH', 'FET', 'HYPE', 'LINK', 'OMNI', 'PENGU', 'PUMP', 'SOL', 'STRK', 'SUI', 'TIA', 'TON', 'UNI', 'WLD', 'xyz:GOOGL', 'xyz:NVDA', 'xyz:SPCX', 'xyz:TSLA']
+
+== 月表：跟單者(normal-a) vs 領單者 淨損益 ==
+  month           copier_net      leader_net
+  2024-09          -1,071.99       -1,840.15
+  2024-10               0.00      -28,299.56
+  2024-11               0.00      -42,920.60
+  2024-12               0.00      -70,486.67
+  2025-01               0.00      -19,486.14
+  2025-02               0.00       49,125.68
+  2025-03               0.00        6,888.05
+  2025-04               0.00       -2,719.18
+  2025-05               0.00      -18,856.09
+  2025-06               0.00       -2,306.41
+  2025-07               0.00      -12,323.72
+  2025-08               0.00      -25,952.46
+  2025-09               0.00       11,418.55
+  2025-10               0.00       31,987.28
+  2025-11               0.00       -9,964.57
+  2025-12               0.00        3,735.79
+  2026-01               0.00        9,997.80
+  2026-02               0.00        7,267.96
+  2026-03               0.00         -919.87
+  2026-04               0.00         -707.43
+  2026-05               0.00        1,907.62
+  2026-06               0.00       -4,027.85
+  2026-07               0.00      -14,430.41
+  2026-08               0.00        6,469.79
+  2026-09               0.00       -5,299.63
+
+== 資料極限 (plan §4) ==
+  - 延遲成本用 Binance 1m 代理／HL 1m 的相對變動估算（保真 0.7–0.9 → 偏樂觀）；δ 小於 1 分鐘時延遲成本幾乎只剩滑價。
+  - 跟單者資金費 = 領單者 funding 列（只有前 500 筆）= 下界。
+  - 延遲分布是假設值（未有實測）；漏單恢復是模型內的逐事件精算，不是實盤跟單記錄；前瞻分項是同窗口切分。
+
+== ASSUMPTIONS ==
+  - T2 (Binance proxy) scope = 22/68 coins (95% cum-notional rule was larger); remaining 46 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.
+  - 19 coin(s) not in HL's current perp/spot universe (delisted/renamed identifier — candleSnapshot returns HTTP 500 for these, verified, not a transient issue): ['xyz:AAPL', 'xyz:AMD', 'xyz:AVGO', 'xyz:CBRS', 'xyz:CRCL', 'xyz:CXMT', 'xyz:GME', 'xyz:GOLD', 'xyz:GOOGL', 'xyz:MRNA'].... Skipped entirely (T1/T2/HL-1h/HL-1d); no MTM price / always T3_missing for these coins.
+  - OMNI: in T2 scope but no Binance USDT-perp symbol found; falls back to T1/T3
+  - TON: in T2 scope but no Binance USDT-perp symbol found; falls back to T1/T3
+  - L_t (leader daily equity for proportional sizing, v0.4 §1.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary — the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 6/739 day(s) of the full raw history outside accountValueHistory's covered range.
+  - start day pushed from 2024-09-13 (first fill) to 2024-09-18 (first day L_t >= E_min, $1,000.00); 21 earlier event(s) ignored per plan v0.4 §0.
+  - TON: no T1/T2/T3 price data at t=1726692229715; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726769366285; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726769368085; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726769368315; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726769368514; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726769368890; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726769368916; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726769369293; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726769369319; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805143336; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805143411; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805143612; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805147355; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805736557; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805737977; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805737981; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805742415; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805742458; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805758429; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805758632; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805759636; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805759841; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805760786; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805761387; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805761789; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805761994; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805762597; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805762999; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805768507; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805769322; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805770137; M forced to 1.0 (T3_missing)
+  - BIGTIME: no T1/T2/T3 price data at t=1726805770341; M forced to 1.0 (T3_missing)
+  - STOP-OUT on 2024-09-20: C_t=593.91, leverage=160.49x (> 50x or equity<=0) — closed all positions at close, equity floored at $593.91, no further events followed (plan v0.5 §1.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.
+  - TON: no T1/T2/T3 price data at t=1726692222599; M forced to 1.0 (T3_missing)
+  - TON: no T1/T2/T3 price data at t=1726692226022; M forced to 1.0 (T3_missing)
+  - TON: no T1/T2/T3 price data at t=1726692226034; M forced to 1.0 (T3_missing)
+  - TON: no T1/T2/T3 price data at t=1726692226236; M forced to 1.0 (T3_missing)
+  - TON: no T1/T2/T3 price data at t=1726692226838; M forced to 1.0 (T3_missing)
+  - TON: no T1/T2/T3 price data at t=1726692229293; M forced to 1.0 (T3_missing)
+  - STOP-OUT on 2024-09-20: C_t=593.48, leverage=160.59x (> 50x or equity<=0) — closed all positions at close, equity floored at $593.48, no further events followed (plan v0.5 §1.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.
+  - STOP-OUT on 2024-09-20: C_t=557.26, leverage=170.61x (> 50x or equity<=0) — closed all positions at close, equity floored at $557.26, no further events followed (plan v0.5 §1.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.
+  - STOP-OUT on 2024-09-20: C_t=556.84, leverage=170.74x (> 50x or equity<=0) — closed all positions at close, equity floored at $556.84, no further events followed (plan v0.5 §1.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.
+  - TON: no T1/T2/T3 price data at t=1726693085306; M forced to 1.0 (T3_missing)
+  - TON: no T1/T2/T3 price data at t=1726693085324; M forced to 1.0 (T3_missing)
+  - TON: no T1/T2/T3 price data at t=1726693085386; M forced to 1.0 (T3_missing)
+  - TON: no T1/T2/T3 price data at t=1726853728859; M forced to 1.0 (T3_missing)
+  - D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+δ trade would have paid — the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.
+
+timing: fetch=144.8s sim=0.3s total=145.6s  cache: 146 hit / 233 miss
+============================================================================================

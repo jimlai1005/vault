@@ -1,0 +1,209 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": 119519.06192642622,
+    "net_stress": {
+      "i": 119417.5004587847,
+      "ii": 24591.262274101493,
+      "iii": 24496.173943907168
+    },
+    "r_miss": {
+      "open": 0.17275261874428247,
+      "reduce": 0.17244788466596722,
+      "worst": 0.17244788466596722
+    },
+    "r_normal": 0.17307780057778305,
+    "r_stress": {
+      "i": 0.1729307275070986,
+      "ii": 0.035611069223861036,
+      "iii": 0.03547337002521121,
+      "worst": 0.03547337002521121
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 22,
+    "lev_peak": 5.485143850192289,
+    "mdd": 0.46312959902139034,
+    "score": 6.0,
+    "sub_scores": {
+      "dd_days": 1.0,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -0.24093822041537286,
+    "worst_week_frac": -0.42325040405733516
+  },
+  "D3": {
+    "S_conc": 0.0,
+    "S_mhit": 0.24999999999999994,
+    "S_rob": 0.0,
+    "conc": 1.0808979626434934,
+    "dominant_coin": "ZEC",
+    "m_hit": 0.5,
+    "n_open_w_episodes": 3,
+    "n_w_episodes": 58,
+    "regime_score": 0.5,
+    "rob": -2.359184724776498,
+    "score": 3.75
+  },
+  "D4": {
+    "R_b": 0.5318465803281895,
+    "R_b_star": 0.4629972753815652,
+    "R_c": 0.27676121645385443,
+    "excess": -0.18623605892771078,
+    "score": 0.9775992466860639,
+    "sigma_b": 0.17207296692666163,
+    "sigma_c": 0.14979755027230696
+  },
+  "D5": {
+    "S_cov": 0.0,
+    "S_hist": 0.0,
+    "S_price": 1.0,
+    "coverage": 0.04589707279854637,
+    "fwd_score": 0.0,
+    "hist_days": 30.452309224537036,
+    "price_level_frac": 1.0,
+    "retain_back": 0.2770670141005876,
+    "retain_front": -0.17115815191348163,
+    "score": 1.25
+  },
+  "E0": 431849.02660071285,
+  "E_min": 20673.605237185224,
+  "L_peak": 2067360.5237185222,
+  "addr": "0xedeaa967b0100a4df613533df634ffe6cb5fd773",
+  "addr10": "0xedeaa967",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 9/9 coins (top-12 rule was larger); remaining 0 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 0/31 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2026-08-24 (first fill) to 2026-08-24 (first day L_t >= E_min, $20,673.61); 0 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs."
+  ],
+  "coins": [
+    "ENA",
+    "ETH",
+    "FARTCOIN",
+    "HYPE",
+    "LIT",
+    "NEAR",
+    "PUMP",
+    "VVV",
+    "ZEC"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": 24496.173943907168,
+      "pass": true,
+      "worst_stress_scenario": "iii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 5.485143850192289,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -0.24093822041537286
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -281967.54521644104,
+      "net_before": 119519.06192642622,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": 690551.0789219502
+  },
+  "level_counts": {
+    "a_normal": {
+      "T1": 35407,
+      "T2": 48624
+    },
+    "b_i": {
+      "T1": 17559,
+      "T2": 66472
+    },
+    "b_ii": {
+      "T1": 35407,
+      "T2": 48624
+    },
+    "b_iii": {
+      "T1": 17559,
+      "T2": 66472
+    }
+  },
+  "monthly": {
+    "2026-08": {
+      "copier_net_normal": -164727.239091857,
+      "leader_net": -152301.1111720019
+    },
+    "2026-09": {
+      "copier_net_normal": 284246.30101828324,
+      "leader_net": 842852.1900939522
+    }
+  },
+  "n_events_W": 84031,
+  "n_twap_merged": 420,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "sample": {
+    "E0": 431849.02660071285,
+    "leader_net": 690551.0789219502,
+    "perp_events": 84031,
+    "sufficient": true
+  },
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": null,
+  "stopout_leverage": null,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": null,
+    "ii": null,
+    "iii": null
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "ENA",
+    "ETH",
+    "FARTCOIN",
+    "HYPE",
+    "LIT",
+    "NEAR",
+    "PUMP",
+    "VVV",
+    "ZEC"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 12,
+  "unscorable": false,
+  "window": {
+    "days": 31,
+    "end": "2026-09-23",
+    "end_ms": 1790208000000,
+    "start": "2026-08-24",
+    "start_ms": 1787529600000
+  },
+  "window_raw": {
+    "end": "2026-09-23",
+    "start": "2026-08-24"
+  }
+}

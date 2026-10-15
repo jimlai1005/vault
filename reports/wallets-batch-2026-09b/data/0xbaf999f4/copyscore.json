@@ -1,0 +1,189 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": -10755.125787928993,
+    "net_stress": {
+      "i": -10743.965652286848,
+      "ii": -10805.620278512923,
+      "iii": -10794.460573995002
+    },
+    "r_miss": {
+      "open": 0.0,
+      "reduce": 0.0,
+      "worst": 0.0
+    },
+    "r_normal": 0.0,
+    "r_stress": {
+      "i": 0.0,
+      "ii": 0.0,
+      "iii": 0.0,
+      "worst": 0.0
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 10,
+    "lev_peak": 1.4574886131682558,
+    "mdd": 0.24899194835968555,
+    "score": 19.639774583460348,
+    "sub_scores": {
+      "dd_days": 1.0,
+      "lev_peak": 0.885627846707936,
+      "mdd": 0.2550402582015722,
+      "worst_day": 0.8236925422305087,
+      "worst_week": 0.3089351167700408
+    },
+    "worst_day_frac": -0.05115689493233895,
+    "worst_week_frac": -0.19130232781369225
+  },
+  "D3": {
+    "S_conc": 0.0,
+    "S_mhit": 0.24999999999999994,
+    "S_rob": 0.0,
+    "conc": 1.0,
+    "dominant_coin": "ARB",
+    "m_hit": 0.5,
+    "n_open_w_episodes": 1,
+    "n_w_episodes": 1,
+    "regime_score": 0.0,
+    "rob": 0.0,
+    "score": 1.2499999999999998
+  },
+  "D4": {
+    "R_b": -0.09064989501862611,
+    "R_b_star": -0.08435118269817053,
+    "R_c": -0.1409039446738283,
+    "excess": -0.05655276197565777,
+    "score": 0.0,
+    "sigma_b": 0.03630525380411598,
+    "sigma_c": 0.033782621545289146
+  },
+  "D5": {
+    "S_cov": 0.0,
+    "S_hist": 0.0,
+    "S_price": 1.0,
+    "coverage": 0.14887234595188212,
+    "fwd_score": 1.0,
+    "hist_days": 22.214783564814816,
+    "price_level_frac": 1.0,
+    "retain_back": 0.0,
+    "retain_front": 0.0,
+    "score": 2.5
+  },
+  "E0": 76329.48682044007,
+  "E_min": 1000.0,
+  "L_peak": 84846.1831010175,
+  "addr": "0xbaf999f4d00b3d34fff4c24d24fecaa65c0ee0e2",
+  "addr10": "0xbaf999f4",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 1/1 coins (95% cum-notional rule was larger); remaining 0 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 2/23 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2026-04-28 (first fill) to 2026-04-30 (first day L_t >= E_min, $1,000.00); 2211 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs."
+  ],
+  "coins": [
+    "ARB"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": -10805.620278512923,
+      "pass": false,
+      "worst_stress_scenario": "ii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": true,
+      "peak_leverage": 1.4574886131682558,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -0.05115689493233895
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -23790.51388209897,
+      "net_before": -10755.125787928993,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": -10655.398420998077
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 4788
+    },
+    "b_i": {
+      "T2": 4788
+    },
+    "b_ii": {
+      "T2": 4788
+    },
+    "b_iii": {
+      "T2": 4788
+    }
+  },
+  "monthly": {
+    "2026-04": {
+      "copier_net_normal": 6.219482,
+      "leader_net": 6.219482
+    },
+    "2026-05": {
+      "copier_net_normal": -10761.345269928994,
+      "leader_net": -10661.617902998078
+    }
+  },
+  "n_events_W": 4788,
+  "n_twap_merged": 3943,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "sample": {
+    "E0": 76329.48682044007,
+    "leader_net": -10655.398420998077,
+    "perp_events": 4788,
+    "sufficient": true
+  },
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": null,
+  "stopout_leverage": null,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": null,
+    "ii": null,
+    "iii": null
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "ARB"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 23,
+  "unscorable": false,
+  "window": {
+    "days": 21,
+    "end": "2026-05-20",
+    "end_ms": 1779321600000,
+    "start": "2026-04-30",
+    "start_ms": 1777507200000
+  },
+  "window_raw": {
+    "end": "2026-05-20",
+    "start": "2026-04-28"
+  }
+}

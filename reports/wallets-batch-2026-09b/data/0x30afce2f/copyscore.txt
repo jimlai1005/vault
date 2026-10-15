@@ -1,0 +1,154 @@
+============================================================================================
+COPY-TRADE SCORE  0x30afce2f6842bf183c7e3fe7162e279ff0b6393e  (0x30afce2f)   [spec v0.5]
+window W (full history, raw): 2026-08-13 -> 2026-09-21   scored window (E_min-pushed): 2026-08-20 -> 2026-09-21  (33d)   seed=20260924
+E0=$276,541.96   E_min=$182,591.69   L_peak=$18,259,169.37
+D1 tests: a=normal(sampled delay median 3.0s/P95 15.0s) b=stress(worst of i/ii/iii) c=miss-recovery(closed-form)
+============================================================================================
+
+== GATE ==
+** 模擬跟單者於 2026-08-22 爆倉（plan v0.5 §1.4b：C_t<=0 或槓桿 > 50x）**
+G1 延遲後仍有收益 (stress worst=i): net = $-675,726.96 > 0  -> FAIL
+G2 庫存風險有限 (normal a): peak_leverage=—（權益歸零） (<= 3.0x)  worst_day=-194.79% (>= -15%)  [爆倉於 2026-08-22]  -> FAIL
+G3 不依賴少數行情 (normal a): 移除最佳 3 天後 net = $-754,312.27 (原 $-643,229.56)  -> FAIL
+GATE OVERALL: FAIL
+
+== D1 跟單可複製性 (35 = 5+20+10) ==
+score = 0.00 / 35
+  a 正常跟單(5): r_normal=-0.748  score=0.00
+  b 執行壓力(20): r_i=-0.785 r_ii=-0.739 r_iii=-0.776 worst=-0.785 (scenario i)  score=0.00
+  c 漏單恢復(10): r_open=-0.749 r_reduce=-0.755 worst=-0.755  score=0.00
+
+== D2 下檔控制 (權重30，跟單者normal-a) ==
+score = 5.96 / 30
+  MDD           194.79%   S=0.000
+  最差日        -194.79%   S=0.000
+  最差週(7日)   -232.98%   S=0.000
+  最長回撤天數  31天   S=0.993
+  槓桿尖峰      —（權益歸零）  S=0.000
+
+== D3 獲利穩健性 (權重20，跟單者normal-a) ==
+score = 2.50 / 20
+  m_hit(正月占比) = 0.00% (0/2)  S=0.000
+  regime (主力幣=xyz:DRAM)  score=0.50
+  rob   = -754,312.27/-643,229.56 = 0.000  S=0.000
+  conc  = 1.256  S=0.000 (episodes: 22 in W, 8 open)
+
+== D4 超額收益 (權重10) ==
+score = 0.00 / 10
+  R_b=1.6785  R_b*=0.5351  R_c=-2.3260  excess=-2.8611
+
+== D5 證據品質 (權重5) ==
+score = 2.21 / 5
+  歷史長度 39天  S=0.000
+  覆蓋率 94.58%  S=0.892
+  價格級別(T1+T2占比) 84.90%  S=0.872
+  前瞻切分: retain_front=0.000 retain_back=0.000  fwd_score=0.00
+
+== TOTAL ==
+TOTAL = D1+D2+D3+D4+D5 = 0.00+5.96+2.50+0.00+2.21 = 11 / 100
+(門檻 未通過)
+
+== 價格級別占比 (test a, normal) ==
+  T2=84.9%  T3=9.0%  T3_missing=6.1%
+  合計 = 100.0%  (events=5549)
+
+== T2 範圍 ==
+  12/19 幣進 T2（Binance 代理）：['BTC', 'ETH', 'HYPE', 'ZEC', 'xyz:ARM', 'xyz:AVGO', 'xyz:BE', 'xyz:DRAM', 'xyz:GOOGL', 'xyz:INTC', 'xyz:MU', 'xyz:SP500']
+
+== 月表：跟單者(normal-a) vs 領單者 淨損益 ==
+  month           copier_net      leader_net
+  2026-08        -643,229.56      -99,810.12
+  2026-09               0.00      960,270.70
+
+== 資料極限 (plan §4) ==
+  - 延遲成本用 Binance 1m 代理／HL 1m 的相對變動估算（保真 0.7–0.9 → 偏樂觀）；δ 小於 1 分鐘時延遲成本幾乎只剩滑價。
+  - 跟單者資金費 = 領單者 funding 列（只有前 500 筆）= 下界。
+  - 延遲分布是假設值（未有實測）；漏單恢復是模型內的逐事件精算，不是實盤跟單記錄；前瞻分項是同窗口切分。
+
+== ASSUMPTIONS ==
+  - T2 (Binance proxy) scope = 12/19 coins (top-12 rule was larger); remaining 7 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.
+  - 10 coin(s) not in HL's current perp/spot universe (delisted/renamed identifier — candleSnapshot returns HTTP 500 for these, verified, not a transient issue): ['hyna:ZEC', 'para:ANSEM', 'xyz:ARM', 'xyz:AVGO', 'xyz:BE', 'xyz:DRAM', 'xyz:GOOGL', 'xyz:INTC', 'xyz:MU', 'xyz:SP500']. Skipped entirely (T1/T2/HL-1h/HL-1d); no MTM price / always T3_missing for these coins.
+  - L_t (leader daily equity for proportional sizing, v0.4 §1.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary — the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 7/40 day(s) of the full raw history outside accountValueHistory's covered range.
+  - start day pushed from 2026-08-13 (first fill) to 2026-08-20 (first day L_t >= E_min, $182,591.69); 3887 earlier event(s) ignored per plan v0.4 §0.
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273141257; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273143614; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273145697; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273148044; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273152014; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273154031; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273155794; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273158450; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273180571; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273205119; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273207141; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273208778; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273212956; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273215314; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273216842; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273254770; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273257017; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273262784; M forced to 1.0 (T3_missing)
+  - xyz:GOOGL: no T1/T2/T3 price data at t=1787343455121; M forced to 1.0 (T3_missing)
+  - xyz:GOOGL: no T1/T2/T3 price data at t=1787343461417; M forced to 1.0 (T3_missing)
+  - xyz:GOOGL: no T1/T2/T3 price data at t=1787343464257; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787343474085; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787343479351; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787343482286; M forced to 1.0 (T3_missing)
+  - hyna:ZEC: no T1/T2/T3 price data at t=1787365908049; M forced to 1.0 (T3_missing)
+  - hyna:ZEC: no T1/T2/T3 price data at t=1787365912099; M forced to 1.0 (T3_missing)
+  - hyna:ZEC: no T1/T2/T3 price data at t=1787365930352; M forced to 1.0 (T3_missing)
+  - hyna:ZEC: no T1/T2/T3 price data at t=1787365932583; M forced to 1.0 (T3_missing)
+  - hyna:ZEC: no T1/T2/T3 price data at t=1787365935929; M forced to 1.0 (T3_missing)
+  - hyna:ZEC: no T1/T2/T3 price data at t=1787365986117; M forced to 1.0 (T3_missing)
+  - hyna:ZEC: no T1/T2/T3 price data at t=1787365994790; M forced to 1.0 (T3_missing)
+  - hyna:ZEC: no T1/T2/T3 price data at t=1787365999277; M forced to 1.0 (T3_missing)
+  - STOP-OUT on 2026-08-22: C_t=<=0, leverage=undefined (C_t<=0) (> 50x or equity<=0) — closed all positions at close, equity floored at $0.00, no further events followed (plan v0.5 §1.4b).
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273130743; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273133165; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273135287; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273138154; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273149917; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273199747; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273202767; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273210254; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273250598; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273252630; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273260490; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273117955; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273121398; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273128310; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273160509; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273162589; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273164589; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273166934; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273169095; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273171177; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273173048; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273174858; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273176880; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273178891; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273185523; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273188068; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273223753; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273226127; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273228291; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273229720; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273231299; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273233874; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273237984; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273239978; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273242056; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273244015; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273246169; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787273248824; M forced to 1.0 (T3_missing)
+  - xyz:DRAM: no T1/T2/T3 price data at t=1787343485425; M forced to 1.0 (T3_missing)
+  - D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+δ trade would have paid — the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.
+  - D2/gate denominators (peak/day-equity C_t) floored at 1% of E0 on at least one day to avoid divide-by-zero
+  - xyz:BE: no W-end price for open episode unrealized valuation; unrealized treated as 0 for conc
+  - xyz:ARM: no W-end price for open episode unrealized valuation; unrealized treated as 0 for conc
+  - xyz:MU: no W-end price for open episode unrealized valuation; unrealized treated as 0 for conc
+  - xyz:INTC: no W-end price for open episode unrealized valuation; unrealized treated as 0 for conc
+  - xyz:AVGO: no W-end price for open episode unrealized valuation; unrealized treated as 0 for conc
+
+timing: fetch=2.2s sim=0.3s total=2.9s  cache: 25 hit / 2 miss
+============================================================================================

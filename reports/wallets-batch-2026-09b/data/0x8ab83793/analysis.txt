@@ -1,0 +1,405 @@
+====================================================================================================
+WALLET 0x8ab83793cafe1f88d3c875187a70344c31652c22  (0x8ab83793)   analysis generated 2026-09-24 01:30 UTC
+====================================================================================================
+
+[A] ACCOUNT ------------------------------------------------------------------
+  userAbstraction=unifiedAccount
+  dex=default    accountValue=      7,231.03 totalNtlPos=    168,850.00 marginUsed=     4,221.25 withdrawable=        0.00
+  spot: USDC: total=7239.03 hold=7239.03 free_usd=0 | USDE: total=0 hold=0 free_usd=0 | USDT0: total=0 hold=0 free_usd=0 | USDH: total=0 hold=0 free_usd=0
+  staked HYPE=0 ($0)   vault equity=$0
+  EQUITY BASIS: spot_free 0 + perp_av 7,231 + staked 0 + vault 0 = 7,231   vs venue portfolio 7,239   drift -8 (-0.1%)
+  ledger rows: {'deposit': 23, 'send': 127, 'spotTransfer': 6, 'withdraw': 36}
+  ledger $ by type: deposit=8,826, send=91,066, spotTransfer=3,969, withdraw=21,019
+  net external flow = deposits 8,826 - withdrawals 21,019 = -12,194
+  venue equity curve: 2025-12-31 $0 -> 2026-09-23 $7,239 | allTime pnl=2,539 vlm=22,675,460
+  venue equity peak $15,976 on 2026-09-20; min after peak $2,784 (drawdown from peak -82.6%)
+
+  -- current positions (all dexes):
+            BTC szi=          -2.0 entry=    85379.5 value=      168,850 upnl=       1,909 lev=40xcross liq=86953.5954088889 opened=2026-09-23 13:03 age=1.4h realized_since=-74
+
+  -- open orders: 2
+            BTC n=  2 sides={'B': 2} px 88000..94490 (span 737bps, median step 737bps) ntl=0 mid=84176.5 dist_near=+1225bps dist_far=+454bps types={('Stop Market', None, True): 1, ('Take Profit Market', None, True): 1}
+
+[B] MECHANISM ----------------------------------------------------------------
+  fills=18542 (perp 18498 / spot 44) 2025-12-31 02:39:42..2026-09-23 14:30:01
+  episodes: total=1508 usable=1508 (dropped data-gap starts 0) ends={'flat': 1449, 'flip': 59} still-open=['BTC']
+  coins traded=93
+  top coins by notional: HYPE(22%,net -2,778), ZEC(18%,net 780), SOL(11%,net -2,508), ETH(11%,net 3,062), xyz:DRAM(10%,net 282), ARB(3%,net -1,502), VVV(3%,net 4,255), BTC(2%,net -325), ENA(2%,net 1,690), xyz:CRCL(2%,net 9)
+  top coins by |net pnl|: VVV(4,255), ETH(3,062), HYPE(-2,778), PONS(2,631), SOL(-2,508), ENA(1,690), ARB(-1,502), CASHCAT(-1,009), LIT(-837), ZEC(780)
+  HIP-3 share of notional=15%  spot share=0%
+  spot pairs used: @107=HYPE/USDC, @142=UBTC/USDC, @151=UETH/USDC, @156=USOL/USDC, @230=USDH/USDC
+  entry fills: n=9161 taker=94%   exit fills: n=9386 taker=82%
+  liquidation fills=79 in 28 episodes  first=2026-01-02 13:59 last=2026-09-23 03:20
+  TWAP slice fills=0 (0% of all fills; 0 merged from the TWAP endpoint, which userFillsByTime omits)  distinct oids=4067  fills/oid=4.56
+
+  -- entry/exit shape (medians). 'depth' = how far the entry ladder walked against the first entry:
+   all episodes                      : n=1508 | entry: fills p50=  4 oids p50=  1 span p50=    2bps maker p50=  0% build p50=    0s depth p50=   +0bps | exit: fills p50=  4 maker p50=  0% unwind p50=    0s | ntl p50=     9,908 net p50=       -3
+   episodes with >=5 entry fills     : n= 646 | entry: fills p50=  9 oids p50=  1 span p50=    8bps maker p50=  0% build p50=    0s depth p50=   +0bps | exit: fills p50=  7 maker p50=  0% unwind p50=    0s | ntl p50=    15,508 net p50=       -4
+   winners                           : n= 654 | entry: fills p50=  4 oids p50=  1 span p50=    2bps maker p50=  0% build p50=    0s depth p50=   +0bps | exit: fills p50=  3 maker p50=  0% unwind p50=    0s | ntl p50=    10,368 net p50=       25
+   losers                            : n= 854 | entry: fills p50=  4 oids p50=  1 span p50=    1bps maker p50=  0% build p50=    0s depth p50=   +0bps | exit: fills p50=  4 maker p50=  0% unwind p50=    0s | ntl p50=     9,509 net p50=      -26
+   large (peak notional >= 100k)     : none
+  averaging-in: 1202/1508 episodes have >1 entry fill; median share of entries at a worse price than the first = 0%
+  -- 10 deepest entry ladders (walked furthest against the first entry):
+     2026-03-02 20:05        VVV L depth= -2895bps span= 4087bps entries=  33 maker=27% hold=   2.2d peak_ntl=     10,512 net=    -1,566 exit_maker=48%
+     2026-02-06 02:28       HYPE L depth= -1667bps span= 2001bps entries=  26 maker=50% hold=   5.0d peak_ntl=      4,690 net=      -676 exit_maker=68%
+     2026-01-24 04:30        ZEC L depth= -1160bps span= 1587bps entries=   9 maker=56% hold=   5.3d peak_ntl=      7,509 net=      -159 exit_maker=29%
+     2026-01-03 04:36        ZEC L depth= -1067bps span= 1194bps entries=  17 maker=0% hold=   5.2d peak_ntl=     13,271 net=    -2,537 exit_maker=0%
+     2026-01-15 01:51        ZEC L depth=  -986bps span= 1094bps entries=   8 maker=25% hold=   3.9d peak_ntl=     22,006 net=    -3,041 exit_maker=17%
+     2026-01-25 01:02        AXS L depth=  -929bps span= 1024bps entries=   2 maker=0% hold=  23.8h peak_ntl=      2,752 net=      -571 exit_maker=0%
+     2026-06-05 08:06        ZEC L depth=  -584bps span=  648bps entries=   8 maker=0% hold=   2.8h peak_ntl=      4,610 net=       288 exit_maker=0%
+     2026-03-29 00:17       HYPE L depth=  -579bps span=  618bps entries=  22 maker=0% hold=   2.4d peak_ntl=     20,770 net=    -1,671 exit_maker=65%
+     2026-02-15 19:26        VVV L depth=  -422bps span=  942bps entries=  12 maker=50% hold=  19.5h peak_ntl=      9,098 net=       182 exit_maker=11%
+     2026-09-02 03:13       PONS L depth=  -375bps span=  403bps entries=  15 maker=0% hold=  20.3h peak_ntl=      3,501 net=        45 exit_maker=0%
+  -- 10 worst episodes: how were they exited? (stop-loss evidence)
+     2026-01-15 01:51->2026-01-19 00:01        ZEC L net=    -3,041 hold=   3.9d peak_ntl=     22,006 entries=   8 depth=  -986bps exits=  6 exit_maker=17% unwind=  2.5d liq_fills=3
+     2026-01-03 04:36->2026-01-08 09:41        ZEC L net=    -2,537 hold=   5.2d peak_ntl=     13,271 entries=  17 depth= -1067bps exits=  7 exit_maker=0% unwind=    0s liq_fills=7
+     2026-09-22 14:36->2026-09-22 23:00        ARB S net=    -1,769 hold=   8.4h peak_ntl=     25,273 entries=  15 depth=    +0bps exits= 15 exit_maker=0% unwind=    0s liq_fills=0
+     2026-03-29 00:17->2026-03-31 10:16       HYPE L net=    -1,671 hold=   2.4d peak_ntl=     20,770 entries=  22 depth=  -579bps exits= 23 exit_maker=65% unwind=  1.9d liq_fills=0
+     2026-03-02 20:05->2026-03-05 01:29        VVV L net=    -1,566 hold=   2.2d peak_ntl=     10,512 entries=  33 depth= -2895bps exits= 29 exit_maker=48% unwind=  1.5d liq_fills=0
+     2026-02-17 01:25->2026-02-17 14:54       HYPE L net=    -1,166 hold=  13.5h peak_ntl=     15,989 entries=  12 depth=    +0bps exits= 23 exit_maker=0% unwind=    0s liq_fills=0
+     2026-09-22 14:38->2026-09-23 03:37        SOL S net=    -1,110 hold=  13.0h peak_ntl=     47,524 entries=   5 depth=  +218bps exits=  4 exit_maker=0% unwind=    0s liq_fills=0
+     2026-08-18 03:00->2026-08-18 15:01   xyz:DRAM L net=    -1,101 hold=  12.0h peak_ntl=     20,303 entries=   8 depth=  -116bps exits=  2 exit_maker=0% unwind= 18.3m liq_fills=0
+     2026-09-21 13:05->2026-09-21 15:43        ZEC L net=    -1,093 hold=   2.6h peak_ntl=     46,251 entries=  22 depth=    -6bps exits= 17 exit_maker=41% unwind=  1.2h liq_fills=0
+     2026-06-17 02:13->2026-06-17 12:28       HYPE L net=    -1,065 hold=  10.3h peak_ntl=     18,632 entries=   8 depth=    +0bps exits= 12 exit_maker=17% unwind=  4.1m liq_fills=0
+  -- 10 best episodes:
+     2026-09-16 02:14->2026-09-19 22:04        ZEC L net=     8,446 hold=   3.8d peak_ntl=     39,350 entries=  41 depth=    +0bps exits= 39 entry_maker=0% exit_maker=54%
+     2026-02-28 12:17->2026-03-02 18:42        VVV L net=     5,720 hold=   2.3d peak_ntl=     18,990 entries=  31 depth=    +0bps exits= 24 entry_maker=0% exit_maker=21%
+     2026-09-18 13:06->2026-09-23 06:14        ETH L net=     5,185 hold=   4.7d peak_ntl=     51,805 entries=   3 depth=    +0bps exits=  9 entry_maker=0% exit_maker=11%
+     2026-09-03 12:28->2026-09-07 16:22       PONS L net=     2,242 hold=   4.2d peak_ntl=     14,584 entries=  46 depth=    +0bps exits= 22 entry_maker=0% exit_maker=0%
+     2026-09-18 23:09->2026-09-19 11:37        ENA L net=     2,097 hold=  12.5h peak_ntl=     16,341 entries=  12 depth=    +0bps exits= 23 entry_maker=0% exit_maker=100%
+     2026-02-13 14:21->2026-02-16 14:18        ZEC L net=     1,547 hold=   3.0d peak_ntl=     11,542 entries=  18 depth=    +0bps exits=  8 entry_maker=72% exit_maker=62%
+     2026-09-17 09:12->2026-09-18 02:24       HYPE L net=     1,524 hold=  17.2h peak_ntl=     39,927 entries=  10 depth=   -83bps exits= 31 entry_maker=0% exit_maker=0%
+     2026-08-11 08:48->2026-08-13 07:08   xyz:NBIS L net=     1,150 hold=   1.9d peak_ntl=      6,545 entries=  18 depth=    +0bps exits= 14 entry_maker=11% exit_maker=43%
+     2026-02-19 03:16->2026-02-22 15:07        VVV L net=     1,112 hold=   3.5d peak_ntl=      7,814 entries=  11 depth=    +0bps exits= 17 entry_maker=0% exit_maker=0%
+     2026-03-09 05:01->2026-03-10 03:30     xyz:CL S net=     1,101 hold=  22.5h peak_ntl=      5,988 entries=   1 depth=    +0bps exits=  5 entry_maker=0% exit_maker=80%
+
+  position sizing: peak notional p25=2,492 p50=4,924 p75=9,133 p90=15,114 max=64,353  (vs current equity 7,239 -> p50 0.68x, max 8.89x)
+  current gross exposure=168,850 = 23.32x equity  (long 0 / short 168,850)
+  entries by UTC hour (n/net): 00:123/-2,749 01:99/-6,326 02:114/7,637 03:95/-845 04:92/-4,104 05:98/36 06:61/654 07:68/525 08:70/314 09:62/1,544 10:57/766 11:58/-1,643 12:62/6,310 13:66/2,543 14:56/-1,075 15:36/415 16:27/90 17:14/107 18:18/-94 19:14/34 20:34/-907 21:51/-845 22:63/-2,236 23:70/1,216
+  entries by weekday: {'Wed': 292, 'Sat': 123, 'Thu': 290, 'Fri': 248, 'Mon': 212, 'Tue': 245, 'Sun': 98}
+
+  -- monthly cadence (realized net of fees; taker share):
+     2025-12  fills=     6 taker=100% coins=  1 ntl=         3,788 net=          -2
+     2026-01  fills=   395 taker= 79% coins= 10 ntl=       443,713 net=      -5,781
+     2026-02  fills=  3118 taker= 90% coins= 24 ntl=     2,691,991 net=        -333
+     2026-03  fills=  2228 taker= 83% coins= 13 ntl=     2,523,256 net=       2,005
+     2026-04  fills=  1499 taker= 96% coins= 18 ntl=     1,925,194 net=      -2,531
+     2026-05  fills=  1059 taker= 92% coins= 26 ntl=     1,172,779 net=        -967
+     2026-06  fills=  1995 taker= 89% coins= 24 ntl=     2,674,392 net=       1,904
+     2026-07  fills=  1091 taker= 93% coins= 21 ntl=     1,446,896 net=      -1,690
+     2026-08  fills=  2206 taker= 84% coins= 21 ntl=     3,037,582 net=        -452
+     2026-09  fills=  4945 taker= 86% coins= 32 ntl=     6,760,024 net=       8,845
+
+[C] BIG DAYS -----------------------------------------------------------------
+  active days=248 span=2025-12-31..2026-09-23
+   |daily realized net| >= $5,000: 3 days
+   |daily realized net| >= $10,000: 0 days
+   |daily realized net| >= $20,000: 0 days
+   |daily realized net| >= $362 (=5% of equity): 62 days
+
+  -- top 25 days by |realized net| (threshold $145); market ctx = that day's 1d candle of the dominant coin:
+     date                net  fills  taker       notional  dominant coins (net)   | market: coin day% range%
+     2026-03-02        5,583    115   77%        184,472  VVV:5,530, xyz:GOLD:54   | VVV +13.5% range 35.2%
+     2026-09-18        5,106    556   85%        885,836  ZEC:3,068, HYPE:1,616, ARB:1,067   | ETH +6.8% range 8.7%
+     2026-09-19        5,035    343   56%        213,221  ZEC:3,385, ENA:2,103, LIT:-629   | LIT +0.9% range 13.3%
+     2026-01-19       -2,884     24   75%         30,401  ZEC:-2,861, HYPE:-23   | ZEC -2.0% range 13.8%
+     2026-09-22       -2,780    682   89%      1,289,659  ARB:-1,752, ZEC:-672, SEI:-270   | ZEC +10.7% range 13.8%
+     2026-01-08       -2,537     13  100%         25,600  ZEC:-2,537   | ZEC -10.3% range 26.9%
+     2026-09-07        1,685     90  100%         62,139  PONS:1,727, PUMP:-40, @151:-2   | PUMP +8.4% range 19.8%
+     2026-08-18       -1,306    109   83%        183,292  xyz:DRAM:-1,222, ETH:-29, HYPE:-26   | xyz:DRAM -10.3% range 13.4%
+     2026-03-31       -1,253     82   79%         59,825  HYPE:-1,554, ZEC:328, VVV:-26   | HYPE -0.6% range 5.5%
+     2026-07-02       -1,199    125   98%        327,696  SOL:-734, xyz:NBIS:-298, xyz:DRAM:-171   | SOL +4.3% range 7.7%
+     2026-03-25        1,166     94   90%        131,571  HYPE:675, ZEC:299, xyz:CRCL:198   | HYPE +0.0% range 4.8%
+     2026-09-17        1,158    658   88%        564,644  ZEC:1,509, ARB:-207, VVV:153   | HYPE +8.8% range 9.2%
+     2026-03-03       -1,140     21   48%         30,998  VVV:-1,149, HYPE:9   | HYPE -4.6% range 8.9%
+     2026-06-17       -1,122     87   86%        159,335  HYPE:-1,045, WLD:-110, xyz:DRAM:46   | HYPE -3.3% range 9.8%
+     2026-03-27       -1,094    219   74%        379,180  ETH:-551, xyz:CRCL:-346, HYPE:-163   | HYPE -1.3% range 4.0%
+     2026-09-23       -1,092    446   93%      1,246,969  ETH:2,579, ZEC:-1,410, SOL:-1,335   | ZEC -8.1% range 14.0%
+     2026-09-13       -1,068    100   75%        134,381  ZEC:-1,049, HYPE:-18   | ZEC -5.4% range 9.1%
+     2026-06-05        1,030    133   94%         99,263  ZEC:1,169, WLD:-151, NEAR:12   | ZEC -15.4% range 86.1%
+     2026-02-16        1,017    107   87%         89,686  ZEC:687, VVV:174, HYPE:156   | VVV -6.9% range 35.1%
+     2026-08-12          981    113   82%         95,107  xyz:NBIS:889, xyz:DRAM:163, xyz:BE:-136   | xyz:BE +12.3% range 17.5%
+     2026-07-30          826     54   93%         75,552  xyz:DRAM:832, HYPE:-6   | xyz:DRAM +19.7% range 24.6%
+     2026-06-06          820     95   99%         66,042  WLD:817, ZEC:28, NEAR:-26   | WLD -22.0% range 37.7%
+     2026-02-18         -785     51  100%         33,650  VVV:-765, ZEC:-20   | ZEC -10.7% range 16.0%
+     2026-01-14          781     42   98%         71,259  ZEC:786, LTC:-5   | ZEC +10.6% range 11.2%
+     2026-08-13          757    177   76%        194,449  xyz:CBRS:274, xyz:DRAM:240, xyz:NBIS:194   | xyz:DRAM +4.9% range 8.0%
+
+  -- what the account did on the 8 biggest days (episodes overlapping the day):
+     2026-03-02 net=5,583 fills=115 taker=77% — 5 episodes overlapping:
+        by hour (n/net): 02:17/-39 05:10/93 15:6/-4 16:6/1,636 18:24/3,472 19:17/151 20:35/273
+               VVV L 2026-02-28 12:17->2026-03-02 18:42 hold=   2.3d peak_ntl=     18,990 entries=31 exits=24 exit_maker=21% net=5,720
+               VVV L 2026-03-02 20:05->2026-03-05 01:29 hold=   2.2d peak_ntl=     10,512 entries=33 exits=29 exit_maker=48% net=-1,566
+               VVV L 2026-03-02 19:52->2026-03-02 20:05 hold=  12.9m peak_ntl=     11,918 entries=7 exits=30 exit_maker=53% net=270
+               VVV L 2026-03-02 18:50->2026-03-02 19:51 hold=   1.0h peak_ntl=     12,546 entries=15 exits=7 exit_maker=71% net=153
+          xyz:GOLD L 2026-03-02 02:12->2026-03-02 05:50 hold=   3.6h peak_ntl=     45,656 entries=17 exits=10 exit_maker=50% net=54
+     2026-09-18 net=5,106 fills=556 taker=85% — 20 episodes overlapping:
+        by hour (n/net): 00:1/-4 01:19/-8 02:52/1,607 03:51/914 04:124/154 05:62/-439 06:47/39 08:25/-4 09:16/1,622 11:54/2,003 12:10/-929 13:40/42 22:41/119 23:14/-10
+               ZEC L 2026-09-16 02:14->2026-09-19 22:04 hold=   3.8d peak_ntl=     39,350 entries=41 exits=39 exit_maker=54% net=8,446
+               ETH L 2026-09-18 13:06->2026-09-23 06:14 hold=   4.7d peak_ntl=     51,805 entries=3 exits=9 exit_maker=11% net=5,185
+               ENA L 2026-09-18 23:09->2026-09-19 11:37 hold=  12.5h peak_ntl=     16,341 entries=12 exits=23 exit_maker=100% net=2,097
+              HYPE L 2026-09-17 09:12->2026-09-18 02:24 hold=  17.2h peak_ntl=     39,927 entries=10 exits=31 exit_maker=0% net=1,524
+               ARB L 2026-09-18 03:04->2026-09-18 03:15 hold=  10.9m peak_ntl=     14,445 entries=11 exits=9 exit_maker=0% net=930
+     2026-09-19 net=5,035 fills=343 taker=56% — 7 episodes overlapping:
+        by hour (n/net): 00:22/-137 08:4/554 10:76/3,433 11:110/784 12:3/-9 17:24/-701 22:6/784 23:98/327
+               ZEC L 2026-09-16 02:14->2026-09-19 22:04 hold=   3.8d peak_ntl=     39,350 entries=41 exits=39 exit_maker=54% net=8,446
+               ETH L 2026-09-18 13:06->2026-09-23 06:14 hold=   4.7d peak_ntl=     51,805 entries=3 exits=9 exit_maker=11% net=5,185
+               ENA L 2026-09-18 23:09->2026-09-19 11:37 hold=  12.5h peak_ntl=     16,341 entries=12 exits=23 exit_maker=100% net=2,097
+               LIT L 2026-09-19 12:35->2026-09-19 17:53 hold=   5.3h peak_ntl=     20,837 entries=3 exits=24 exit_maker=0% net=-710
+               WLD L 2026-09-19 11:11->2026-09-19 23:57 hold=  12.8h peak_ntl=     32,170 entries=46 exits=98 exit_maker=64% net=313
+     2026-01-19 net=-2,884 fills=24 taker=75% — 3 episodes overlapping:
+        by hour (n/net): 00:11/-2,861 02:3/-1 03:6/-0 21:4/-22
+               ZEC L 2026-01-15 01:51->2026-01-19 00:01 hold=   3.9d peak_ntl=     22,006 entries=8 exits=6 exit_maker=17% net=-3,041
+               ZEC L 2026-01-19 00:02->2026-01-20 02:33 hold=   1.1d peak_ntl=      7,324 entries=9 exits=6 exit_maker=0% net=187
+              HYPE L 2026-01-19 02:52->2026-01-19 21:57 hold=  19.1h peak_ntl=      2,401 entries=8 exits=4 exit_maker=0% net=-23
+     2026-09-22 net=-2,780 fills=682 taker=89% — 27 episodes overlapping:
+        by hour (n/net): 01:22/-9 04:58/92 05:111/-393 06:76/-191 07:38/-165 08:58/-190 09:46/161 10:76/-53 12:16/73 13:103/268 14:55/-510 23:23/-1,863
+               ETH L 2026-09-18 13:06->2026-09-23 06:14 hold=   4.7d peak_ntl=     51,805 entries=3 exits=9 exit_maker=11% net=5,185
+               ARB S 2026-09-22 14:36->2026-09-22 23:00 hold=   8.4h peak_ntl=     25,273 entries=15 exits=15 exit_maker=0% net=-1,769
+               SOL S 2026-09-22 14:38->2026-09-23 03:37 hold=  13.0h peak_ntl=     47,524 entries=5 exits=4 exit_maker=0% net=-1,110
+               ZEC L 2026-09-22 13:43->2026-09-22 14:35 hold=  51.9m peak_ntl=     60,952 entries=15 exits=10 exit_maker=0% net=-523
+               SEI S 2026-09-22 04:53->2026-09-22 06:41 hold=   1.8h peak_ntl=     16,889 entries=27 exits=46 exit_maker=100% net=-270
+     2026-01-08 net=-2,537 fills=13 taker=100% — 2 episodes overlapping:
+        by hour (n/net): 04:3/-1 09:7/-2,530 10:2/-4 23:1/-1
+               ZEC L 2026-01-03 04:36->2026-01-08 09:41 hold=   5.2d peak_ntl=     13,271 entries=17 exits=7 exit_maker=0% net=-2,537
+               ZEC L 2026-01-08 10:10->2026-01-14 11:57 hold=   6.1d peak_ntl=     22,134 entries=31 exits=40 exit_maker=20% net=1,009
+     2026-09-07 net=1,685 fills=90 taker=100% — 4 episodes overlapping:
+        by hour (n/net): 01:20/33 02:34/-75 09:1/-1 10:9/623 16:12/1,108 22:14/-4
+              PONS L 2026-09-03 12:28->2026-09-07 16:22 hold=   4.2d peak_ntl=     14,584 entries=46 exits=22 exit_maker=0% net=2,242
+              PONS L 2026-09-07 22:25->2026-09-08 12:13 hold=  13.8h peak_ntl=     11,543 entries=26 exits=15 exit_maker=0% net=143
+              PUMP S 2026-09-07 02:15->2026-09-07 02:25 hold=   9.7m peak_ntl=      9,712 entries=18 exits=9 exit_maker=0% net=-74
+              PUMP S 2026-09-07 01:39->2026-09-07 01:51 hold=  12.3m peak_ntl=      5,753 entries=10 exits=8 exit_maker=0% net=34
+     2026-08-18 net=-1,306 fills=109 taker=83% — 10 episodes overlapping:
+        by hour (n/net): 00:23/-11 01:42/-23 02:7/-21 03:3/-2 05:5/-0 14:1/-205 15:17/-909 21:10/-136 23:1/-0
+          xyz:DRAM L 2026-08-18 03:00->2026-08-18 15:01 hold=  12.0h peak_ntl=     20,303 entries=8 exits=2 exit_maker=0% net=-1,101
+          xyz:DRAM L 2026-08-18 15:48->2026-08-18 21:56 hold=   6.1h peak_ntl=      8,323 entries=1 exits=10 exit_maker=0% net=-136
+              HYPE S 2026-08-18 01:54->2026-08-18 02:59 hold=   1.1h peak_ntl=     11,814 entries=28 exits=7 exit_maker=0% net=-26
+             ETHFI L 2026-08-18 00:19->2026-08-18 01:54 hold=   1.6h peak_ntl=      7,472 entries=21 exits=14 exit_maker=0% net=-20
+          xyz:DRAM L 2026-08-18 15:02->2026-08-18 15:23 hold=  20.8m peak_ntl=      8,246 entries=1 exits=1 exit_maker=0% net=16
+
+  -- daily trajectory of the 4 coins that dominate PnL: ['VVV', 'ETH', 'HYPE', 'PONS']
+   [VVV] 37 active days, total net=4,255
+     2026-02-15 eod_pos=          1200 buy=        1200 sell=           0 fills=    5 net=         -2 cum=          -2 | +39.8% rng 48.2%
+     2026-02-16 eod_pos=          1000 buy=        5887 sell=        6087 fills=   73 net=        174 cum=         172 | -6.9% rng 35.1%
+     2026-02-17 eod_pos=          2000 buy=        2000 sell=        1000 fills=   24 net=        115 cum=         287 | +5.3% rng 31.0%
+     2026-02-18 eod_pos=             0 buy=           0 sell=        2000 fills=   19 net=       -765 cum=        -477 | -15.6% rng 22.4%
+     2026-02-19 eod_pos=          2000 buy=        2000 sell=           0 fills=   10 net=         -3 cum=        -481 | +1.3% rng 10.9%
+     2026-02-20 eod_pos=          1500 buy=           0 sell=         500 fills=    3 net=        363 cum=        -118 | +19.5% rng 36.1%
+     2026-02-22 eod_pos=             0 buy=        1412 sell=        2912 fills=   31 net=        751 cum=         633 | -12.1% rng 17.5%
+     2026-02-23 eod_pos=             0 buy=        1501 sell=        1501 fills=   32 net=        -95 cum=         538 | -2.1% rng 12.4%
+     2026-02-25 eod_pos=             0 buy=        2377 sell=        2377 fills=   53 net=        -10 cum=         527 | +8.9% rng 25.5%
+     2026-02-26 eod_pos=             0 buy=       114.8 sell=       114.8 fills=    4 net=         -1 cum=         526 | +4.5% rng 11.7%
+     2026-02-27 eod_pos=             0 buy=        1371 sell=        1371 fills=   33 net=        -39 cum=         487 | +12.2% rng 29.9%
+     2026-02-28 eod_pos=          2115 buy=        6391 sell=        4276 fills=   88 net=         44 cum=         532 | +18.2% rng 24.6%
+     2026-03-01 eod_pos=          1629 buy=           0 sell=       486.5 fills=    1 net=        556 cum=       1,087 | +16.3% rng 22.3%
+     2026-03-02 eod_pos=          1264 buy=        5794 sell=        6158 fills=   88 net=      5,530 cum=       6,617 | +13.5% rng 35.2%
+     2026-03-03 eod_pos=         734.9 buy=         164 sell=       693.4 fills=   10 net=     -1,149 cum=       5,468 | -15.7% rng 29.7%
+     2026-03-04 eod_pos=          1487 buy=        1844 sell=        1092 fills=   30 net=       -955 cum=       4,513 | +6.8% rng 22.7%
+     2026-03-05 eod_pos=             0 buy=        2347 sell=        3834 fills=   78 net=        694 cum=       5,207 | -4.0% rng 25.6%
+     2026-03-07 eod_pos=             0 buy=         584 sell=         584 fills=   17 net=        -20 cum=       5,187 | +0.9% rng 8.8%
+     2026-03-08 eod_pos=         792.2 buy=        1236 sell=       443.4 fills=   22 net=        -21 cum=       5,166 | -8.0% rng 14.5%
+     2026-03-09 eod_pos=             0 buy=       566.9 sell=        1359 fills=   21 net=       -648 cum=       4,518 | -4.8% rng 10.4%
+     2026-03-10 eod_pos=             0 buy=        1446 sell=        1446 fills=   43 net=         49 cum=       4,567 | +6.2% rng 14.5%
+     2026-03-11 eod_pos=             0 buy=       312.3 sell=       312.3 fills=   16 net=        -14 cum=       4,553 | +5.4% rng 16.3%
+     2026-03-18 eod_pos=         768.8 buy=       768.8 sell=           0 fills=   18 net=         -2 cum=       4,551 | +3.1% rng 14.6%
+     2026-03-19 eod_pos=             0 buy=           0 sell=       768.8 fills=   11 net=       -358 cum=       4,193 | -1.8% rng 15.8%
+     2026-03-20 eod_pos=         606.5 buy=       606.5 sell=           0 fills=   13 net=         -2 cum=       4,191 | -3.7% rng 10.0%
+     2026-03-23 eod_pos=             0 buy=           0 sell=       606.6 fills=    6 net=         25 cum=       4,216 | -1.9% rng 10.7%
+     2026-03-26 eod_pos=             0 buy=        1108 sell=        1108 fills=   25 net=         18 cum=       4,234 | -4.3% rng 9.4%
+     2026-03-31 eod_pos=             0 buy=       397.6 sell=       397.6 fills=   15 net=        -26 cum=       4,207 | +5.0% rng 8.6%
+     2026-05-12 eod_pos=             0 buy=        67.5 sell=        67.5 fills=   16 net=         -5 cum=       4,203 | -5.3% rng 21.7%
+     2026-05-20 eod_pos=             0 buy=       36.17 sell=       36.17 fills=    5 net=         -2 cum=       4,201 | -3.0% rng 15.3%
+     2026-09-08 eod_pos=           214 buy=         214 sell=           0 fills=   25 net=         -2 cum=       4,199 | +40.2% rng 49.7%
+     2026-09-09 eod_pos=           350 buy=       641.5 sell=       505.5 fills=   83 net=        261 cum=       4,460 | -12.5% rng 32.5%
+     2026-09-10 eod_pos=             0 buy=       73.76 sell=       423.8 fills=   25 net=       -389 cum=       4,071 | +6.5% rng 14.5%
+     2026-09-11 eod_pos=             0 buy=          65 sell=          65 fills=    8 net=        -50 cum=       4,021 | -2.6% rng 16.3%
+     2026-09-17 eod_pos=             0 buy=        1796 sell=        1796 fills=  189 net=        153 cum=       4,173 | +8.4% rng 10.0%
+     2026-09-18 eod_pos=             0 buy=         300 sell=         300 fills=   34 net=         55 cum=       4,229 | +8.8% rng 18.8%
+     2026-09-21 eod_pos=             0 buy=       415.2 sell=       415.2 fills=   85 net=         26 cum=       4,255 | +9.2% rng 18.4%
+   [ETH] 81 active days, total net=3,062
+     2026-03-04 eod_pos=             0 buy=       3.627 sell=       3.627 fills=   10 net=        -40 cum=         -40 | +7.3% rng 13.1%
+     2026-03-27 eod_pos=             0 buy=        19.3 sell=        19.3 fills=   17 net=       -551 cum=        -695 | -3.3% rng 5.7%
+     2026-04-02 eod_pos=         -5.85 buy=        4.19 sell=        5.85 fills=    2 net=        -43 cum=        -742 | -3.9% rng 7.0%
+     2026-04-04 eod_pos=             0 buy=           0 sell=       4.784 fills=    1 net=        -51 cum=        -685 | +0.6% rng 2.0%
+     2026-04-12 eod_pos=             0 buy=       2.529 sell=       2.529 fills=    6 net=          4 cum=        -681 | -4.1% rng 5.2%
+     2026-04-13 eod_pos=             0 buy=       12.96 sell=       12.96 fills=   27 net=       -241 cum=        -921 | +8.1% rng 10.0%
+     2026-04-14 eod_pos=             0 buy=       4.182 sell=       4.182 fills=   10 net=         -4 cum=        -925 | -2.0% rng 4.9%
+     2026-04-20 eod_pos=             0 buy=        6.87 sell=       4.809 fills=   12 net=        -94 cum=      -1,009 | +2.2% rng 3.8%
+     2026-04-23 eod_pos=             0 buy=       1.506 sell=       1.506 fills=    2 net=        -21 cum=      -1,025 | -1.8% rng 4.2%
+     2026-04-28 eod_pos=             0 buy=       3.427 sell=       3.427 fills=   12 net=          3 cum=        -992 | -0.6% rng 2.4%
+     2026-04-30 eod_pos=        -1.246 buy=           0 sell=       1.246 fills=    2 net=         -1 cum=      -1,020 | +0.2% rng 2.1%
+     2026-05-04 eod_pos=            -2 buy=       3.203 sell=       5.203 fills=    4 net=         58 cum=      -1,035 | +1.0% rng 3.9%
+     2026-05-06 eod_pos=         2.327 buy=       4.082 sell=       1.755 fills=    4 net=        -94 cum=      -1,179 | -0.4% rng 3.7%
+     2026-05-07 eod_pos=            -1 buy=      0.4062 sell=       3.733 fills=   13 net=       -155 cum=      -1,334 | -2.5% rng 3.2%
+     2026-05-08 eod_pos=             0 buy=       4.666 sell=       3.666 fills=    6 net=         17 cum=      -1,317 | +0.7% rng 2.5%
+     2026-05-10 eod_pos=           2.3 buy=       8.935 sell=       9.135 fills=   16 net=        160 cum=      -1,181 | +1.9% rng 3.1%
+     2026-05-13 eod_pos=             2 buy=       10.72 sell=       8.719 fills=   14 net=        -26 cum=      -1,305 | -0.7% rng 4.0%
+     2026-05-16 eod_pos=             0 buy=       3.307 sell=       3.307 fills=    6 net=         10 cum=      -1,287 | -2.0% rng 3.2%
+     2026-05-20 eod_pos=             0 buy=       5.074 sell=       5.074 fills=    7 net=        -31 cum=      -1,282 | +0.9% rng 2.2%
+     2026-05-22 eod_pos=             0 buy=           2 sell=           0 fills=    7 net=        -44 cum=      -1,339 | -3.2% rng 4.1%
+     2026-05-29 eod_pos=             0 buy=       6.569 sell=       6.569 fills=    8 net=        -60 cum=      -1,429 | +0.2% rng 3.6%
+     2026-06-01 eod_pos=             0 buy=       12.16 sell=       12.16 fills=   16 net=         72 cum=      -1,345 | +0.0% rng 3.4%
+     2026-06-03 eod_pos=             0 buy=       12.67 sell=       12.67 fills=   36 net=         55 cum=      -1,240 | -2.5% rng 6.9%
+     2026-06-11 eod_pos=            -8 buy=          18 sell=          18 fills=   14 net=       -605 cum=      -1,704 | +3.2% rng 4.5%
+     2026-06-13 eod_pos=            -5 buy=           0 sell=           5 fills=    1 net=         -4 cum=      -1,709 | +0.9% rng 2.1%
+     2026-06-16 eod_pos=            -6 buy=          40 sell=          46 fills=   41 net=         67 cum=      -1,584 | -0.2% rng 4.6%
+     2026-06-23 eod_pos=             0 buy=       4.123 sell=       4.123 fills=    2 net=        -26 cum=      -1,623 | -3.6% rng 6.2%
+     2026-06-26 eod_pos=             0 buy=           1 sell=           1 fills=    7 net=         -3 cum=      -1,624 | +0.7% rng 5.4%
+     2026-06-29 eod_pos=             0 buy=           2 sell=           0 fills=    6 net=          1 cum=      -1,667 | +2.6% rng 5.6%
+     2026-07-06 eod_pos=             0 buy=       3.541 sell=       3.541 fills=    6 net=         -6 cum=      -1,695 | +0.8% rng 6.0%
+     2026-07-17 eod_pos=             0 buy=       1.938 sell=       1.938 fills=    5 net=         -7 cum=      -1,722 | -1.3% rng 3.8%
+     2026-07-23 eod_pos=             0 buy=       3.971 sell=       3.971 fills=    2 net=         21 cum=      -1,668 | -2.9% rng 3.9%
+     2026-08-01 eod_pos=           1.9 buy=         1.9 sell=           0 fills=    1 net=         -2 cum=      -1,661 | -1.0% rng 2.9%
+     2026-08-03 eod_pos=            -5 buy=           9 sell=          14 fills=   10 net=         70 cum=      -1,522 | -1.3% rng 3.2%
+     2026-08-05 eod_pos=             0 buy=       28.87 sell=       21.36 fills=   20 net=        -38 cum=      -1,636 | +2.1% rng 3.9%
+     2026-08-07 eod_pos=            -6 buy=         3.4 sell=           6 fills=    6 net=         12 cum=      -1,614 | +0.5% rng 2.4%
+     2026-08-10 eod_pos=            -3 buy=           2 sell=           0 fills=    2 net=         -1 cum=      -1,617 | -2.0% rng 3.4%
+     2026-08-12 eod_pos=             0 buy=        2.74 sell=           0 fills=    2 net=          5 cum=      -1,532 | -0.1% rng 2.8%
+     2026-08-14 eod_pos=             8 buy=          31 sell=          20 fills=    9 net=       -168 cum=      -1,726 | -0.2% rng 1.5%
+     2026-08-18 eod_pos=             0 buy=       9.611 sell=       9.611 fills=   11 net=        -29 cum=      -1,784 | +0.2% rng 2.0%
+     2026-09-14 eod_pos=            10 buy=          25 sell=          15 fills=   15 net=       -315 cum=      -2,126 | +1.6% rng 6.1%
+     2026-09-15 eod_pos=             0 buy=       17.29 sell=       27.29 fills=   29 net=       -249 cum=      -2,375 | -4.7% rng 6.9%
+     2026-09-18 eod_pos=            20 buy=          55 sell=          35 fills=   33 net=        230 cum=      -2,145 | +6.8% rng 8.7%
+     2026-09-21 eod_pos=            10 buy=           0 sell=          10 fills=    4 net=      2,628 cum=         483 | +5.0% rng 6.3%
+     2026-09-23 eod_pos=             0 buy=           0 sell=          10 fills=    5 net=      2,579 cum=       3,062 | -2.6% rng 5.8%
+   [HYPE] 138 active days, total net=-2,778
+     2026-01-19 eod_pos=             0 buy=         100 sell=         100 fills=   12 net=        -23 cum=         -23 | -3.0% rng 6.3%
+     2026-01-30 eod_pos=             0 buy=       55.88 sell=       155.9 fills=   10 net=       -367 cum=        -393 | -0.5% rng 16.9%
+     2026-01-31 eod_pos=           150 buy=         150 sell=           0 fills=    5 net=         -1 cum=        -394 | +1.3% rng 17.7%
+     2026-02-02 eod_pos=             0 buy=       840.1 sell=       890.1 fills=   42 net=        228 cum=         -45 | +9.0% rng 15.5%
+     2026-02-03 eod_pos=           200 buy=       759.6 sell=       559.6 fills=   44 net=        696 cum=         651 | -1.8% rng 19.2%
+     2026-02-05 eod_pos=           100 buy=       265.7 sell=       281.4 fills=    7 net=        309 cum=         979 | -6.7% rng 14.4%
+     2026-02-06 eod_pos=           140 buy=       547.3 sell=       507.4 fills=   29 net=        171 cum=       1,150 | -2.1% rng 17.7%
+     2026-02-09 eod_pos=         86.65 buy=       55.25 sell=        68.6 fills=    8 net=       -151 cum=         889 | -3.4% rng 8.4%
+     2026-02-10 eod_pos=           110 buy=       177.5 sell=       154.1 fills=   24 net=       -320 cum=         570 | -8.0% rng 9.7%
+     2026-02-13 eod_pos=           600 buy=         100 sell=           0 fills=    1 net=         -0 cum=         501 | +1.5% rng 7.8%
+     2026-02-15 eod_pos=             0 buy=         300 sell=        1000 fills=   24 net=        318 cum=         818 | -3.6% rng 5.8%
+     2026-02-16 eod_pos=           500 buy=       880.5 sell=       380.5 fills=   32 net=        156 cum=         975 | +1.7% rng 5.9%
+     2026-02-17 eod_pos=             0 buy=       510.6 sell=        1011 fills=   51 net=       -827 cum=         148 | -5.5% rng 8.2%
+     2026-02-22 eod_pos=         512.7 buy=       512.7 sell=           0 fills=    8 net=         -6 cum=         122 | -2.4% rng 4.3%
+     2026-02-23 eod_pos=             0 buy=        1648 sell=        2161 fills=   84 net=       -309 cum=        -187 | -9.1% rng 13.4%
+     2026-02-24 eod_pos=        -331.5 buy=        4131 sell=        4462 fills=  331 net=       -242 cum=        -429 | +2.7% rng 7.1%
+     2026-02-25 eod_pos=         168.6 buy=        1176 sell=       676.2 fills=   42 net=        -42 cum=        -471 | +2.9% rng 8.8%
+     2026-02-26 eod_pos=             0 buy=        2178 sell=        2347 fills=  174 net=       -247 cum=        -718 | +0.8% rng 5.9%
+     2026-02-27 eod_pos=             0 buy=        1559 sell=        1559 fills=  253 net=       -204 cum=        -922 | -2.9% rng 12.0%
+     2026-02-28 eod_pos=             0 buy=        7281 sell=        7281 fills=  436 net=       -865 cum=      -1,786 | +14.4% rng 20.6%
+     2026-03-01 eod_pos=             0 buy=        1444 sell=        1444 fills=   62 net=        154 cum=      -1,632 | +1.1% rng 6.8%
+     2026-03-04 eod_pos=           424 buy=         587 sell=         163 fills=   34 net=        185 cum=      -1,438 | +2.8% rng 8.0%
+     2026-03-05 eod_pos=             0 buy=        1276 sell=        1700 fills=  155 net=       -381 cum=      -1,819 | -5.1% rng 6.6%
+     2026-03-07 eod_pos=           400 buy=         100 sell=         200 fills=   18 net=          3 cum=      -1,796 | -2.3% rng 4.4%
+     2026-03-10 eod_pos=             0 buy=       472.6 sell=       472.6 fills=   30 net=          2 cum=      -1,952 | -1.4% rng 5.5%
+     2026-03-13 eod_pos=         241.4 buy=       241.4 sell=           0 fills=    5 net=         -4 cum=      -1,889 | -2.2% rng 7.1%
+     2026-03-16 eod_pos=             0 buy=        1183 sell=        1183 fills=   68 net=        -65 cum=      -1,975 | +9.6% rng 11.5%
+     2026-03-18 eod_pos=             0 buy=       261.9 sell=       20.69 fills=   11 net=        173 cum=      -1,820 | +2.2% rng 8.8%
+     2026-03-19 eod_pos=             0 buy=       300.4 sell=       300.4 fills=   15 net=         24 cum=      -1,796 | -6.6% rng 9.4%
+     2026-03-23 eod_pos=         250.5 buy=       910.6 sell=         660 fills=   40 net=       -211 cum=      -2,007 | -2.6% rng 7.5%
+     2026-03-25 eod_pos=             0 buy=       508.1 sell=        1086 fills=   56 net=        675 cum=      -1,428 | +0.0% rng 4.8%
+     2026-03-26 eod_pos=           500 buy=       727.8 sell=       227.8 fills=   19 net=        170 cum=      -1,258 | -2.9% rng 5.5%
+     2026-03-27 eod_pos=             0 buy=        2236 sell=        2736 fills=  137 net=       -163 cum=      -1,421 | -1.3% rng 4.0%
+     2026-03-29 eod_pos=           500 buy=       626.6 sell=       126.6 fills=   26 net=        -62 cum=      -1,483 | -4.2% rng 6.2%
+     2026-03-31 eod_pos=         184.7 buy=       219.7 sell=         485 fills=   24 net=     -1,554 cum=      -3,095 | -0.6% rng 5.5%
+     2026-04-01 eod_pos=             0 buy=        4186 sell=        4371 fills=  305 net=       -278 cum=      -3,372 | -1.6% rng 5.6%
+     2026-04-02 eod_pos=             0 buy=        2079 sell=        2079 fills=  116 net=       -152 cum=      -3,525 | -2.3% rng 5.4%
+     2026-04-04 eod_pos=             0 buy=       630.9 sell=       789.1 fills=   47 net=        -32 cum=      -3,577 | +2.1% rng 2.9%
+     2026-04-05 eod_pos=             0 buy=         300 sell=         300 fills=   14 net=       -222 cum=      -3,799 | +1.3% rng 5.4%
+     2026-04-11 eod_pos=             0 buy=       84.46 sell=       84.46 fills=    6 net=         -3 cum=      -3,849 | +1.6% rng 4.1%
+     2026-05-02 eod_pos=             0 buy=       15.89 sell=       15.89 fills=    2 net=          3 cum=      -3,868 | +0.3% rng 3.6%
+     2026-05-08 eod_pos=             0 buy=         123 sell=         123 fills=    9 net=          9 cum=      -3,787 | +1.7% rng 3.5%
+     2026-05-14 eod_pos=             0 buy=       128.3 sell=       128.3 fills=   10 net=         72 cum=      -3,702 | +13.7% rng 17.3%
+     2026-05-17 eod_pos=             0 buy=       25.97 sell=       25.97 fills=    3 net=          5 cum=      -3,742 | +9.2% rng 14.1%
+     2026-05-21 eod_pos=             0 buy=       141.5 sell=       141.5 fills=   16 net=        -43 cum=      -3,779 | +6.9% rng 14.4%
+     2026-05-29 eod_pos=             0 buy=       29.58 sell=       29.58 fills=    7 net=         -4 cum=      -3,792 | +4.7% rng 11.8%
+     2026-06-06 eod_pos=             0 buy=          30 sell=          30 fills=    3 net=          1 cum=      -3,805 | -5.5% rng 10.3%
+     2026-06-12 eod_pos=           150 buy=         400 sell=         250 fills=   20 net=        125 cum=      -3,742 | +0.6% rng 9.9%
+     2026-06-17 eod_pos=             0 buy=         650 sell=         650 fills=   42 net=     -1,045 cum=      -4,698 | -3.3% rng 9.8%
+     2026-06-18 eod_pos=             0 buy=       194.8 sell=       194.8 fills=   13 net=        239 cum=      -4,458 | -3.9% rng 10.8%
+     2026-06-19 eod_pos=             0 buy=       198.6 sell=       198.5 fills=   28 net=        260 cum=      -4,198 | +2.8% rng 8.8%
+     2026-06-24 eod_pos=             0 buy=       78.97 sell=       78.97 fills=    5 net=        -10 cum=      -4,208 | +2.8% rng 8.8%
+     2026-06-26 eod_pos=             0 buy=       334.5 sell=       438.8 fills=   48 net=        186 cum=      -4,024 | +0.4% rng 7.5%
+     2026-06-27 eod_pos=             0 buy=       79.13 sell=       79.13 fills=   28 net=        -61 cum=      -4,085 | -4.2% rng 5.3%
+     2026-07-03 eod_pos=            80 buy=       317.1 sell=       237.1 fills=   39 net=        122 cum=      -3,872 | +5.6% rng 8.2%
+     2026-07-07 eod_pos=         124.4 buy=       258.6 sell=       267.9 fills=   47 net=        -44 cum=      -3,826 | -2.0% rng 6.0%
+     2026-07-16 eod_pos=             0 buy=       111.8 sell=       111.8 fills=   14 net=       -136 cum=      -4,122 | -9.2% rng 11.1%
+     2026-07-20 eod_pos=             0 buy=       35.29 sell=       76.33 fills=   11 net=         17 cum=      -4,112 | +2.2% rng 5.2%
+     2026-07-26 eod_pos=             0 buy=       46.96 sell=       91.93 fills=    9 net=         29 cum=      -3,996 | +2.6% rng 3.1%
+     2026-07-31 eod_pos=           140 buy=       441.5 sell=       301.5 fills=   47 net=       -130 cum=      -4,126 | -5.9% rng 8.3%
+     2026-08-03 eod_pos=             0 buy=           0 sell=         170 fills=    1 net=       -113 cum=      -4,253 | +2.7% rng 5.6%
+     2026-08-10 eod_pos=             0 buy=          75 sell=          75 fills=    8 net=        -17 cum=      -4,312 | +2.3% rng 4.3%
+     2026-08-13 eod_pos=          -120 buy=           0 sell=         120 fills=    6 net=         -3 cum=      -4,284 | +2.6% rng 4.5%
+     2026-08-17 eod_pos=             0 buy=       97.38 sell=       172.4 fills=   21 net=        -17 cum=      -4,253 | +4.1% rng 5.0%
+     2026-08-27 eod_pos=             0 buy=           0 sell=          60 fills=    1 net=         -7 cum=      -4,288 | +2.8% rng 7.7%
+     2026-09-05 eod_pos=             0 buy=       159.4 sell=       159.4 fills=    7 net=        -53 cum=      -4,368 | +1.2% rng 3.0%
+     2026-09-09 eod_pos=             0 buy=       406.7 sell=       606.7 fills=   34 net=         40 cum=      -4,190 | -1.9% rng 5.7%
+     2026-09-17 eod_pos=         260.2 buy=        1272 sell=        1012 fills=   85 net=         40 cum=      -4,274 | +8.8% rng 9.2%
+     2026-09-18 eod_pos=             0 buy=       940.7 sell=        1201 fills=   78 net=      1,616 cum=      -2,658 | +8.8% rng 9.5%
+   [PONS] 10 active days, total net=2,631
+     2026-08-31 eod_pos=             0 buy=        5995 sell=        5995 fills=   14 net=         84 cum=          84 | +18.6% rng 50.8%
+     2026-09-02 eod_pos=          9000 buy=   2.038e+04 sell=   1.138e+04 fills=   45 net=         45 cum=         128 | +3.5% rng 45.5%
+     2026-09-03 eod_pos=     1.454e+04 buy=   4.178e+04 sell=   3.624e+04 fills=  129 net=        425 cum=         553 | +52.2% rng 61.7%
+     2026-09-04 eod_pos=       1.5e+04 buy=        3880 sell=        3422 fills=   32 net=        515 cum=       1,067 | +1.1% rng 27.5%
+     2026-09-07 eod_pos=     1.164e+04 buy=   1.744e+04 sell=    2.08e+04 fills=   40 net=      1,727 cum=       2,794 | -15.1% rng 26.6%
+     2026-09-08 eod_pos=             0 buy=        8678 sell=   2.031e+04 fills=   42 net=        117 cum=       2,912 | +9.2% rng 36.4%
+     2026-09-09 eod_pos=             0 buy=        2731 sell=        2731 fills=   11 net=         -0 cum=       2,912 | -13.4% rng 38.8%
+     2026-09-10 eod_pos=             0 buy=        2851 sell=        2851 fills=    6 net=         15 cum=       2,926 | -16.8% rng 29.1%
+     2026-09-17 eod_pos=             0 buy=     1.3e+04 sell=     1.3e+04 fills=   35 net=       -139 cum=       2,787 | +19.3% rng 21.2%
+     2026-09-22 eod_pos=             0 buy=        7000 sell=        7000 fills=    6 net=       -156 cum=       2,631 | +17.3% rng 26.3%
+
+[D] HOLD TIME ----------------------------------------------------------------
+   all episodes                          : n=1508 p10=   3.8m p25=  11.7m p50=  47.7m p75=   3.1h p90=  10.5h max=   6.1d | ntl-weighted p50=   1.1h
+                                           buckets={'<1m': 35, '<10m': 295, '<1h': 502, '<4h': 355, '<1d': 268, '<7d': 53}
+                                           win=43% avgWin=117 avgLoss=-88 hold(win) p50=   1.3h hold(loss) p50=  27.7m
+   long only                             : n= 936 p10=   4.0m p25=  13.2m p50=  51.1m p75=   3.4h p90=  11.9h max=   6.1d | ntl-weighted p50=   1.2h
+                                           buckets={'<1m': 25, '<10m': 160, '<1h': 315, '<4h': 226, '<1d': 164, '<7d': 46}
+                                           win=44% avgWin=153 avgLoss=-105 hold(win) p50=   1.3h hold(loss) p50=  29.3m
+   short only                            : n= 572 p10=   3.6m p25=   9.9m p50=  37.5m p75=   2.6h p90=   9.3h max=   3.6d | ntl-weighted p50=   1.0h
+                                           buckets={'<1m': 10, '<10m': 135, '<1h': 187, '<4h': 129, '<1d': 104, '<7d': 7}
+                                           win=42% avgWin=54 avgLoss=-60 hold(win) p50=   1.2h hold(loss) p50=  23.4m
+   winners                               : n= 654 p10=   7.8m p25=  21.7m p50=   1.3h p75=   5.4h p90=  13.6h max=   6.1d | ntl-weighted p50=   2.2h
+                                           buckets={'<1m': 7, '<10m': 80, '<1h': 197, '<4h': 182, '<1d': 155, '<7d': 33}
+                                           win=100% avgWin=117 avgLoss=0 hold(win) p50=   1.3h hold(loss) p50=      -
+   losers                                : n= 854 p10=   2.3m p25=   8.7m p50=  27.7m p75=   1.8h p90=   8.7h max=   5.3d | ntl-weighted p50=  47.5m
+                                           buckets={'<1m': 28, '<10m': 215, '<1h': 305, '<4h': 173, '<1d': 113, '<7d': 20}
+                                           win=0% avgWin=0 avgLoss=-88 hold(win) p50=      - hold(loss) p50=  27.7m
+   large (peak notional >= 100k)         : none
+   era 1: 2025-12-31..2026-03-07         : n= 274 p10=   3.8m p25=  12.8m p50=   1.0h p75=   4.5h p90=  13.5h max=   6.1d | ntl-weighted p50=   2.2h
+                                           buckets={'<1m': 9, '<10m': 50, '<1h': 78, '<4h': 65, '<1d': 56, '<7d': 16}
+                                           win=42% avgWin=164 avgLoss=-126 hold(win) p50=   2.2h hold(loss) p50=  29.1m
+   era 2: 2026-03-07..2026-05-13         : n= 338 p10=   3.0m p25=   9.9m p50=  44.4m p75=   3.9h p90=  12.0h max=   3.5d | ntl-weighted p50=   1.4h
+                                           buckets={'<1m': 9, '<10m': 77, '<1h': 101, '<4h': 67, '<1d': 72, '<7d': 12}
+                                           win=41% avgWin=53 avgLoss=-64 hold(win) p50=   1.5h hold(loss) p50=  31.7m
+   era 3: 2026-05-13..2026-07-18         : n= 400 p10=   5.1m p25=  11.8m p50=  48.6m p75=   3.1h p90=   9.3h max=   3.2d | ntl-weighted p50=   1.1h
+                                           buckets={'<1m': 11, '<10m': 75, '<1h': 131, '<4h': 102, '<1d': 69, '<7d': 12}
+                                           win=48% avgWin=66 avgLoss=-63 hold(win) p50=   1.2h hold(loss) p50=  25.2m
+   era 4: 2026-07-18..2026-09-23         : n= 496 p10=   3.7m p25=  12.6m p50=  41.7m p75=   2.1h p90=   9.2h max=   4.7d | ntl-weighted p50=  59.9m
+                                           buckets={'<1m': 6, '<10m': 93, '<1h': 192, '<4h': 121, '<1d': 71, '<7d': 13}
+                                           win=43% avgWin=178 avgLoss=-102 hold(win) p50=   1.1h hold(loss) p50=  24.2m
+
+   -- era summary (fills, taker, realized net, fee bps):
+     2025-12-31..2026-03-07: fills=  4231 days= 61 taker= 88% ntl=     3,896,876 net=      -1,172 fee_bps= 3.90
+     2026-03-07..2026-05-13: fills=  3495 days= 64 taker= 89% ntl=     4,316,016 net=      -6,144 fee_bps= 3.80
+     2026-05-13..2026-07-18: fills=  3092 days= 61 taker= 91% ntl=     3,978,691 net=        -483 fee_bps= 3.01
+     2026-07-18..2026-09-23: fills=  7723 days= 65 taker= 86% ntl=    10,478,766 net=       8,801 fee_bps= 3.63
+
+[E] DATA LIMITS --------------------------------------------------------------
+  fills returned=18542 (HL returns at most the 10000 most recent per page; pagination with tid dedup used)
+  first ledger row=2025-12-31 02:37:01 vs first fill=2025-12-31 02:39:42 -> fills appear to cover the account life
+  venue equity curve starts 2025-12-31; fills start 2025-12-31
+  funding rows=500 covering 2025-12-31.. (userFunding startTime=0 returns only the first 500 rows — totals below are a LOWER bound)
+  realized closedPnl=9,160 fees=8,162 funding=33
+  spot sells: closedPnl is accounting vs historical average cost (cost basis may predate the window) — not a same-day market PnL
+  daily PnL is realized only, cut on UTC; the venue portfolio curve includes unrealized
+
+  -- position reconstruction vs exchange (every coin must be OK):
+     -> 0 real DRIFT, 0 stale/settled.  OK: position reconstruction matches the exchange.
+
+  -- transfer counterparties (ledger 'send' rows; who funds this wallet / where money goes):
+     0x6b9e773128f453f5c2c60935ee2de2cbc5390a24  in  60 rows $      51,249 | out   0 rows $           0 | 2026-02-26..2026-09-23
+     0x2000000000000000000000000000000000000000  in   0 rows $           0 | out  46 rows $      33,522 | 2026-02-24..2026-09-20
+     0xfac758d2afc043019015006746a43aaa2073da58  in   0 rows $           0 | out  11 rows $       4,424 | 2026-06-16..2026-09-18
+     0x8ab83793cafe1f88d3c875187a70344c31652c22  in   0 rows $           0 | out   5 rows $       1,532 | 2026-01-22..2026-02-02
+     0x296a1b1aa0bb92fbfde98684a0b4ff0402267fb9  in   0 rows $           0 | out   2 rows $         175 | 2026-02-24..2026-02-24
+     0x632c46646591f0fef441935d49387f017ee781cf  in   0 rows $           0 | out   1 rows $         105 | 2026-09-01..2026-09-01
+     0x0afadeef64dfa3d6d35fa020b968a05395939b8d  in   0 rows $           0 | out   1 rows $          32 | 2026-02-24..2026-02-24
+     0x2222222222222222222222222222222222222222  in   0 rows $           0 | out   1 rows $          27 | 2026-02-24..2026-02-24
+
+[done]

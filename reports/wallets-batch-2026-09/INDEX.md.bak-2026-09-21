@@ -1,0 +1,47 @@
+---
+type: index
+title: "錢包分析 — 索引"
+tags: [wallet-forensics, hyperliquid, index]
+updated: 2026-09-21
+---
+
+# 錢包分析
+
+對 Hyperliquid 上的錢包（別人的觀察樣本、或我方引擎）做行為逆向的報告都放這裡。每份報告獨立可讀，固定章節：一句話 → 帳戶概況 → 交易機制 → 大波動日 → 持倉時間 → 可複製性 → 資料極限。
+
+## 命名規則
+
+`hl-<前 6 碼>...<末 4 碼>-<策略一句話>.md`，例如 `hl-0xe4c0...d02d-階梯掛單多頭波段.md`。辨識錢包靠末四碼，三個 ASCII 句點方便打字與 wikilink。
+我方引擎：`hl-<引擎名>-<前 6 碼>...<末 4 碼>-<策略一句話>.md`，例如 `hl-gridbot-0xfB9C...9760-多幣只做多永續網格.md`。「策略說明」這種空泛字眼不算策略一句話。
+**檔名不放日期**：日期在 frontmatter（`first_snapshot`／`updated`）與各更新節的標題。
+
+**同一錢包重新分析＝寫進同一份檔案**：最上面加一節「更新 YYYY-MM-DD（上次 → 這次）」，只寫該期間的增量（發生了什麼、新增的大波動日、對前版的修正）＋重算的累計表（帳戶概況、持倉時間）；舊內容原封不動留在下面，`updated:` 改成新日期。策略一句話已不適用時才改檔名，並同步修 INDEX 與所有 wikilink；**改檔名必須在檔案內留下可追溯的注記**：frontmatter 加 `former_names: [舊檔名…]`（附日期與改名原因），更新節裡寫一行「原策略一句話是 X，自 YYYY-MM-DD 起改為 Y，因為 …」。不能因為改了檔名就查不到它原本被歸類成什麼策略。
+
+## 報告
+
+| 檔案 | 對象 | 型態 | 結論 |
+|---|---|---|---|
+| [[wallets/hl-0x9264...f465-秒級掃盤跟隨\|0x9264…f465 秒級掃盤跟隨]] | `0x9264…f465` | HFT，中位持倉 1.9 秒，95% 吃單，197 幣 | 跟隨他人掃盤的秒級延遲策略；不建議複製，可借「爆量偵測」觸發器 |
+| [[wallets/hl-0x9046...9b43-主觀日內波段\|0x9046…9b43 主觀日內波段]] | `0x9046…9b43` | BTC/ETH 籃子，中位 1.3 小時，40x cross | 無可外化規則、靠單日大波動；不建議複製 |
+| [[wallets/hl-0xe4c0...d02d-階梯掛單多頭波段\|0xe4c0…d02d 階梯接刀＋多頭波段]] | `0xe4c0…d02d` | 只做多、84% maker 階梯接刀（15–20 檔跨 2%）、1–2 張止盈掛單出場，p50 6 小時、大部位 3–13 天，毛曝險 3.5 倍 | 4k → 147k；8/19 起 33 天 +123k，PUMP 一趟 36%；9/20 CASHCAT −12.6k 示範失敗形態；執行層可借、選幣與抱單是山寨 beta（初版 9/12、更新 9/21） |
+| [[wallets/hl-0x060d...81eb-IPO首日剝頭皮\|0x060d…81eb IPO 首日剝頭皮]] | `0x060d…81eb` | HIP-3 股票永續 IPO 日秒級逆勢剝頭皮 | 備用 alpha；事件可預測、訊號源未證實 |
+| [[wallets/hl-gridbot-0xfB9C...9760-多幣只做多永續網格\|hl-gridbot 策略說明＋實盤狀況]] | 我方引擎，錢包 `0xfB9C…9760` | 多幣只做多永續網格（HYPE/BTC/ETH，98% maker） | 程式碼盤點附 檔案:行號；實盤 73 天 +20.2%、MDD 4.3%；**⚠️ 六成持倉無止盈單覆蓋，待查** |
+| [[wallets/hl-0x4dec...27f6-pmalt金庫多HYPE空山寨\|0x4dec…27f6 pmalt 金庫：多 HYPE／空山寨]] | HL vault `pmalt`，`0x4dec…27f6` | 多 HYPE／空 ETH、BNB、山寨的多空書，中位持倉 3.1 小時、名目加權 6.6 天，69% 吃單，無停損攤平 | 勝率 92% 但均輸 19 倍於均贏；2026-05-21 HYPE 軋空單日 −482k、AV 1.39M → 0.46M；82/99 追隨者虧損；不建議複製或跟單 |
+| [[wallets/hl-0x1A1d...0111-五分K吃單多頭網格\|0x1A1d…0111 五分 K 吃單多頭網格]] | `0x1A1d…0111` | 程式跑 5 分 K、只做多、35 幣（25 個 HIP-3 股票永續）、81% 吃單、每趟 50–160 美元名目，勝率 70%、贏輸皆 ±1.7%；HIP-3 isolated 小保證金清算即停損、78 秒重進；9 幣 69 張 Alo 買單階梯（−3～−21%）接崩盤 | 1,000 → 1,304（+30%，97 天，MDD −3%）；HYPE 佔 52% 是上漲 beta；執行層（清算停損＋深階梯）可借，5 分 K 訊號不可見；信心有限 |
+| [[wallets/hl-0xf97a...ddd1-深度接刀階梯HYPE網格\|0xf97a…ddd1 深度接刀階梯＋HYPE 網格]] | `0xf97a…ddd1`（[[Gridbot]] 原型錢包，unifiedAccount） | 96% 現金＋70 張離價 3–23% 的深度買單（9 幣、名目 2.38M＝權益 3.1 倍）；HYPE close-heavy 網格；開倉 100% maker、出場 90% 吃單；持倉中位 6.1h（2026-07 起 14.8h）；無停損 | 12 個月實現 +676k（portfolio +961k）、勝率 85%；2025-10-10 崩盤日一天 +160k（24%）；9/22–26 抱 37k 顆 HYPE −175k 無保護；執行層可借，PnL 是崩盤事件＋HYPE beta（初版 2026-09-21） |
+
+0x9264、0x9046、0xe4c0 三個錢包由同一地址 `0x6b9e773128f453f5c2c60935ee2de2cbc5390a24` 注資，判定為同一操作者的三個策略帳戶。<!-- 2026-09-21 修正 -->**0xf97a 也由同一地址注資**（2026-03/06/08 共 1.06M USDC）；四個風格迥異的錢包共用來源，「同一操作者」降級為「同一資金來源（可能是交易所提領或中繼地址）」，待查該地址是否為 CEX 熱錢包。
+
+## 資料與腳本
+
+- 三錢包初版（2026-09-12）：vault repo `reports/wallet-trio-2026-09/`（`scripts/fetch_wallet.py` 抓、`overview.py`／`deep.py`／`events.py`／`ignite.py` 分析；`data/<addr>/` 為 API 快照）。
+- 0x060d：vault repo `reports/wallet-0x060d-ipo-scalper/`；原始摘錄在 [[raw/2026-09-06-wallet-0x060d-ipo-scalper]]。
+- 0x4dec（pmalt vault）：vault repo `reports/wallet-0x4dec-2026-09/`（`fetch_wallet.py` 已改重疊分頁＋tid 去重；`positions.py` 含翻倉切段與 HYPE 逐日軌跡、`exposure.py` 逐日美元曝險與重建核對）。
+- 0xe4c0 更新（2026-09-21）：vault repo `reports/wallet-0xe4c0-2026-09/`（上列全部＋`ladder.py`：掛單階梯結構、每回合建倉／出場的掛單數・跨度・maker 比例・深度、最差回合出場方式）。
+- 0x1A1d（2026-09-21）：vault repo `reports/wallet-0x1a1d-2026-09/`——**目前最完整的工具鏈**（0xe4c0 全部＋`exposure.py`／`positions.py` 改為合併全部 perp dex 讀部位（HIP-3 在 `xyz` dex，只讀 default 會誤報 DRIFT）＋`extra.py`：清算成交角色、自我清算解剖、bot 指紋、HIP-3 vs 加密拆分、掛單名目對權益）。下一個錢包從這裡複製。
+- 0xf97a（2026-09-21，與 0x1A1d 同日平行做）：vault repo `reports/wallet-0xf97a-2026-09/`。獨有的兩個修正，**複製 0x1A1d 工具鏈時要一併帶上**：`fetch_wallet.py` 存檔前把 feeToken 非 USDC 的手續費乘價換算成 USD（原值存 `feeRaw`）；`exposure.py` (a) 現貨部位對 `spotClearinghouseState` 餘額核對（送轉出標 `XFER?`、殘量標 `dust`）。
+- 共同極限：`userFillsByTime` 只回最近一段成交（高頻錢包只剩幾天）；1m K 線只留約 3.5 天；日 PnL 依 UTC 切；**現貨賣出的 closedPnl 是對歷史平均成本的會計數**（成本可能在窗口之前），不能當「當日市場損益」讀；**現貨買單手續費以基礎幣計價**，未換算會捏造大虧日（0xf97a：MAX 177,504 顆被當美元 → 假的 −172k）。
+
+## 相關
+
+[[Hyperliquid]] · [[Target Wallet (0xf97ad)]]（wiki 條目；完整報告見上表 0xf97a 列）· [[IPO Scalper Wallet (0x060d)]] · [[Gridbot]] · [[hl-copytrader]] · [[filet/INDEX|Filet 索引]]

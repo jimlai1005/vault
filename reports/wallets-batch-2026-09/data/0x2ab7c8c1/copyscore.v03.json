@@ -1,0 +1,254 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": -34212.20608161485,
+    "net_stress": {
+      "i": -34237.12549903817,
+      "ii": -34967.19611028378,
+      "iii": -34991.860832994746
+    },
+    "r_miss": {
+      "open": -0.05965688785585486,
+      "reduce": -0.0596526691438627,
+      "worst": -0.05965688785585486
+    },
+    "r_normal": -0.05965132636944516,
+    "r_stress": {
+      "i": -0.05969477508181725,
+      "ii": -0.06096770323501095,
+      "iii": -0.06101070786969407,
+      "worst": -0.06101070786969407
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 391,
+    "lev_peak": 8142943124.594706,
+    "mdd": 6356189.523904392,
+    "score": 0.0,
+    "sub_scores": {
+      "dd_days": 0.0,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -404977452.94086695,
+    "worst_week_frac": -1194541709.744735
+  },
+  "D3": {
+    "S_conc": 0.14876009966115408,
+    "S_mhit": 0.16666666666666663,
+    "S_rob": 0.0,
+    "conc": 0.8884299252541344,
+    "dominant_coin": "TAO",
+    "m_hit": 0.4666666666666667,
+    "n_open_w_episodes": 2,
+    "n_w_episodes": 39,
+    "regime_score": 0.0,
+    "rob": 0.0,
+    "score": 1.5771338316391037
+  },
+  "D4": {
+    "R_b": 7.442809891254751,
+    "R_b_star": 180675995.14408758,
+    "R_c": -15853663.61520614,
+    "excess": -196529658.75929374,
+    "score": 0.0,
+    "sigma_b": 1.938182494389024,
+    "sigma_c": 47049844.89205474
+  },
+  "D5": {
+    "S_cov": 0.2882323060493801,
+    "S_hist": 1.0,
+    "S_price": 1.0,
+    "coverage": 0.64411615302469,
+    "fwd_score": 1.0,
+    "hist_days": 415.5347916087963,
+    "price_level_frac": 0.9998285616320932,
+    "retain_back": -0.05479173612240994,
+    "retain_front": -0.6274064237676134,
+    "score": 4.110290382561725
+  },
+  "E0": 0.002158,
+  "addr": "0x2ab7c8c121bba1b6b744664237ae00ded55ec2f8",
+  "addr10": "0x2ab7c8c1",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 12/19 coins (top-12 rule was larger); remaining 7 coin(s) use T1 (if recent) or T3 only",
+    "xyz:SKHX: in T2 scope but no Binance USDT-perp symbol found; falls back to T1/T3",
+    "L_t (leader daily equity for proportional sizing) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary, minus cumulative net EXTERNAL ledger flow since W0 (deposit/withdraw, plus spotTransfer/send to a different address); 42 such events fell inside W. Falls back to the leader's own fills-based MTM curve on 0 day(s) outside accountValueHistory's covered range. Internal moves (accountClassTransfer, same-address dex sends, subAccountTransfer, internalTransfer) are not netted.",
+    "L_t (leader daily equity) was <=1% of E0 on 375/417 day(s) of the full-history window (min ratio observed for the proportional sizing multiplier reached 0.0x); this is a real characteristic of this wallet's capital history (large early swings/withdrawals relative to its tiny starting E0), not a computation bug \u2014 it drives outsized D2/gate leverage numbers when it occurs.",
+    "D1-c loss(e) = -qty*(p_recon - p_exec) - (catch-up slippage + catch-up fee), per plan \u00a73 D1-c; does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only subtracts the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.",
+    "D2/gate denominators (peak/day-equity C_t) floored at 1% of E0 on at least one day to avoid divide-by-zero"
+  ],
+  "coins": [
+    "AAVE",
+    "ARB",
+    "ENA",
+    "ETH",
+    "HYPE",
+    "LDO",
+    "LIT",
+    "ME",
+    "PENDLE",
+    "PUMP",
+    "RESOLV",
+    "TAO",
+    "UNI",
+    "VIRTUAL",
+    "VVV",
+    "ZEC",
+    "ZRO",
+    "xyz:SKHX",
+    "xyz:SMSN"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": -34991.860832994746,
+      "pass": false,
+      "worst_stress_scenario": "iii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 8142943124.594706,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -404977452.94086695
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -48887.71145125359,
+      "net_before": -34212.20608161485,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790121600000,
+  "leader": {
+    "net_total": 573536.3849200035
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 5832,
+      "T3": 1
+    },
+    "b_i": {
+      "T2": 5826,
+      "T3": 7
+    },
+    "b_ii": {
+      "T2": 5832,
+      "T3": 1
+    },
+    "b_iii": {
+      "T2": 5826,
+      "T3": 7
+    }
+  },
+  "monthly": {
+    "2025-07": {
+      "copier_net_normal": -748.9066843854648,
+      "leader_net": -12443.814532000106
+    },
+    "2025-08": {
+      "copier_net_normal": 66.03118487266951,
+      "leader_net": 31837.49076899993
+    },
+    "2025-09": {
+      "copier_net_normal": 41.681508587574854,
+      "leader_net": 0.0
+    },
+    "2025-10": {
+      "copier_net_normal": 208.5488938964421,
+      "leader_net": 0.0
+    },
+    "2025-11": {
+      "copier_net_normal": -401.32941828630067,
+      "leader_net": 0.0
+    },
+    "2025-12": {
+      "copier_net_normal": 91.93574643835399,
+      "leader_net": 0.0
+    },
+    "2026-01": {
+      "copier_net_normal": -167.1976729360129,
+      "leader_net": 0.0
+    },
+    "2026-02": {
+      "copier_net_normal": -904.0166901995722,
+      "leader_net": 4119.144961000029
+    },
+    "2026-03": {
+      "copier_net_normal": -1314.8867054753564,
+      "leader_net": -14588.473824999997
+    },
+    "2026-04": {
+      "copier_net_normal": 26.20797836189888,
+      "leader_net": 0.0
+    },
+    "2026-05": {
+      "copier_net_normal": 6.568318771920136,
+      "leader_net": -4056.9349880000273
+    },
+    "2026-06": {
+      "copier_net_normal": -3.571544063556189,
+      "leader_net": 0.0
+    },
+    "2026-07": {
+      "copier_net_normal": -9704.439326735155,
+      "leader_net": -13922.966483000177
+    },
+    "2026-08": {
+      "copier_net_normal": 8110.852952569725,
+      "leader_net": 53497.79884000213
+    },
+    "2026-09": {
+      "copier_net_normal": -29519.684623032015,
+      "leader_net": 529094.1401780018
+    }
+  },
+  "n_events_W": 9463,
+  "n_twap_merged": 0,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "seed": 20260924,
+  "spec_version": "v0.3",
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "ENA",
+    "ETH",
+    "HYPE",
+    "LIT",
+    "ME",
+    "PENDLE",
+    "PUMP",
+    "RESOLV",
+    "TAO",
+    "UNI",
+    "ZEC",
+    "xyz:SKHX"
+  ],
+  "total": 6,
+  "window": {
+    "days": 417,
+    "end": "2026-09-14",
+    "end_ms": 1789430400000,
+    "start": "2025-07-25",
+    "start_ms": 1753401600000
+  }
+}

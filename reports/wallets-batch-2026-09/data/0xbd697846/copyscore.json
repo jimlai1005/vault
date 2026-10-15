@@ -1,0 +1,285 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": -16966.926009594656,
+    "net_stress": {
+      "i": -16966.86631334313,
+      "ii": -18588.71280078953,
+      "iii": -18588.651358973362
+    },
+    "r_miss": {
+      "open": 0.0,
+      "reduce": 0.0,
+      "worst": 0.0
+    },
+    "r_normal": 0.0,
+    "r_stress": {
+      "i": 0.0,
+      "ii": 0.0,
+      "iii": 0.0,
+      "worst": 0.0
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 139,
+    "lev_peak": 122.26779287691303,
+    "mdd": 0.4016908697870321,
+    "score": 1.64,
+    "sub_scores": {
+      "dd_days": 0.2733333333333333,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -0.4016908697870321,
+    "worst_week_frac": -0.4016908697870321
+  },
+  "D3": {
+    "S_conc": 0.0,
+    "S_mhit": 0.0,
+    "S_rob": 0.0,
+    "conc": 1.0,
+    "dominant_coin": "BTC",
+    "m_hit": 0.0,
+    "n_open_w_episodes": 2,
+    "n_w_episodes": 319,
+    "regime_score": 0.0,
+    "rob": 0.0,
+    "score": 0.0
+  },
+  "D4": {
+    "R_b": -147.46571291547434,
+    "R_b_star": -0.37905917637988146,
+    "R_c": -0.38673049668590426,
+    "excess": -0.0076713203060228,
+    "score": 4.797622092168141,
+    "sigma_b": 13.238401761261336,
+    "sigma_c": 0.034029182574026776
+  },
+  "D5": {
+    "S_cov": 0.0,
+    "S_hist": 0.17946624545454545,
+    "S_price": 1.0,
+    "coverage": 0.2069873658046302,
+    "fwd_score": 0.0,
+    "hist_days": 139.3532175,
+    "price_level_frac": 1.0,
+    "retain_back": 0.0,
+    "retain_front": 0.0,
+    "score": 1.4743328068181818
+  },
+  "E0": 43872.738651316904,
+  "E_min": 1788.059194165032,
+  "L_peak": 178805.9194165032,
+  "addr": "0xbd697846b0911baeba002a56bdc16f1f332d45fb",
+  "addr10": "0xbd697846",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 26/59 coins (95% cum-notional rule was larger); remaining 33 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "48 coin(s) not in HL's current perp/spot universe (delisted/renamed identifier \u2014 candleSnapshot returns HTTP 500 for these, verified, not a transient issue): ['io:GPRO', 'io:SNDK', 'para:AAOI', 'para:AVGO', 'para:CIEN', 'para:COHR', 'para:STX', 'xyz:AAOI', 'xyz:AMD', 'xyz:ARM'].... Skipped entirely (T1/T2/HL-1h/HL-1d); no MTM price / always T3_missing for these coins.",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 0/141 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2026-05-04 (first fill) to 2026-05-04 (first day L_t >= E_min, $1,788.06); 0 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "STOP-OUT on 2026-05-06: C_t=26,905.81, leverage=122.27x (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $26,905.81, no further events followed (plan v0.5 \u00a71.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.",
+    "STOP-OUT on 2026-05-06: C_t=26,905.87, leverage=122.27x (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $26,905.87, no further events followed (plan v0.5 \u00a71.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.",
+    "STOP-OUT on 2026-05-06: C_t=25,284.03, leverage=129.92x (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $25,284.03, no further events followed (plan v0.5 \u00a71.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.",
+    "STOP-OUT on 2026-05-06: C_t=25,284.09, leverage=129.92x (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $25,284.09, no further events followed (plan v0.5 \u00a71.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.",
+    "xyz:DRAM: no W-end price for open episode unrealized valuation; unrealized treated as 0 for conc",
+    "xyz:SOXL: no W-end price for open episode unrealized valuation; unrealized treated as 0 for conc"
+  ],
+  "coins": [
+    "ARB",
+    "BTC",
+    "HYPE",
+    "LIT",
+    "PONS",
+    "TAO",
+    "TRUMP",
+    "VVV",
+    "WLD",
+    "XRP",
+    "ZEC",
+    "io:GPRO",
+    "io:SNDK",
+    "para:AAOI",
+    "para:AVGO",
+    "para:CIEN",
+    "para:COHR",
+    "para:STX",
+    "xyz:AAOI",
+    "xyz:AMD",
+    "xyz:ARM",
+    "xyz:ASML",
+    "xyz:BE",
+    "xyz:CBRS",
+    "xyz:CL",
+    "xyz:CRCL",
+    "xyz:CRWD",
+    "xyz:CRWV",
+    "xyz:CXMT",
+    "xyz:DRAM",
+    "xyz:EWT",
+    "xyz:EWY",
+    "xyz:GOLD",
+    "xyz:GOOGL",
+    "xyz:INTC",
+    "xyz:KIOXIA",
+    "xyz:KORU",
+    "xyz:LITE",
+    "xyz:META",
+    "xyz:MRNA",
+    "xyz:MRVL",
+    "xyz:MU",
+    "xyz:NBIS",
+    "xyz:NOK",
+    "xyz:NVDA",
+    "xyz:ORCL",
+    "xyz:PURRDAT",
+    "xyz:QCOM",
+    "xyz:SILVER",
+    "xyz:SKHX",
+    "xyz:SKHY",
+    "xyz:SMH",
+    "xyz:SMSN",
+    "xyz:SNDK",
+    "xyz:SOXL",
+    "xyz:SP500",
+    "xyz:SPCX",
+    "xyz:WDC",
+    "xyz:XYZ100"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": -18588.71280078953,
+      "pass": false,
+      "worst_stress_scenario": "ii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 122.26779287691303,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -0.4016908697870321
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -18743.133759594657,
+      "net_before": -16966.926009594656,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": -659782.9193629875
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 522
+    },
+    "b_i": {
+      "T2": 522
+    },
+    "b_ii": {
+      "T2": 522
+    },
+    "b_iii": {
+      "T2": 522
+    }
+  },
+  "monthly": {
+    "2026-05": {
+      "copier_net_normal": -16966.926009594656,
+      "leader_net": -285714.24380399886
+    },
+    "2026-06": {
+      "copier_net_normal": 0.0,
+      "leader_net": -975351.9736305304
+    },
+    "2026-07": {
+      "copier_net_normal": 0.0,
+      "leader_net": 518533.08805995213
+    },
+    "2026-08": {
+      "copier_net_normal": 0.0,
+      "leader_net": -100729.51201656429
+    },
+    "2026-09": {
+      "copier_net_normal": 0.0,
+      "leader_net": 183479.72202815377
+    }
+  },
+  "n_events_W": 58611,
+  "n_twap_merged": 10401,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": "2026-05-06",
+  "stopout_leverage": 122.26779287691303,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": "2026-05-06",
+    "ii": "2026-05-06",
+    "iii": "2026-05-06"
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "ARB",
+    "BTC",
+    "HYPE",
+    "TAO",
+    "TRUMP",
+    "WLD",
+    "xyz:BE",
+    "xyz:CL",
+    "xyz:CRCL",
+    "xyz:DRAM",
+    "xyz:EWY",
+    "xyz:GOLD",
+    "xyz:INTC",
+    "xyz:KIOXIA",
+    "xyz:KORU",
+    "xyz:LITE",
+    "xyz:MU",
+    "xyz:NVDA",
+    "xyz:PURRDAT",
+    "xyz:SKHX",
+    "xyz:SNDK",
+    "xyz:SOXL",
+    "xyz:SP500",
+    "xyz:SPCX",
+    "xyz:WDC",
+    "xyz:XYZ100"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 8,
+  "unscorable": false,
+  "window": {
+    "days": 141,
+    "end": "2026-09-21",
+    "end_ms": 1790035200000,
+    "start": "2026-05-04",
+    "start_ms": 1777852800000
+  },
+  "window_raw": {
+    "end": "2026-09-21",
+    "start": "2026-05-04"
+  }
+}

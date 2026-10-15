@@ -1,0 +1,276 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": -105739.25952312068,
+    "net_stress": {
+      "i": -105912.5315141891,
+      "ii": -100858.28945942826,
+      "iii": -100936.79377639914
+    },
+    "r_miss": {
+      "open": -0.157813406656274,
+      "reduce": -0.15781894009464903,
+      "worst": -0.15781894009464903
+    },
+    "r_normal": -0.15778515983312155,
+    "r_stress": {
+      "i": -0.15804371799712455,
+      "ii": -0.1505017284462014,
+      "iii": -0.15061887335771967,
+      "worst": -0.15804371799712455
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 94,
+    "lev_peak": 62.377953802999144,
+    "mdd": 0.6602967528583445,
+    "score": 3.44,
+    "sub_scores": {
+      "dd_days": 0.5733333333333334,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -0.49049737255315623,
+    "worst_week_frac": -0.6345525380805728
+  },
+  "D3": {
+    "S_conc": 0.20007368881414042,
+    "S_mhit": 0.0,
+    "S_rob": 0.0,
+    "conc": 0.8499447333893947,
+    "dominant_coin": "ENA",
+    "m_hit": 0.0,
+    "n_open_w_episodes": 13,
+    "n_w_episodes": 150,
+    "regime_score": 0.0,
+    "rob": 0.0,
+    "score": 1.0003684440707021
+  },
+  "D4": {
+    "R_b": 10.031491154913768,
+    "R_b_star": 0.7723919203788806,
+    "R_c": -0.6089707902072744,
+    "excess": -1.381362710586155,
+    "score": 0.0,
+    "sigma_b": 1.057149560701455,
+    "sigma_c": 0.08139704922312777
+  },
+  "D5": {
+    "S_cov": 0.0,
+    "S_hist": 0.016615981439393916,
+    "S_price": 1.0,
+    "coverage": 0.21501289330287407,
+    "fwd_score": 0.0,
+    "hist_days": 94.56939489583333,
+    "price_level_frac": 0.9124587668104542,
+    "retain_back": 0.0,
+    "retain_front": -0.45638589640760846,
+    "score": 1.2707699767992424
+  },
+  "E0": 173636.01214293117,
+  "E_min": 2966.026935328785,
+  "L_peak": 296602.6935328785,
+  "addr": "0xbba0681681815bd70f9075e0235e7997b7b519d9",
+  "addr10": "0xbba06816",
+  "assumptions": [
+    "T2 (Binance proxy) scope = 27/44 coins (95% cum-notional rule was larger); remaining 17 coin(s) use T1 (if recent) or T3 only. Computed from the wallet's full raw history (not the E_min-pushed scored window) since it feeds price prefetch.",
+    "1 coin(s) not in HL's current perp/spot universe (delisted/renamed identifier \u2014 candleSnapshot returns HTTP 500 for these, verified, not a transient issue): ['xyz:LYTE']. Skipped entirely (T1/T2/HL-1h/HL-1d); no MTM price / always T3_missing for these coins.",
+    "CASHCAT: in T2 scope but no Binance USDT-perp symbol found; falls back to T1/T3",
+    "L_t (leader daily equity for proportional sizing, v0.4 \u00a71.2) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary \u2014 the leader's REAL reported equity, NOT netted against deposits/withdrawals (v0.3's netting was reverted; the leader sizes positions against what they actually have). Falls back to the leader's own fills-based MTM curve on 0/95 day(s) of the full raw history outside accountValueHistory's covered range.",
+    "start day pushed from 2026-06-21 (first fill) to 2026-06-21 (first day L_t >= E_min, $2,966.03); 0 earlier event(s) ignored per plan v0.4 \u00a70.",
+    "STOP-OUT on 2026-07-03: C_t=67,896.75, leverage=62.38x (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $67,896.75, no further events followed (plan v0.5 \u00a71.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.",
+    "STOP-OUT on 2026-07-03: C_t=67,723.48, leverage=62.51x (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $67,723.48, no further events followed (plan v0.5 \u00a71.4b). Note: day-granularity MTM cannot see intraday spikes, only the end-of-day snapshot, so the observed value can exceed 50x by more than a small margin.",
+    "STOP-OUT on 2026-07-02: C_t=72,777.72, leverage=50.84x (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $72,777.72, no further events followed (plan v0.5 \u00a71.4b).",
+    "STOP-OUT on 2026-07-02: C_t=72,699.22, leverage=50.87x (> 50x or equity<=0) \u2014 closed all positions at close, equity floored at $72,699.22, no further events followed (plan v0.5 \u00a71.4b).",
+    "D1-c loss(e) = qty*(p_recon - p_exec) + (catch-up slippage + catch-up fee), qty signed (v0.4 sign fix vs v0.3, which had the first term negated). loss(e) can be negative (a missed trade followed by a favorable price move before catch-up is a net benefit). Does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only adds the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs."
+  ],
+  "coins": [
+    "AAVE",
+    "ARB",
+    "ASTER",
+    "AXS",
+    "BCH",
+    "BNB",
+    "CASHCAT",
+    "EIGEN",
+    "ENA",
+    "ENS",
+    "ETHFI",
+    "FARTCOIN",
+    "GALA",
+    "HBAR",
+    "HYPE",
+    "JTO",
+    "LDO",
+    "LINK",
+    "LIT",
+    "MORPHO",
+    "NEAR",
+    "ONDO",
+    "PENDLE",
+    "PENGU",
+    "POPCAT",
+    "PUMP",
+    "SAND",
+    "SKY",
+    "SOL",
+    "SPX",
+    "STRK",
+    "TAO",
+    "UNI",
+    "USELESS",
+    "VIRTUAL",
+    "VVV",
+    "WIF",
+    "WLD",
+    "XLM",
+    "ZEC",
+    "ZRO",
+    "kBONK",
+    "kPEPE",
+    "xyz:LYTE"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": -105912.5315141891,
+      "pass": false,
+      "worst_stress_scenario": "i"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 62.377953802999144,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -0.49049737255315623
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -199581.6172061602,
+      "net_before": -105739.25952312068,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790208000000,
+  "leader": {
+    "net_total": 670147.050806006
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 10788,
+      "T3": 1035
+    },
+    "b_i": {
+      "T2": 10788,
+      "T3": 1035
+    },
+    "b_ii": {
+      "T2": 9924,
+      "T3": 746
+    },
+    "b_iii": {
+      "T2": 9924,
+      "T3": 746
+    }
+  },
+  "monthly": {
+    "2026-06": {
+      "copier_net_normal": -72077.2791536867,
+      "leader_net": -62899.421385000176
+    },
+    "2026-07": {
+      "copier_net_normal": -33661.98036943398,
+      "leader_net": 80053.72478699767
+    },
+    "2026-08": {
+      "copier_net_normal": 0.0,
+      "leader_net": 214533.96820200176
+    },
+    "2026-09": {
+      "copier_net_normal": 0.0,
+      "leader_net": 438458.77920200664
+    }
+  },
+  "n_events_W": 60158,
+  "n_twap_merged": 19263,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "sample": {
+    "E0": 173636.01214293117,
+    "leader_net": 670147.050806006,
+    "perp_events": 60158,
+    "sufficient": true
+  },
+  "seed": 20260924,
+  "spec_version": "v0.5",
+  "stopout_date": "2026-07-03",
+  "stopout_leverage": 62.377953802999144,
+  "stopout_leverage_threshold": 50.0,
+  "stopout_stress": {
+    "i": "2026-07-03",
+    "ii": "2026-07-02",
+    "iii": "2026-07-02"
+  },
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "AAVE",
+    "ARB",
+    "BNB",
+    "CASHCAT",
+    "EIGEN",
+    "ENA",
+    "ETHFI",
+    "FARTCOIN",
+    "HYPE",
+    "LINK",
+    "LIT",
+    "NEAR",
+    "ONDO",
+    "PENDLE",
+    "PENGU",
+    "PUMP",
+    "SOL",
+    "TAO",
+    "UNI",
+    "USELESS",
+    "VVV",
+    "WIF",
+    "WLD",
+    "XLM",
+    "ZRO",
+    "kBONK",
+    "kPEPE"
+  ],
+  "taker_fee_bps": 4.5,
+  "total": 6,
+  "unscorable": false,
+  "window": {
+    "days": 95,
+    "end": "2026-09-23",
+    "end_ms": 1790208000000,
+    "start": "2026-06-21",
+    "start_ms": 1782000000000
+  },
+  "window_raw": {
+    "end": "2026-09-23",
+    "start": "2026-06-21"
+  }
+}

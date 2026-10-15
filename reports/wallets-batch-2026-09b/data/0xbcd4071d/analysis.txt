@@ -1,0 +1,109 @@
+====================================================================================================
+WALLET 0xbcd4071d023bf2aae484d724c130b5af6f0ca0d2  (0xbcd4071d)   analysis generated 2026-09-24 02:28 UTC
+====================================================================================================
+
+[A] ACCOUNT ------------------------------------------------------------------
+  userAbstraction=disabled
+  dex=km         accountValue=          0.00 totalNtlPos=          0.00 marginUsed=         0.00 withdrawable=        0.00
+  dex=mkts       accountValue=     12,072.09 totalNtlPos=          0.00 marginUsed=         0.00 withdrawable=   12,072.09
+  spot: USDC: total=20000 hold=0 free_usd=20,000 | USDH: total=0 hold=0 free_usd=0
+  staked HYPE=0 ($0)   vault equity=$0
+  EQUITY BASIS: spot_free 20,000 + perp_av 12,072 + staked 0 + vault 0 = 32,072   vs venue portfolio 32,072   drift -0 (-0.0%)
+  ledger rows: {'send': 61, 'spotTransfer': 4}
+  ledger $ by type: send=2,141,858, spotTransfer=147,420
+  net external flow = deposits 0 - withdrawals 0 = 0
+  venue equity curve: 2026-01-07 $0 -> 2026-09-23 $32,072 | allTime pnl=208,047 vlm=614,866
+  venue equity peak $91,552 on 2026-03-25; min after peak $3,830 (drawdown from peak -95.8%)
+
+  -- current positions (all dexes):
+
+  -- open orders: 0
+
+[B] MECHANISM ----------------------------------------------------------------
+  fills=13 (perp 0 / spot 13) 2026-03-03 12:19:34..2026-06-18 18:47:10
+  episodes: total=0 usable=0 (dropped data-gap starts 0) ends={} still-open=[]
+  coins traded=1
+  top coins by notional: @230(100%,net -167)
+  top coins by |net pnl|: @230(-167)
+  HIP-3 share of notional=0%  spot share=100%
+  spot pairs used: @230=USDH/USDC
+  entry fills: n=0 taker=0%   exit fills: n=0 taker=0%   (no closed perp episodes — spot-only or a single still-open position)
+  liquidation fills=0 in 0 episodes
+  TWAP slice fills=0 (0% of all fills; 0 merged from the TWAP endpoint, which userFillsByTime omits)  distinct oids=11  fills/oid=1.18
+
+  -- entry/exit shape (medians). 'depth' = how far the entry ladder walked against the first entry:
+   all episodes                      : none
+   episodes with >=5 entry fills     : none
+   winners                           : none
+   losers                            : none
+   large (peak notional >= 100k)     : none
+  current gross exposure=0 = 0.00x equity  (long 0 / short 0)
+  entries by UTC hour (n/net): 
+  entries by weekday: {}
+
+  -- monthly cadence (realized net of fees; taker share):
+     2026-03  fills=    11 taker=100% coins=  1 ntl=       606,019 net=        -166
+     2026-06  fills=     2 taker=100% coins=  1 ntl=         8,847 net=          -1
+
+[C] BIG DAYS -----------------------------------------------------------------
+  active days=4 span=2026-03-03..2026-06-18
+   |daily realized net| >= $5,000: 0 days
+   |daily realized net| >= $10,000: 0 days
+   |daily realized net| >= $20,000: 0 days
+   |daily realized net| >= $1,604 (=5% of equity): 0 days
+
+  -- top 0 days by |realized net| (threshold $641); market ctx = that day's 1d candle of the dominant coin:
+     date                net  fills  taker       notional  dominant coins (net)   | market: coin day% range%
+
+  -- what the account did on the 8 biggest days (episodes overlapping the day):
+
+  -- daily trajectory of the 4 coins that dominate PnL: ['@230']
+   [@230] 4 active days, total net=-167
+     2026-03-03 eod_pos=      0.001059 buy=   8.928e+04 sell=   8.927e+04 fills=    2 net=        -46 cum=         -46 | -
+     2026-03-04 eod_pos=      0.006163 buy=   2.137e+05 sell=   2.137e+05 fills=    9 net=       -120 cum=        -166 | -
+     2026-06-16 eod_pos=             0 buy=           0 sell=        8584 fills=    1 net=         -1 cum=        -167 | -
+     2026-06-18 eod_pos=             0 buy=           0 sell=       262.5 fills=    1 net=         -0 cum=        -167 | -
+
+[D] HOLD TIME ----------------------------------------------------------------
+   all episodes                          : none
+   long only                             : none
+   short only                            : none
+   winners                               : none
+   losers                                : none
+   large (peak notional >= 100k)         : none
+   era 1: 2026-03-03..2026-03-30         : none
+   era 2: 2026-03-30..2026-04-26         : none
+   era 3: 2026-04-26..2026-05-22         : none
+   era 4: 2026-05-22..2026-06-18         : none
+
+   -- era summary (fills, taker, realized net, fee bps):
+     2026-03-03..2026-03-30: fills=    11 days=  2 taker=100% ntl=       606,019 net=        -166 fee_bps= 1.40
+     2026-05-22..2026-06-18: fills=     1 days=  1 taker=100% ntl=         8,584 net=          -1 fee_bps= 1.34
+
+[E] DATA LIMITS --------------------------------------------------------------
+  fills returned=13 (HL returns at most the 10000 most recent per page; pagination with tid dedup used)
+  first ledger row=2026-01-07 12:46:13 vs first fill=2026-03-03 12:19:34 -> fills window likely TRUNCATED, earlier activity not visible
+  venue equity curve starts 2026-01-07; fills start 2026-03-03
+  funding rows=0 covering -.. (userFunding startTime=0 returns only the first 500 rows — totals below are a LOWER bound)
+  realized closedPnl=-81 fees=86 funding=0
+  spot sells: closedPnl is accounting vs historical average cost (cost basis may predate the window) — not a same-day market PnL
+  daily PnL is realized only, cut on UTC; the venue portfolio curve includes unrealized
+
+  -- position reconstruction vs exchange (every coin must be OK):
+     -> 0 real DRIFT, 0 stale/settled.  OK: position reconstruction matches the exchange.
+
+  -- transfer counterparties (ledger 'send' rows; who funds this wallet / where money goes):
+     0xaa3b7392052d62928cc87701e3ca6fb6630bb6e2  in   7 rows $     632,207 | out  10 rows $     100,959 | 2026-04-14..2026-09-15
+     0xfefefefefefefefefefefefefefefefefefefefe  in   0 rows $           0 | out   2 rows $     335,161 | 2026-09-15..2026-09-15
+     0x537e3d1740d92a57add46508fa1766dea913f160  in   1 rows $      89,366 | out   2 rows $     160,528 | 2026-03-03..2026-03-04
+     0xbcd4071d023bf2aae484d724c130b5af6f0ca0d2  in   0 rows $           0 | out  11 rows $     234,783 | 2026-03-04..2026-08-24
+     0x696238e0ca31c94e24ca4cbe7921754e172e4d0f  in   0 rows $           0 | out  10 rows $     184,682 | 2026-04-14..2026-06-17
+     0x2f5425ace1b34c319a4459e2a80b12118d797ed7  in   0 rows $           0 | out   1 rows $     123,628 | 2026-03-27..2026-03-27
+     0x6b9e773128f453f5c2c60935ee2de2cbc5390a24  in   1 rows $      71,284 | out   0 rows $           0 | 2026-03-04..2026-03-04
+     0x42f3226007290b02c5a0b15bccbb1ba6df04f992  in   2 rows $      46,974 | out   0 rows $           0 | 2026-03-27..2026-08-05
+     0x2000000000000000000000000000000000000168  in   0 rows $           0 | out   1 rows $      46,919 | 2026-06-01..2026-06-01
+     0x132213efec1f9b999c063ff5aeb5c623934e7b4b  in   2 rows $      46,913 | out   0 rows $           0 | 2026-06-01..2026-06-01
+     0x032e0834c48f354c47415e2fa77b868db7d27c38  in   1 rows $      19,357 | out   2 rows $      13,736 | 2026-03-27..2026-07-28
+     0x51172933b60847085e2a959e860e2ec9e240ac09  in   1 rows $      21,818 | out   0 rows $           0 | 2026-06-16..2026-06-16
+
+[done]

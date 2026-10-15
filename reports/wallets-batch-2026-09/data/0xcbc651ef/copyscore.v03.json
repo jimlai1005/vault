@@ -1,0 +1,182 @@
+{
+  "D1": {
+    "a": 0.0,
+    "b": 0.0,
+    "c": 0.0,
+    "net_normal": -103165.61676726442,
+    "net_stress": {
+      "i": -103274.08960316525,
+      "ii": -104603.86066698981,
+      "iii": -104711.60512997622
+    },
+    "r_miss": {
+      "open": -4.422456849570559,
+      "reduce": -4.422573027066751,
+      "worst": -4.422573027066751
+    },
+    "r_normal": -4.422457655124444,
+    "r_stress": {
+      "i": -4.427107620282747,
+      "ii": -4.484111653264402,
+      "iii": -4.488730394857412,
+      "worst": -4.488730394857412
+    },
+    "score": 0.0
+  },
+  "D2": {
+    "dd_days": 94,
+    "lev_peak": 419.82677909932573,
+    "mdd": 1.3023653928688554,
+    "score": 3.44,
+    "sub_scores": {
+      "dd_days": 0.5733333333333334,
+      "lev_peak": 0.0,
+      "mdd": 0.0,
+      "worst_day": 0.0,
+      "worst_week": 0.0
+    },
+    "worst_day_frac": -23.861822415646756,
+    "worst_week_frac": -31.79047886363376
+  },
+  "D3": {
+    "S_conc": 0.0,
+    "S_mhit": 0.0,
+    "S_rob": 0.0,
+    "conc": 5.516409994713232,
+    "dominant_coin": "ZEC",
+    "m_hit": 0.4,
+    "n_open_w_episodes": 1,
+    "n_w_episodes": 5,
+    "regime_score": 1.0,
+    "rob": 0.0,
+    "score": 5.0
+  },
+  "D4": {
+    "R_b": 0.6775598368623282,
+    "R_b_star": 13.748236614457012,
+    "R_c": -1.4185979778876332,
+    "excess": -15.166834592344646,
+    "score": 0.0,
+    "sigma_b": 0.15367711933177422,
+    "sigma_c": 3.1182329350945137
+  },
+  "D5": {
+    "S_cov": 0.7355168118963662,
+    "S_hist": 0.11982644785353536,
+    "S_price": 1.0,
+    "coverage": 0.8677584059481831,
+    "fwd_score": 1.0,
+    "hist_days": 122.95227315972222,
+    "price_level_frac": 1.0,
+    "retain_back": -2.866617588609127,
+    "retain_front": 0.0,
+    "score": 3.569179074687377
+  },
+  "E0": 72723.645723,
+  "addr": "0xcbc651efb13c10ba00e441f1120c96321e8a6d9a",
+  "addr10": "0xcbc651ef",
+  "assumptions": [
+    "E0 (accountValueHistory <= W0) was missing/<=0; pushed W0 forward to the first point with value>0 (E0=$72,723.65)",
+    "T2 (Binance proxy) scope = 2/2 coins (95% cum-notional rule was larger); remaining 0 coin(s) use T1 (if recent) or T3 only",
+    "L_t (leader daily equity for proportional sizing) = linear interpolation of portfolio.allTime.accountValueHistory to each day's 00:00 UTC boundary, minus cumulative net EXTERNAL ledger flow since W0 (deposit/withdraw, plus spotTransfer/send to a different address); 0 such events fell inside W. Falls back to the leader's own fills-based MTM curve on 1 day(s) outside accountValueHistory's covered range. Internal moves (accountClassTransfer, same-address dex sends, subAccountTransfer, internalTransfer) are not netted.",
+    "D1-c loss(e) = -qty*(p_recon - p_exec) - (catch-up slippage + catch-up fee), per plan \u00a73 D1-c; does not add back the fee/slippage the original (now-skipped) t+\u03b4 trade would have paid \u2014 the formula as given only subtracts the catch-up leg's own friction, so loss(e) is the INCREMENTAL cost of deferring this one trade, not a full swap-accounting of both legs.",
+    "D2/gate denominators (peak/day-equity C_t) floored at 1% of E0 on at least one day to avoid divide-by-zero"
+  ],
+  "coins": [
+    "XMR",
+    "ZEC"
+  ],
+  "data_limits": [
+    "\u5ef6\u9072\u6210\u672c\u7528 Binance 1m \u4ee3\u7406\uff0fHL 1m \u7684\u76f8\u5c0d\u8b8a\u52d5\u4f30\u7b97\uff08\u4fdd\u771f 0.7\u20130.9 \u2192 \u504f\u6a02\u89c0\uff09\uff1b\u03b4 \u5c0f\u65bc 1 \u5206\u9418\u6642\u5ef6\u9072\u6210\u672c\u5e7e\u4e4e\u53ea\u5269\u6ed1\u50f9\u3002",
+    "\u8ddf\u55ae\u8005\u8cc7\u91d1\u8cbb = \u9818\u55ae\u8005 funding \u5217\uff08\u53ea\u6709\u524d 500 \u7b46\uff09= \u4e0b\u754c\u3002",
+    "\u5ef6\u9072\u5206\u5e03\u662f\u5047\u8a2d\u503c\uff08\u672a\u6709\u5be6\u6e2c\uff09\uff1b\u6f0f\u55ae\u6062\u5fa9\u662f\u6a21\u578b\u5167\u7684\u9010\u4e8b\u4ef6\u7cbe\u7b97\uff0c\u4e0d\u662f\u5be6\u76e4\u8ddf\u55ae\u8a18\u9304\uff1b\u524d\u77bb\u5206\u9805\u662f\u540c\u7a97\u53e3\u5207\u5206\u3002"
+  ],
+  "delay_dist": {
+    "cap_s": 300.0,
+    "median_s": 3.0,
+    "mu": 1.0986122886681098,
+    "p95_s": 15.0,
+    "sigma": 0.9784687744021269
+  },
+  "gate": {
+    "G1": {
+      "net": -104711.60512997622,
+      "pass": false,
+      "worst_stress_scenario": "iii"
+    },
+    "G2": {
+      "max_leverage_anchor": 3.0,
+      "pass": false,
+      "peak_leverage": 419.82677909932573,
+      "worst_day_anchor": -0.15,
+      "worst_day_frac": -23.861822415646756
+    },
+    "G3": {
+      "n_removed_days": 3,
+      "net_after": -192615.0711323789,
+      "net_before": -103165.61676726442,
+      "pass": false
+    },
+    "overall": false
+  },
+  "generated_now_ms": 1790121600000,
+  "leader": {
+    "net_total": 23327.66638199986
+  },
+  "level_counts": {
+    "a_normal": {
+      "T2": 381
+    },
+    "b_i": {
+      "T2": 381
+    },
+    "b_ii": {
+      "T2": 381
+    },
+    "b_iii": {
+      "T2": 381
+    }
+  },
+  "monthly": {
+    "2026-05": {
+      "copier_net_normal": -5430.733582999999,
+      "leader_net": -5430.733582999999
+    },
+    "2026-06": {
+      "copier_net_normal": 8207.355370064588,
+      "leader_net": 13562.825457000026
+    },
+    "2026-07": {
+      "copier_net_normal": -28624.975158657504,
+      "leader_net": -17264.900583000013
+    },
+    "2026-08": {
+      "copier_net_normal": -79576.11078739607,
+      "leader_net": -9553.405362000076
+    },
+    "2026-09": {
+      "copier_net_normal": 2258.8473917245556,
+      "leader_net": 42013.88045299993
+    }
+  },
+  "n_events_W": 381,
+  "n_twap_merged": 0,
+  "recon_tick_ms": 60000,
+  "s_n_bps": 5.0,
+  "seed": 20260924,
+  "spec_version": "v0.3",
+  "stress_delay_s": 30.0,
+  "stress_slip_bps": 10.0,
+  "t2_scope": [
+    "XMR",
+    "ZEC"
+  ],
+  "total": 12,
+  "window": {
+    "days": 122,
+    "end": "2026-09-04",
+    "end_ms": 1788566400000,
+    "start": "2026-05-06",
+    "start_ms": 1778025600000
+  }
+}
