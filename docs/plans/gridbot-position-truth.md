@@ -210,3 +210,8 @@ def read_positions(info, address: str, coins: list[str]) -> dict[str, float]:
   結果：延遲情境下撤「超額＋1」張（實例 4 張，修前 6 張），保留的那一格下個 cycle 補掛。測試 `test_d2d_part_fill_hidden_behind_a_lagging_cancel_cannot_breach_the_cap`（即審查員的重現）；
   變異驗收：拿掉保留 → d2b、d2d 紅；還原成 `32c569d` → d2b 紅。gridbot 203 passed、整個 `tests/` 638 passed；`scratchpad/rev4/` 兩個重現測試皆通過。
   審查員的「觀察」未處理：dry-run 帶真 oid 時 log 失真；延遲超過一個 cycle 會退回多撤（偏保守）；測試 fake 對不在簿上的 oid 撤單也回 success、撤部分成交單時把剩餘量寫成原始量（與真實交易所不一致，既有問題）。
+- **2026-11-15 R-N 上線**：commit `004a537` → push `main` → 線上 `git pull --ff-only` → restart（00:36:26 UTC）。觀察 4 個 cycle（00:36–00:39）：服務 active、未 halted、無例外；
+  三個幣維持「gap → 不掛新買單」，沒有自動賣出。`--status`（00:40 UTC）：equity $780.01、peak $839.87（回撤 7.1%）；HYPE gap +0.48、BTC +0.00081、ETH +0.0535，三幣 armed 皆 0。
+  三幣 `gap_alerted` 皆為 True（告警函式已呼叫；Telegram 實際送達與否從主機端無法驗證）。
+- **收尾狀態**：T1–T7 與 R-A～R-N 全部完成並上線。未結事項：(1) 舊版留下的約 $180 未追蹤部位待 owner 處理（處理前三個幣不掛新買單；BTC／ETH 即使 gap 歸零，曝險仍高於上限，要等止盈把部位降到上限以下才會再掛買單）；
+  (2) D4 未實作；(3) 上面各輪「已知未處理／觀察」項目。
