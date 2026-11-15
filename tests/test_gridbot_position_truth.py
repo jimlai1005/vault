@@ -298,6 +298,86 @@ def test_d2_three_lots_keep_only_the_three_nearest_buys(env):
     assert v.buys() == []
 
 
+class LaggyVenue(Venue):
+    """orderStatus keeps answering "open" for an order whose cancel was just accepted (seen live
+    2026-11-15: 5 of 6 cancels in one cycle). The lag clears when the test empties `lagging`."""
+
+    def __init__(self, szi=0.0):
+        super().__init__(szi)
+        self.lagging: set = set()
+        self.lag = True
+
+    def cancel(self, coin, oid):
+        o = next((dict(o) for o in self.orders if o["oid"] == oid), None)
+        r = super().cancel(coin, oid)
+        if self.lag and o is not None:
+            self.lagging.add(oid)
+            self._stale = getattr(self, "_stale", {})
+            self._stale[oid] = o
+        return r
+
+    def query_order_by_oid(self, address, oid):
+        if oid in self.lagging:
+            return {"status": "order", "order": {"order": dict(self._stale[oid]), "status": "open"}}
+        return super().query_order_by_oid(address, oid)
+
+
+def test_d2b_status_lag_after_cancel_does_not_shed_more_than_the_excess(env):
+    v = LaggyVenue(szi=1.5)                                  # exposure 150 -> room for 3 buys of 50
+    e = env(v, lots={-9: 0.5, -8: 0.5, -7: 0.5}, armed=[-6, -5, -4, -3, -2, -1], cap=300.0)
+    e.sync_coin(COIN)
+    # the excess (3) plus ONE held back for a possible unseen part-fill on a shed buy — not all six
+    assert v.cancels == [_armed_oid(l) for l in (-6, -5, -4, -3)]
+    assert {o["oid"] for o in v.orders if o["side"] == "B"} == {_armed_oid(l) for l in (-2, -1)}
+    assert len(e.c["armed"]) == 6                             # the four lagging records wait to be settled
+
+    v.lagging.clear()                                        # status catches up: nothing had filled
+    e.sync_coin(COIN)
+    assert sorted(e.c["armed"], key=int) == ["-3", "-2", "-1"]   # the held-back level is re-placed
+    assert len(v.cancels) == 4 and len(v.buys()) == 1
+
+
+def test_d2d_part_fill_hidden_behind_a_lagging_cancel_cannot_breach_the_cap(env):
+    """0.4 of the deepest buy fills after the szi read and just before its cancel; the cancel is
+    confirmed but the status lags, so that fill is invisible this cycle. Position plus everything
+    still resting must stay within the cap anyway (reviewer repro, 2026-11-15)."""
+    v = LaggyVenue(szi=1.5)
+    e = env(v, lots={-9: 0.5, -8: 0.5, -7: 0.5}, armed=[-6, -5, -4, -3, -2, -1], cap=300.0)
+    lagged_cancel = v.cancel
+
+    def cancel(coin, oid):
+        if oid == _armed_oid(-6):
+            o = next(o for o in v.orders if o["oid"] == oid)
+            o["sz"] = "0.1"
+            v.szi += 0.4
+        return lagged_cancel(coin, oid)
+
+    v.cancel = cancel
+    e.sync_coin(COIN)
+    resting_buys = sum(float(o["sz"]) for o in v.orders if o["side"] == "B")
+    assert (v.szi + resting_buys) * v.mid <= 300.0 + 1e-6
+    assert v.buys() == []
+
+
+def test_d2c_unconfirmed_cancel_still_counts_as_resting(env):
+    """Only a cancel the exchange confirmed may stop counting: a failed one is still on the book."""
+    v = Venue(szi=1.5)
+    e = env(v, lots={-9: 0.5, -8: 0.5, -7: 0.5}, armed=[-6, -5, -4, -3, -2, -1], cap=300.0)
+    real_cancel = v.cancel
+
+    def flaky(coin, oid):
+        if oid == _armed_oid(-6):                             # this one is rejected and stays resting
+            v.cancels.append(oid)
+            return {"status": "ok", "response": {"type": "cancel", "data": {"statuses": [{"error": "nope"}]}}}
+        return real_cancel(coin, oid)
+
+    v.cancel = flaky
+    e.sync_coin(COIN)
+    # -6 could not be cancelled, so it still counts: -5, -4, -3 go instead and exactly 3 buys rest
+    assert v.cancels == [_armed_oid(l) for l in (-6, -5, -4, -3)]
+    assert {o["oid"] for o in v.orders if o["side"] == "B"} == {_armed_oid(l) for l in (-6, -2, -1)}
+
+
 def test_d3_empty_book_places_all_six_nearest_first(env):
     v = Venue(szi=0.0)
     e = env(v, cap=300.0)

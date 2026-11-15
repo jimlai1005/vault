@@ -190,3 +190,23 @@ def read_positions(info, address: str, coins: list[str]) -> dict[str, float]:
 - 已知未處理（複審「觀察」，另開題）：冷卻 24h 期間該幣不做對帳；`save_state` 持續失敗（磁碟滿）會擋住告警與熔斷出清；卡住的 `stop_pending` 在非 halted 狀態只告警一次；D4 待 owner 裁決。
 - **T6 上線前置事實**：線上 `0d1547c` 是 `origin/main` 的祖先，`origin/main` 領先 24 個 commit，但 `src/hlvault`、`deploy`、`pyproject.toml` 零差異 → 線上 `git pull` 只會帶進本次 gridbot 改動。
   舊 state 檔相容（新鍵皆 `.get` 預設）。上線步驟：commit → push → 併入 main → 線上 `git pull` → `sudo systemctl restart hl-gridbot` → 觀察 3 個 cycle、`--status` 三個幣 gap 為 0。**restart 前必須 owner 同意。**
+- **2026-11-15 T6 上線（owner：「上線吧」）**：本地分支 fast-forward 到 `origin/main` 後重跑（gridbot 200 passed、整個 `tests/` 635 passed）→ commit `32c569d` → push `main`。
+  線上 00:25 UTC 備份 state（`gridbot_state.json.bak-20261115-002507`）→ `git pull --ff-only`（`0d1547c` → `32c569d`）→ `sudo systemctl restart hl-gridbot`（00:25:52 UTC）。服務 active、無例外、未 halted。
+  owner 未另外表態的兩項依現況上線：**R-F 保留**（上限計入掛著的買單）；**D4 未實作**（維持 D3：halted 且 `flatten_pending` False 時不跑未完成的停損出清，只在提醒中列出該幣）。
+- **上線當下的線上事實（新版 `--status`，restart 前唯讀執行）**：舊版在 11/14 03:55 重啟後的 20.5 小時內又漏記了部位——
+  HYPE szi 1.42／帳上 0.94／gap **+0.48**；BTC 0.00726／0.00645／gap **+0.00081**；ETH 0.2383／0.1848／gap **+0.0535**（合計名目約 $180，都沒有止盈單）。
+  journal 佐證（舊版日誌 `order gone but no matching fill found — treating as cancelled`）：ETH level -4（14:03）、ETH level -11（20:55）、BTC level -8（15:39），筆數與 ETH 兩格、BTC 一格的 gap 吻合；
+  HYPE 那一格沒有對應日誌，推定走的是 R2（重新置中撤單撞成交，舊版不留紀錄）——此為推定，未逐筆對成交。
+  另外舊版上限不計掛單（R-F 所修）的後果已實際發生：BTC 曝險約 $470（上限 $320）、ETH 約 $430（上限 $294），三幣合計約 $990，高於 `ALLOCATED_CAPITAL=800`。
+- **新版上線後的行為（00:25–00:29 UTC，4 個 cycle，journal 親讀）**：三個幣第 1 cycle 記 gap、第 2 cycle 起「position gap persists — not placing new buys」，沒有任何自動賣出（符合 D2）；
+  既有止盈單不受影響。**驗收條件「三個幣 gap 為 0」未達成**——gap 是舊版留下的，新版依 D2 不自動處理，需 owner 決定那約 $180 未追蹤部位要平掉、自己掛止盈、或留著（留著期間三個幣都不會掛新買單）。
+- **上線觀察抓到的缺陷 R-N（已修，見下一筆 commit）**：R-F 撤單迴圈用 `len(c["armed"])` 當「還掛著的買單數」。交易所確認撤單後，`orderStatus` 會短暫仍回 `open`，
+  `_resolve_buy` 因此保留 armed 紀錄到下個 cycle 才結算，計數不降 → HYPE 只需撤 3 張卻把 6 張全撤（00:25:54–58 的日誌一路印 `5 resting buys`）。方向偏保守（少掛買單、下個 cycle 會補回），不造成超限。
+  修法：迴圈內加 `shed` 計數，撤單結果為 `"cancelled"` 且紀錄仍在時不再算作掛著；`"unconfirmed"`／`"failed"` 仍算掛著。下方掛新買單的迴圈刻意不改（待結算紀錄仍算掛著，偏保守）。
+  測試：`test_d2b_status_lag_after_cancel_does_not_shed_more_than_the_excess`（還原修法後會紅，主線程親跑確認）、`test_d2c_unconfirmed_cancel_still_counts_as_resting`。gridbot 202 passed、整個 `tests/` 637 passed。
+  先前「已實測 payload」的極限在此應驗：cancel 之後 `orderStatus` 的時序從未實測，測試用的 fake 一律立即回 `canceled`，所以三輪審查與變異驗收都看不到（工程原則 #6：離線測試證明邏輯，不證明時序）。
+- 2026-11-15 R-N 複審（opus，fresh，只看這個修正）：結論可上線，1 Warning——被 `shed` 扣掉的買單若在讀 szi 之後、撤單之前部分成交，那段成交既不在 `exposure` 也不在掛單數裡（危險方向，但 < 一格、只是潛在部位、下個 cycle 自行修正）。
+  主線程採納並補上：只要有未結算的 shed 紀錄就保留一格名目（至多一張 shed 買單可能處於此狀態——能碰到它的賣壓會把較淺的買單全數吃完，而全數成交的單撤單不會被確認、不計入 shed）。
+  結果：延遲情境下撤「超額＋1」張（實例 4 張，修前 6 張），保留的那一格下個 cycle 補掛。測試 `test_d2d_part_fill_hidden_behind_a_lagging_cancel_cannot_breach_the_cap`（即審查員的重現）；
+  變異驗收：拿掉保留 → d2b、d2d 紅；還原成 `32c569d` → d2b 紅。gridbot 203 passed、整個 `tests/` 638 passed；`scratchpad/rev4/` 兩個重現測試皆通過。
+  審查員的「觀察」未處理：dry-run 帶真 oid 時 log 失真；延遲超過一個 cycle 會退回多撤（偏保守）；測試 fake 對不在簿上的 oid 撤單也回 success、撤部分成交單時把剩餘量寫成原始量（與真實交易所不一致，既有問題）。

@@ -548,16 +548,30 @@ class GridBotEngine:
 
             # R-F cap: exposure + every resting buy must fit under the cap, so that even if all
             # armed buys fill the coin stays <= max_position_notional. Shed the deepest first.
+            # A buy whose cancel the exchange just confirmed no longer rests, even while its order
+            # status still reads "open" for a moment (the armed record is then kept for the next
+            # cycle to settle). Counting it as resting made this loop shed EVERY buy instead of just
+            # the excess (2026-11-15 live: 6 cancelled where 3 were enough).
+            #
+            # But such a buy may have part-filled between the szi read and the cancel, and that
+            # fill is in neither `exposure` nor a lot yet. At most ONE shed buy can be in that
+            # state (a sell deep enough to touch it fills every shallower buy completely, and a
+            # fully filled buy's cancel is not confirmed, so it is never shed), so one level of
+            # notional is held back while any shed record is unsettled.
+            shed = 0
             for lvl in sorted(c["armed"], key=int):
-                if exposure + len(c["armed"]) * npl <= cap_limit:
+                n_buys = len(c["armed"]) - shed + (1 if shed else 0)
+                if exposure + n_buys * npl <= cap_limit:
                     break
                 oid = c["armed"][lvl]
-                logger.warning(f"{coin}: exposure ${exposure:,.2f} + {len(c['armed'])} resting buys x ${npl:,.2f} "
+                logger.warning(f"{coin}: exposure ${exposure:,.2f} + {n_buys} resting buys x ${npl:,.2f} "
                                f"> cap ${c['max_position_notional']:,.2f} — cancelling deepest buy level {lvl}")
-                self._cancel(coin, oid)
+                outcome = self._cancel(coin, oid)
                 self._resolve_buy(coin, int(lvl), oid)
                 if lvl in c["open_lots"] and lvl not in lot_keys_at_read:
                     exposure += c["open_lots"][lvl]["size"] * mid   # it filled while we were cancelling
+                if lvl in c["armed"] and outcome == "cancelled":
+                    shed += 1                                       # gone from the book, record pending
 
             if buys_blocked:
                 logger.warning(f"{coin}: position gap persists — not placing new buys this cycle")
