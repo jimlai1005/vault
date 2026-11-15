@@ -9,6 +9,12 @@ from hlvault.gridbot import live as live_mod
 from hlvault.gridbot.live import GridBotEngine
 
 
+@pytest.fixture(autouse=True)
+def _no_flatten_settle_sleep(monkeypatch):
+    """R-D (T4): live flatten pauses between its sends and the read-back; never really sleep in tests."""
+    monkeypatch.setattr(live_mod, "FLATTEN_SETTLE_SECONDS", 0)
+
+
 @pytest.fixture
 def engine(monkeypatch, tmp_path):
     monkeypatch.setattr(cfg, "STATE_FILE", tmp_path / "state.json")
@@ -166,16 +172,42 @@ def test_market_flatten_dry_run_returns_true_without_calling_exchange(engine):
     assert engine.exchange.calls == []
 
 
-def test_flatten_everything_drops_lot_only_when_both_cancel_and_flatten_confirmed(engine, monkeypatch):
-    engine.state["coins"] = {"ETH": {"armed": {}, "open_lots": {
-        "122": {"entry_price": 2749.6, "size": 0.0238, "tp_price": 2761.7, "tp_oid": 1}},
-        "stopped_until_ms": None}}
-    monkeypatch.setattr(engine, "_cancel", lambda coin, oid: True)
-    monkeypatch.setattr(engine, "_market_flatten", lambda coin, size: True)
+class _PositionVenue:
+    """Minimal exchange holding one ETH position; `closes` says whether market_close really reduces it."""
+
+    def __init__(self, szi, closes):
+        self.szi = szi
+        self.closes = closes
+
+    def open_orders(self, address):
+        return []
+
+    def user_state(self, address):
+        return {"assetPositions": [{"position": {"coin": "ETH", "szi": repr(self.szi)}}]}
+
+    def cancel(self, coin, oid):
+        return {"status": "ok", "response": {"type": "cancel", "data": {"statuses": ["success"]}}}
+
+    def market_close(self, coin, sz):
+        if self.closes:
+            self.szi = 0.0
+        return {"status": "ok", "response": {"type": "order", "data": {
+            "statuses": [{"filled": {"totalSz": repr(sz), "avgPx": "1", "oid": 1}}]}}}
+
+
+def test_flatten_everything_drops_lot_only_when_exchange_readback_is_flat(engine, monkeypatch):
+    # contract changed 2026-11-14: success = exchange szi reads back 0, not "cancel/flatten calls said ok"
+    monkeypatch.setattr(cfg, "COIN_UNIVERSE", ["ETH"])
+    engine.live_trading = True
+    lot = {"entry_price": 2749.6, "size": 0.0238, "tp_price": 2761.7, "tp_oid": 1}
+    engine.state["coins"] = {"ETH": {"armed": {}, "open_lots": {"122": dict(lot)}, "stopped_until_ms": None}}
+    engine.info = _PositionVenue(0.0238, closes=True)
+    engine.exchange = engine.info
     assert engine._flatten_everything() is True
     assert engine.state["coins"]["ETH"]["open_lots"] == {}
-    engine.state["coins"]["ETH"]["open_lots"]["122"] = {"entry_price": 2749.6, "size": 0.0238, "tp_price": 2761.7, "tp_oid": 1}
-    monkeypatch.setattr(engine, "_market_flatten", lambda coin, size: False)
+    engine.state["coins"]["ETH"]["open_lots"]["122"] = dict(lot)
+    engine.info = _PositionVenue(0.0238, closes=False)     # close reports ok but the position stays
+    engine.exchange = engine.info
     assert engine._flatten_everything() is False
     assert "122" in engine.state["coins"]["ETH"]["open_lots"]
 

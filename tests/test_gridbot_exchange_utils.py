@@ -188,3 +188,111 @@ def test_breakdown_is_informational_and_never_raises_on_unpriced_coin():
     assert bd["portfolio_value"] == 1393.66
     assert bd["unpriced_coins"] == ["XYZ"]
     assert bd["abstraction"] == "unifiedAccount"
+
+
+# ---- read_positions: the position-truth gate (docs/plans/gridbot-position-truth.md T1) ----
+
+import pytest
+
+from hlvault.gridbot.exchange_utils import read_positions
+
+
+class _FakePerpInfo:
+    """Fake Info whose user_state returns a canned clearinghouseState (no network)."""
+
+    def __init__(self, response=None, exc=None):
+        self._response = response
+        self._exc = exc
+        self.calls = []
+
+    def user_state(self, address):
+        self.calls.append(address)
+        if self._exc is not None:
+            raise self._exc
+        return self._response
+
+
+def _state(*pairs):
+    return {"assetPositions": [{"type": "oneWay", "position": {"coin": c, "szi": s}} for c, s in pairs]}
+
+
+def test_read_positions_returns_long_and_short_szi():
+    info = _FakePerpInfo(_state(("BTC", "0.00962"), ("ETH", "-0.0972")))
+    out = read_positions(info, "0xabc", ["BTC", "ETH"])
+    assert out == {"BTC": 0.00962, "ETH": -0.0972}
+    assert info.calls == ["0xabc"]
+
+
+def test_read_positions_missing_coin_is_zero():
+    info = _FakePerpInfo(_state(("BTC", "0.5")))
+    out = read_positions(info, "0xabc", ["BTC", "ETH", "HYPE"])
+    assert out == {"BTC": 0.5, "ETH": 0.0, "HYPE": 0.0}
+    assert all(isinstance(v, float) for v in out.values())
+
+
+def test_read_positions_empty_asset_positions_gives_all_zero():
+    # a genuinely flat account is a valid read: {"assetPositions": []}
+    out = read_positions(_FakePerpInfo({"assetPositions": []}), "0xabc", ["BTC", "ETH"])
+    assert out == {"BTC": 0.0, "ETH": 0.0}
+
+
+def test_read_positions_ignores_coins_not_requested():
+    info = _FakePerpInfo(_state(("BTC", "0.5"), ("DOGE", "1000")))
+    out = read_positions(info, "0xabc", ["BTC", "ETH"])
+    assert out == {"BTC": 0.5, "ETH": 0.0}
+    assert "DOGE" not in out
+
+
+def test_read_positions_malformed_entry_raises_even_for_unrequested_coin():
+    # a payload we cannot parse is untrustworthy as a whole -> raise, never partial answer
+    info = _FakePerpInfo(_state(("DOGE", "garbage"), ("BTC", "1")))
+    with pytest.raises(ValueError, match="szi"):
+        read_positions(info, "0xabc", ["BTC"])
+
+
+def test_read_positions_duplicate_requested_coin_raises_value_error():
+    info = _FakePerpInfo(_state(("BTC", "1"), ("BTC", "2")))
+    with pytest.raises(ValueError, match="duplicate"):
+        read_positions(info, "0xabc", ["BTC"])
+
+
+def test_read_positions_propagates_user_state_exception():
+    info = _FakePerpInfo(exc=ConnectionError("reset"))
+    with pytest.raises(ConnectionError, match="reset"):
+        read_positions(info, "0xabc", ["BTC"])
+
+
+def test_read_positions_missing_asset_positions_raises_value_error():
+    with pytest.raises(ValueError, match="assetPositions"):
+        read_positions(_FakePerpInfo({"marginSummary": {}}), "0xabc", ["BTC"])
+
+
+@pytest.mark.parametrize("bad", [None, [], "oops", 0])
+def test_read_positions_non_dict_response_raises_value_error(bad):
+    with pytest.raises(ValueError):
+        read_positions(_FakePerpInfo(bad), "0xabc", ["BTC"])
+
+
+def test_read_positions_assetpositions_not_a_list_raises_value_error():
+    with pytest.raises(ValueError, match="assetPositions"):
+        read_positions(_FakePerpInfo({"assetPositions": None}), "0xabc", ["BTC"])
+
+
+@pytest.mark.parametrize("bad_szi", ["not-a-number", "", None, "nan", "inf"])
+def test_read_positions_bad_szi_raises_value_error(bad_szi):
+    # must never degrade to 0.0 ("no position") when the exchange payload is unreadable
+    info = _FakePerpInfo(_state(("BTC", bad_szi)))
+    with pytest.raises(ValueError, match="szi"):
+        read_positions(info, "0xabc", ["BTC"])
+
+
+def test_read_positions_missing_coin_or_szi_key_raises_value_error():
+    no_coin = {"assetPositions": [{"position": {"szi": "1"}}]}
+    with pytest.raises(ValueError, match="coin"):
+        read_positions(_FakePerpInfo(no_coin), "0xabc", ["BTC"])
+    no_szi = {"assetPositions": [{"position": {"coin": "BTC"}}]}
+    with pytest.raises(ValueError, match="szi"):
+        read_positions(_FakePerpInfo(no_szi), "0xabc", ["BTC"])
+    no_position = {"assetPositions": [{"type": "oneWay"}]}
+    with pytest.raises(ValueError, match="position"):
+        read_positions(_FakePerpInfo(no_position), "0xabc", ["BTC"])

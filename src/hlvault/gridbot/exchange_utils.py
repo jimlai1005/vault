@@ -178,3 +178,43 @@ def get_full_account_equity(info, address: str, spot_basis: str | None = None) -
     if age_s > cfg.PORTFOLIO_MAX_AGE_SECONDS:
         raise ValueError(f"portfolio account value is stale ({age_s:.0f}s old > {cfg.PORTFOLIO_MAX_AGE_SECONDS:.0f}s)")
     return value
+
+
+def read_positions(info, address: str, coins: list[str]) -> dict[str, float]:
+    """The position-truth gate: {coin: szi} from the exchange's default-dex
+    clearinghouseState, for exactly the coins asked for (0.0 = exchange reports
+    no position; coins not in `coins` are ignored). Positive = long, negative = short.
+
+    "Could not read" is NOT "no position": a failing `info.user_state` call
+    propagates unchanged, and any payload we cannot fully parse (non-dict
+    response, no `assetPositions` list, an entry missing `position`/`coin`/`szi`,
+    a non-numeric or non-finite `szi`, a duplicated coin) raises ValueError.
+    This function never returns an empty dict or a 0.0 as a stand-in for an
+    unreadable answer. Pure read, no side effects."""
+    resp = info.user_state(address)
+    if not isinstance(resp, dict):
+        raise ValueError(f"user_state returned {type(resp).__name__}, expected dict")
+    entries = resp.get("assetPositions")
+    if not isinstance(entries, list):
+        raise ValueError("user_state response has no assetPositions list")
+    wanted = set(coins)
+    found: dict[str, float] = {}
+    for i, entry in enumerate(entries):
+        pos = entry.get("position") if isinstance(entry, dict) else None
+        if not isinstance(pos, dict):
+            raise ValueError(f"assetPositions[{i}] has no position dict")
+        if "coin" not in pos:
+            raise ValueError(f"assetPositions[{i}].position has no coin")
+        if "szi" not in pos:
+            raise ValueError(f"assetPositions[{i}].position ({pos['coin']!r}) has no szi")
+        try:
+            szi = float(pos["szi"])
+        except (TypeError, ValueError):
+            raise ValueError(f"assetPositions[{i}] ({pos['coin']!r}): unparseable szi {pos['szi']!r}") from None
+        if szi != szi or szi in (float("inf"), float("-inf")):
+            raise ValueError(f"assetPositions[{i}] ({pos['coin']!r}): non-finite szi {pos['szi']!r}")
+        if pos["coin"] in wanted:
+            if pos["coin"] in found:
+                raise ValueError(f"duplicate position entry for {pos['coin']!r}")
+            found[pos["coin"]] = szi
+    return {c: found.get(c, 0.0) for c in coins}
