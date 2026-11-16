@@ -41,6 +41,8 @@ Hyperliquid 量化交易 monorepo。**這個 repo 管理實盤資金**——先�
 - equity basis 依錢包形態各異（三次事故教訓，見全域工程原則第 1 條）：重用任何 basis 前，先盤點該錢包價值躺在哪幾個桶（spot 現金/spot 幣/perp 部位/perp 自由保證金/掛單保證金），每桶恰好算一次，並與網站顯示總值對帳。
 - `portfolio` 端點（`{"type":"portfolio","user":addr}`）的 `day.accountValueHistory` 最後一點是**查詢當下即時算的**（實測 2026-10-05 age 0.2s），等於網頁顯示的帳戶總值，含現貨幣、unified hold、staking、vault。gridbot 熔斷器自 2026-10-05 起以它為 basis（`EQUITY_SPOT_BASIS=all`；見 `docs/plans/gridbot-equity-spot-basis.md`）；owner 在 gridbot 錢包會手動買現貨幣與開倉，任何只算 USDC 的 basis 都會幻影熔斷（2026-09-22 事故）。
 - 現貨價格規則 ≤5 有效位且 ≤(8−szDecimals) 小數；永續是 (6−szDecimals)。HYPE/USDC spot pair = `"@107"`。
+- 撤單被確認（cancel 回 `statuses:["success"]`）之後，`orderStatus`（SDK `info.query_order_by_oid`）會**短暫仍回 `open`**（實測 2026-11-15 線上：同一 cycle 6 張撤單有 5 張如此，下個 cycle 才變 `canceled`）。任何「撤完立刻查狀態」的邏輯都要把「已確認撤單但狀態未更新」當成一個獨立狀態處理；離線 fake 若一律立即回 `canceled` 就測不到。
+- gridbot 的 `ALLOCATED_CAPITAL` **只在第一次 bootstrap 用到**，之後每個幣的預算（`notional_per_level`／`max_position_notional`）存在 `data/cache/gridbot_state.json`。改金額要同時改 `.env.gridbot` 與 state 裡的預算（等比例縮放，或清 state 重新 bootstrap），只改 env 不會生效。讀部位一律經 `gridbot/exchange_utils.read_positions`；`hl-gridbot --status` 每幣印 `szi／tracked／gap`（見 `docs/plans/gridbot-position-truth.md`）。
 - candleSnapshot 單次上限 ~5000 根，且**每個 interval 只保留最近 ~5000 根**（1m ≈ 3.5 天、1h ≈ 208 天；實測 2026-07-11，超出範圍回空 list）——分鐘級長歷史回測改用 Binance FAPI 1m proxy（`scripts/scalp_lib.py` 有分頁層；HL/Binance 1m 波幅保真比 0.7-0.9、小幣更低，proxy 對訊號幅度是樂觀偏差）；Binance OI/多空比免費層僅 ~30 天；Coinalyze free（key 在 `.env.research`，header `api_key`，時間戳為**秒**）歷史約 335 天、40 req/min。
 
 ## 慣例

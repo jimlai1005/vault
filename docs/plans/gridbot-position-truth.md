@@ -215,3 +215,13 @@ def read_positions(info, address: str, coins: list[str]) -> dict[str, float]:
   三幣 `gap_alerted` 皆為 True（告警函式已呼叫；Telegram 實際送達與否從主機端無法驗證）。
 - **收尾狀態**：T1–T7 與 R-A～R-N 全部完成並上線。未結事項：(1) 舊版留下的約 $180 未追蹤部位待 owner 處理（處理前三個幣不掛新買單；BTC／ETH 即使 gap 歸零，曝險仍高於上限，要等止盈把部位降到上限以下才會再掛買單）；
   (2) D4 未實作；(3) 上面各輪「已知未處理／觀察」項目。
+- **2026-11-15 01:17 UTC owner 指示全數平倉＋暫停**（owner 判斷還會下跌，暫不開任何 gridbot 買單）：`systemctl stop hl-gridbot` → 備份 state（`gridbot_state.json.bak-20261115-011720`）→
+  在主機上以新版 `_flatten_everything()` 出清：第 1 輪即讀回驗證通過（三幣 szi 全 0、掛單 0）。成交：BTC 0.00726 @62,795、ETH 0.2383 @1,729.4、HYPE 1.42 @63.572，已實現損益合計 −$37.71、手續費 $0.41。
+  平倉後總值 $760.55（USDC $245.40＋現貨幣 $515.23，永續 $0）；現貨 UBTC 未動（D1）。上面「約 $180 未追蹤部位待處理」隨之結案。
+  服務已 `systemctl disable`（主機重開機不會自動啟動）。state 保留各幣 anchor／budget、books 已清空、`halted=False`、peak 仍為 $839.87。
+  **恢復前要 owner 明確同意**：`sudo systemctl enable --now hl-gridbot`；恢復時會沿用舊 anchor 與舊 peak（是否重設由 owner 決定）。
+- **2026-11-16 02:59 UTC owner 指示恢復，名目 800→600**：`.env.gridbot` `ALLOCATED_CAPITAL=600`；state 備份 `gridbot_state.json.bak-20261116-025910` 後把各幣 `notional_per_level`／`max_position_notional` 乘 0.75
+  （`ALLOCATED_CAPITAL` 只在 bootstrap 用到，預算存在 state；結果 HYPE 139.47／BTC 240.00／ETH 220.53，合計 600，等同 11/14 那次 bootstrap 若用 600 的配置）。
+  owner 要求恢復方式比照熔斷／停損後引擎自己恢復的樣子：**沿用原 anchor、step 與 peak（839.87），不重新 bootstrap**，距 11/15 01:17 出清 25.7 小時（超過 `COOLDOWN_HOURS=24`）。
+  `systemctl enable --now hl-gridbot`（02:59:11）。3 個 cycle：三幣各掛 6 張買單、gap 0、無例外；equity $779.67（對 peak 回撤 7.2%，離 20% 熔斷約 $108）。
+  未動 journal 與任何時間戳：主機日誌如實留有 11/15 手動 stop 與 11/16 手動 start，state 從未記過 halted。
